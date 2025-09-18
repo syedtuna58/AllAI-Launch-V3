@@ -787,6 +787,295 @@ export default function Maintenance() {
     }).filter(Boolean);
   }, [groupByProperty, filteredCases, properties]);
 
+  // Helper to render cases content
+  const renderCasesContent = () => {
+    if (filteredCases.length === 0) {
+      return (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2" data-testid="text-no-cases">No Maintenance Cases</h3>
+            <p className="text-muted-foreground mb-4">Create your first maintenance case to start tracking issues and repairs.</p>
+            <Button onClick={() => setShowCaseForm(true)} data-testid="button-create-first-case">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Case
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    if (groupByProperty) {
+      // Group by Property View
+      return (
+        <div className="space-y-8">
+          {groupedSections.map((section: any) => (
+            <div key={section.propertyId} className="space-y-4" data-testid={`property-group-${section.propertyId}`}>
+              <div className="flex items-center justify-between border-b border-muted pb-3">
+                <div className="flex items-center space-x-3">
+                  <Building2 className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <h3 className="font-semibold text-lg" data-testid={`text-property-group-name-${section.propertyId}`}>
+                      {section.property.name || (section.propertyId === 'no-property' ? 'Unassigned Cases' : `${section.property.street}, ${section.property.city}`)}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {section.propertyCases.length} case{section.propertyCases.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {['Urgent', 'High', 'Medium', 'Low'].map(priority => {
+                    const count = section.propertyCases.filter((c: any) => c.priority === priority).length;
+                    if (count === 0) return null;
+                    return (
+                      <Badge
+                        key={priority}
+                        variant="secondary"
+                        className={`${
+                          priority === 'Urgent' ? 'bg-red-100 text-red-800' :
+                          priority === 'High' ? 'bg-orange-100 text-orange-800' :
+                          priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}
+                        data-testid={`badge-property-priority-${priority.toLowerCase()}-${section.propertyId}`}
+                      >
+                        {count} {priority}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 ml-6">
+                {section.propertyCases.map((smartCase: any, index: number) => (
+                  <Card key={smartCase.id} className={`hover:shadow-md transition-shadow ${selectedCases.includes(smartCase.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-grouped-case-${index}`}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <button
+                            onClick={() => handleSelectCase(smartCase.id)}
+                            className="flex-shrink-0 hover:bg-gray-100 p-1 rounded"
+                            data-testid={`checkbox-grouped-case-${index}`}
+                          >
+                            {selectedCases.includes(smartCase.id) ? (
+                              <CheckSquare className="h-5 w-5 text-blue-600" />
+                            ) : (
+                              <Square className="h-5 w-5 text-gray-400" />
+                            )}
+                          </button>
+                          <div className={`w-12 h-12 ${getPriorityCircleColor(smartCase.priority)} rounded-lg flex items-center justify-center`}>
+                            {getStatusIcon(smartCase.status)}
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg" data-testid={`text-grouped-case-title-${index}`}>{smartCase.title}</CardTitle>
+                            {smartCase.category && (
+                              <p className="text-sm text-muted-foreground" data-testid={`text-grouped-case-category-${index}`}>
+                                {smartCase.category}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {getPriorityBadge(smartCase.priority)}
+                          {getStatusBadge(smartCase.status)}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent>
+                      {smartCase.description && (
+                        <p className="text-sm text-muted-foreground mb-4" data-testid={`text-grouped-case-description-${index}`}>
+                          {smartCase.description}
+                        </p>
+                      )}
+                      
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                        <div>
+                          <span data-testid={`text-grouped-case-created-${index}`}>
+                            Created {smartCase.createdAt ? new Date(smartCase.createdAt).toLocaleDateString() : 'Unknown'}
+                          </span>
+                          {smartCase.unitId && (
+                            <div className="mt-1">
+                              <span className="text-green-600 font-medium">Unit:</span>
+                              <span className="ml-1" data-testid={`text-grouped-case-unit-${index}`}>
+                                {units.find(u => u.id === smartCase.unitId)?.label || 'Unit'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {(smartCase.estimatedCost || smartCase.actualCost) && (
+                          <div className="text-right">
+                            {smartCase.actualCost && (
+                              <div className="text-red-600 font-semibold" data-testid={`text-grouped-case-actual-cost-${index}`}>
+                                Actual: ${Number(smartCase.actualCost).toLocaleString()}
+                              </div>
+                            )}
+                            {smartCase.estimatedCost && (
+                              <div className="text-muted-foreground" data-testid={`text-grouped-case-estimated-cost-${index}`}>
+                                Est: ${Number(smartCase.estimatedCost).toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            onClick={() => handleEditCase(smartCase)}
+                            variant="outline"
+                            size="sm"
+                            data-testid={`button-grouped-edit-case-${index}`}
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          
+                          <Button
+                            onClick={() => {
+                              setReminderCaseContext({
+                                caseId: smartCase.id,
+                                caseTitle: smartCase.title
+                              });
+                              setShowReminderForm(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            data-testid={`button-grouped-create-reminder-${index}`}
+                          >
+                            <Bell className="h-4 w-4 mr-2" />
+                            Reminder
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Regular List View
+    return (
+      <div className="grid grid-cols-1 gap-6">
+        {filteredCases.map((smartCase, index) => (
+          <Card key={smartCase.id} className={`hover:shadow-md transition-shadow ${selectedCases.includes(smartCase.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-case-${index}`}>
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => handleSelectCase(smartCase.id)}
+                    className="flex-shrink-0 hover:bg-gray-100 p-1 rounded"
+                    data-testid={`checkbox-case-${index}`}
+                  >
+                    {selectedCases.includes(smartCase.id) ? (
+                      <CheckSquare className="h-5 w-5 text-blue-600" />
+                    ) : (
+                      <Square className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                  <div className={`w-12 h-12 ${getPriorityCircleColor(smartCase.priority)} rounded-lg flex items-center justify-center`}>
+                    {getStatusIcon(smartCase.status)}
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg" data-testid={`text-case-title-${index}`}>{smartCase.title}</CardTitle>
+                    {smartCase.category && (
+                      <p className="text-sm text-muted-foreground" data-testid={`text-case-category-${index}`}>
+                        {smartCase.category}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {getPriorityBadge(smartCase.priority)}
+                  {getStatusBadge(smartCase.status)}
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              {smartCase.description && (
+                <p className="text-sm text-muted-foreground mb-4" data-testid={`text-case-description-${index}`}>
+                  {smartCase.description}
+                </p>
+              )}
+              
+              <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                <div>
+                  <span data-testid={`text-case-created-${index}`}>
+                    Created {smartCase.createdAt ? new Date(smartCase.createdAt).toLocaleDateString() : 'Unknown'}
+                  </span>
+                  {smartCase.propertyId && (
+                    <div className="mt-1">
+                      <span className="text-blue-600 font-medium">Property:</span>
+                      <span className="ml-1" data-testid={`text-case-property-${index}`}>
+                        {properties?.find(p => p.id === smartCase.propertyId)?.name || 'Unknown Property'}
+                      </span>
+                    </div>
+                  )}
+                  {smartCase.unitId && (
+                    <div className="mt-1">
+                      <span className="text-green-600 font-medium">Unit:</span>
+                      <span className="ml-1" data-testid={`text-case-unit-${index}`}>
+                        {units.find(u => u.id === smartCase.unitId)?.label || 'Unit'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {(smartCase.estimatedCost || smartCase.actualCost) && (
+                  <div className="text-right">
+                    {smartCase.actualCost && (
+                      <div className="text-red-600 font-semibold" data-testid={`text-case-actual-cost-${index}`}>
+                        Actual: ${Number(smartCase.actualCost).toLocaleString()}
+                      </div>
+                    )}
+                    {smartCase.estimatedCost && (
+                      <div className="text-muted-foreground" data-testid={`text-case-estimated-cost-${index}`}>
+                        Est: ${Number(smartCase.estimatedCost).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    onClick={() => handleEditCase(smartCase)}
+                    variant="outline"
+                    size="sm"
+                    data-testid={`button-edit-case-${index}`}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      setReminderCaseContext({
+                        caseId: smartCase.id,
+                        caseTitle: smartCase.title
+                      });
+                      setShowReminderForm(true);
+                    }}
+                    variant="outline"
+                    size="sm"
+                    data-testid={`button-create-reminder-${index}`}
+                  >
+                    <Bell className="h-4 w-4 mr-2" />
+                    Reminder
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-background" data-testid="page-maintenance">
       <Sidebar />
@@ -1536,15 +1825,13 @@ export default function Maintenance() {
                   </Card>
                 ))}
               </div>
-            ) : filteredCases.length > 0 ? (
-            groupByProperty ? (
-              // Group by Property View
-              <div className="space-y-8">
-                {groupedSections.map((section: any) => (
-                  <div key={section.propertyId} className="space-y-4" data-testid={`property-group-${section.propertyId}`}>
-                    <div className="flex items-center justify-between border-b border-muted pb-3">
-                      <div className="flex items-center space-x-3">
-                        <Building2 className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              {renderCasesContent()}
+            )
+          ) : currentView === 'grid' ? (
+            <div className="space-y-8">
+              {/* Grid Legend */}
+              <Card>
                         <div>
                           <h3 className="font-semibold text-lg" data-testid={`text-property-group-name-${section.propertyId}`}>
                             {section.property.name || (section.propertyId === 'no-property' ? 'Unassigned Cases' : `${section.property.street}, ${section.property.city}`)}
