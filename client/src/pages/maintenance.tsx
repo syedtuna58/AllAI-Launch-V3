@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, Archive, ArchiveRestore, CheckSquare, Square } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, Archive, ArchiveRestore, CheckSquare, Square, Search, Grid, List, LayoutGrid, Map } from "lucide-react";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import PropertyAssistant from "@/components/ai/property-assistant";
@@ -59,6 +59,11 @@ export default function Maintenance() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [unitFilter, setUnitFilter] = useState<string[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  
+  // View and search state
+  const [currentView, setCurrentView] = useState<'list' | 'grid' | 'kanban' | 'heatmap' | 'timeline'>('list');
+  const [archiveFilter, setArchiveFilter] = useState<'active' | 'archived' | 'all'>('active');
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
   
@@ -429,14 +434,34 @@ export default function Maintenance() {
 
   const filteredProperties = properties || [];
   
-  const filteredCases = smartCases?.filter(smartCase => {
+  // Base filtered cases (without archive filter) for accurate tab counts
+  const baseFilteredCases = smartCases?.filter(smartCase => {
     const statusMatch = statusFilter === "all" || smartCase.status === statusFilter;
     const propertyMatch = propertyFilter === "all" || smartCase.propertyId === propertyFilter;
     const categoryMatch = categoryFilter === "all" || smartCase.category === categoryFilter;
     const unitMatch = unitFilter.length === 0 || (smartCase.unitId && unitFilter.includes(smartCase.unitId)) || (unitFilter.includes("common") && !smartCase.unitId);
-    // Note: SmartCase doesn't have entityId directly, but we can filter by property's entity relationship if needed
-    return statusMatch && propertyMatch && categoryMatch && unitMatch;
+    
+    // Search filter - check title, description, and category
+    const searchMatch = searchQuery === "" || 
+      smartCase.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      smartCase.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      smartCase.category?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return statusMatch && propertyMatch && categoryMatch && unitMatch && searchMatch;
   }) || [];
+
+  // Final filtered cases including archive filter for display
+  const filteredCases = baseFilteredCases?.filter(smartCase => {
+    const archiveMatch = archiveFilter === 'all' || 
+      (archiveFilter === 'active' && !(smartCase as any).isArchived) ||
+      (archiveFilter === 'archived' && (smartCase as any).isArchived);
+    return archiveMatch;
+  }) || [];
+
+  // Correct tab counts based on baseFilteredCases
+  const activeCasesCount = baseFilteredCases.filter(c => !(c as any).isArchived).length;
+  const archivedCasesCount = baseFilteredCases.filter(c => (c as any).isArchived).length;
+  const allCasesCount = baseFilteredCases.length;
 
   // Bulk operations helper functions
   const handleSelectCase = (caseId: string) => {
@@ -538,12 +563,121 @@ export default function Maintenance() {
         <Header title="Maintenance" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Smart Cases</h1>
               <p className="text-muted-foreground">Track and manage maintenance requests</p>
             </div>
-            
+          </div>
+
+          {/* Archive Status Tabs */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-1 bg-muted p-1 rounded-lg">
+              <button
+                onClick={() => setArchiveFilter('active')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  archiveFilter === 'active' 
+                    ? 'bg-background text-foreground shadow-sm' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="tab-active-cases"
+              >
+                Active ({activeCasesCount})
+              </button>
+              <button
+                onClick={() => setArchiveFilter('archived')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  archiveFilter === 'archived'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="tab-archived-cases"
+              >
+                Archived ({archivedCasesCount})
+              </button>
+              <button
+                onClick={() => setArchiveFilter('all')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  archiveFilter === 'all'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                data-testid="tab-all-cases"
+              >
+                All ({allCasesCount})
+              </button>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search cases..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-64"
+                  data-testid="input-search-cases"
+                />
+              </div>
+
+              {/* View Toggle */}
+              <div className="flex items-center space-x-1 bg-muted p-1 rounded-lg">
+                <button
+                  onClick={() => setCurrentView('list')}
+                  className={`p-2 rounded-md transition-colors ${
+                    currentView === 'list' 
+                      ? 'bg-background text-foreground shadow-sm' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="List View"
+                  data-testid="button-view-list"
+                >
+                  <List className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentView('grid')}
+                  className={`p-2 rounded-md transition-colors ${
+                    currentView === 'grid'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Property Grid"
+                  data-testid="button-view-grid"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentView('kanban')}
+                  className={`p-2 rounded-md transition-colors ${
+                    currentView === 'kanban'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Kanban Board"
+                  data-testid="button-view-kanban"
+                >
+                  <Grid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentView('heatmap')}
+                  className={`p-2 rounded-md transition-colors ${
+                    currentView === 'heatmap'
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  title="Priority Heat Map"
+                  data-testid="button-view-heatmap"
+                >
+                  <Map className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters Row */}
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               {/* Entity Filter */}
               <Select value={entityFilter} onValueChange={(value) => {
@@ -964,21 +1098,23 @@ export default function Maintenance() {
             ]}
           />
 
-          {casesLoading ? (
-            <div className="grid grid-cols-1 gap-6">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} data-testid={`skeleton-case-${i}`}>
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="h-6 bg-muted animate-pulse rounded" />
-                      <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
-                      <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredCases.length > 0 ? (
+          {/* Render based on current view */}
+          {currentView === 'list' ? (
+            casesLoading ? (
+              <div className="grid grid-cols-1 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} data-testid={`skeleton-case-${i}`}>
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        <div className="h-6 bg-muted animate-pulse rounded" />
+                        <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                        <div className="h-4 bg-muted animate-pulse rounded w-1/2" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredCases.length > 0 ? (
             <div className="grid grid-cols-1 gap-6">
               {filteredCases.map((smartCase, index) => (
                 <Card key={smartCase.id} className={`hover:shadow-md transition-shadow ${selectedCases.includes(smartCase.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-case-${index}`}>
@@ -1119,7 +1255,35 @@ export default function Maintenance() {
                 </Button>
               </CardContent>
             </Card>
-          )}
+            )
+          ) : currentView === 'grid' ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <LayoutGrid className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">Property Grid View</h3>
+                <p className="text-muted-foreground mb-4">Visual grid showing units with priority indicators and issue counts</p>
+                <p className="text-sm text-muted-foreground">Coming in next update</p>
+              </CardContent>
+            </Card>
+          ) : currentView === 'kanban' ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Grid className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">Kanban Status Board</h3>
+                <p className="text-muted-foreground mb-4">Drag-and-drop columns for case status management</p>
+                <p className="text-sm text-muted-foreground">Coming in next update</p>
+              </CardContent>
+            </Card>
+          ) : currentView === 'heatmap' ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">Priority Heat Map</h3>
+                <p className="text-muted-foreground mb-4">Visual intensity mapping showing maintenance workload</p>
+                <p className="text-sm text-muted-foreground">Coming in next update</p>
+              </CardContent>
+            </Card>
+          ) : null}
         </main>
       </div>
       
