@@ -78,6 +78,15 @@ export default function Maintenance() {
   // Calendar view state
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  
+  // Advanced filtering state
+  const [priorityQuickFilter, setPriorityQuickFilter] = useState<string[]>([]);
+  const [dateRangeFrom, setDateRangeFrom] = useState<Date | null>(null);
+  const [dateRangeTo, setDateRangeTo] = useState<Date | null>(null);
+  const [costRangeMin, setCostRangeMin] = useState<string>("");
+  const [costRangeMax, setCostRangeMax] = useState<string>("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [groupByProperty, setGroupByProperty] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -476,7 +485,40 @@ export default function Maintenance() {
       smartCase.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       smartCase.category?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    return statusMatch && propertyMatch && categoryMatch && unitMatch && searchMatch;
+    // Advanced filters
+    // Priority quick filter
+    const priorityMatch = priorityQuickFilter.length === 0 || 
+      (smartCase.priority && priorityQuickFilter.includes(smartCase.priority));
+    
+    // Date range filter (based on createdAt)
+    let dateMatch = true;
+    if (dateRangeFrom || dateRangeTo) {
+      const caseDate = smartCase.createdAt ? new Date(smartCase.createdAt) : null;
+      if (caseDate) {
+        if (dateRangeFrom && caseDate < dateRangeFrom) dateMatch = false;
+        if (dateRangeTo && caseDate > dateRangeTo) dateMatch = false;
+      } else if (dateRangeFrom || dateRangeTo) {
+        dateMatch = false; // Exclude cases without dates when date filter is active
+      }
+    }
+    
+    // Cost range filter
+    let costMatch = true;
+    if (costRangeMin || costRangeMax) {
+      const caseEstimatedCost = smartCase.estimatedCost ? Number(smartCase.estimatedCost) : null;
+      const caseActualCost = smartCase.actualCost ? Number(smartCase.actualCost) : null;
+      const caseCost = caseActualCost ?? caseEstimatedCost; // Use actual cost if available, otherwise estimated
+      
+      if (caseCost !== null) {
+        if (costRangeMin && caseCost < Number(costRangeMin)) costMatch = false;
+        if (costRangeMax && caseCost > Number(costRangeMax)) costMatch = false;
+      } else if (costRangeMin || costRangeMax) {
+        costMatch = false; // Exclude cases without cost data when cost filter is active
+      }
+    }
+    
+    return statusMatch && propertyMatch && categoryMatch && unitMatch && searchMatch && 
+           priorityMatch && dateMatch && costMatch;
   }) || [];
 
   // Final filtered cases including archive filter for display
@@ -723,6 +765,28 @@ export default function Maintenance() {
     }
   };
 
+  // Compute grouped sections for property grouping
+  const groupedSections = useMemo(() => {
+    if (!groupByProperty || !filteredCases.length) return [];
+    
+    // Group cases by property
+    const groupedCases = filteredCases.reduce((groups: Record<string, typeof filteredCases>, smartCase) => {
+      const key = smartCase.propertyId || 'no-property';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(smartCase);
+      return groups;
+    }, {});
+
+    return Object.entries(groupedCases).map(([propertyId, propertyCases]) => {
+      const property = propertyId === 'no-property' 
+        ? { id: 'no-property', name: 'Unassigned Cases', street: '', city: '' }
+        : properties?.find(p => p.id === propertyId);
+      
+      if (!property) return null;
+      return { propertyId, property, propertyCases };
+    }).filter(Boolean);
+  }, [groupByProperty, filteredCases, properties]);
+
   return (
     <div className="flex h-screen bg-background" data-testid="page-maintenance">
       <Sidebar />
@@ -737,6 +801,167 @@ export default function Maintenance() {
               <p className="text-muted-foreground">Track and manage maintenance requests</p>
             </div>
           </div>
+
+          {/* Advanced Filters Panel */}
+          {showAdvancedFilters && (
+            <div className="mb-6 p-4 border border-muted rounded-lg bg-muted/20">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-sm">Advanced Filtering Options</h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setPriorityQuickFilter([]);
+                      setDateRangeFrom(null);
+                      setDateRangeTo(null);
+                      setCostRangeMin("");
+                      setCostRangeMax("");
+                      setGroupByProperty(false);
+                    }}
+                    data-testid="button-clear-advanced-filters"
+                  >
+                    Clear All
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Priority Quick Filters */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">Priority Filters</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Urgent', 'High', 'Medium', 'Low'].map(priority => {
+                        const isSelected = priorityQuickFilter.includes(priority);
+                        return (
+                          <Button
+                            key={priority}
+                            variant={isSelected ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setPriorityQuickFilter(prev => 
+                                isSelected 
+                                  ? prev.filter(p => p !== priority)
+                                  : [...prev, priority]
+                              );
+                            }}
+                            className={`${
+                              priority === 'Urgent' && isSelected ? 'bg-red-600 hover:bg-red-700' :
+                              priority === 'High' && isSelected ? 'bg-orange-600 hover:bg-orange-700' :
+                              priority === 'Medium' && isSelected ? 'bg-yellow-600 hover:bg-yellow-700' :
+                              priority === 'Low' && isSelected ? 'bg-green-600 hover:bg-green-700' : ''
+                            }`}
+                            data-testid={`button-priority-filter-${priority.toLowerCase()}`}
+                          >
+                            {priority}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    {priorityQuickFilter.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Showing cases with {priorityQuickFilter.join(', ')} priority
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Date Range Filter */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">Date Range (Created)</label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <label className="text-xs text-muted-foreground w-12">From:</label>
+                        <input
+                          type="date"
+                          value={dateRangeFrom ? dateRangeFrom.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setDateRangeFrom(e.target.value ? new Date(e.target.value) : null)}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          data-testid="input-date-from"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <label className="text-xs text-muted-foreground w-12">To:</label>
+                        <input
+                          type="date"
+                          value={dateRangeTo ? dateRangeTo.toISOString().split('T')[0] : ''}
+                          onChange={(e) => setDateRangeTo(e.target.value ? new Date(e.target.value) : null)}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foregroup focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          data-testid="input-date-to"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cost Range Filter */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium">Cost Range (Est./Actual)</label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <label className="text-xs text-muted-foreground w-12">Min:</label>
+                        <input
+                          type="number"
+                          placeholder="$0"
+                          value={costRangeMin}
+                          onChange={(e) => setCostRangeMin(e.target.value)}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          data-testid="input-cost-min"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <label className="text-xs text-muted-foreground w-12">Max:</label>
+                        <input
+                          type="number"
+                          placeholder="No limit"
+                          value={costRangeMax}
+                          onChange={(e) => setCostRangeMax(e.target.value)}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          data-testid="input-cost-max"
+                        />
+                      </div>
+                    </div>
+                    {(costRangeMin || costRangeMax) && (
+                      <p className="text-xs text-muted-foreground">
+                        Showing cases {costRangeMin ? `≥ $${Number(costRangeMin).toLocaleString()}` : ''} 
+                        {costRangeMin && costRangeMax ? ' and ' : ''} 
+                        {costRangeMax ? `≤ $${Number(costRangeMax).toLocaleString()}` : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Active Filters Summary */}
+                <div className="pt-3 border-t border-muted">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4 text-sm">
+                      <span className="font-medium">Active Filters:</span>
+                      <div className="flex items-center space-x-2">
+                        {priorityQuickFilter.length > 0 && (
+                          <Badge variant="secondary" data-testid="badge-active-priority-filters">
+                            {priorityQuickFilter.length} Priority
+                          </Badge>
+                        )}
+                        {(dateRangeFrom || dateRangeTo) && (
+                          <Badge variant="secondary" data-testid="badge-active-date-filters">
+                            Date Range
+                          </Badge>
+                        )}
+                        {(costRangeMin || costRangeMax) && (
+                          <Badge variant="secondary" data-testid="badge-active-cost-filters">
+                            Cost Range
+                          </Badge>
+                        )}
+                        {priorityQuickFilter.length === 0 && !dateRangeFrom && !dateRangeTo && !costRangeMin && !costRangeMax && (
+                          <span className="text-muted-foreground">None</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Showing {filteredCases.length} of {smartCases?.length || 0} cases
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Archive Status Tabs */}
           <div className="flex items-center justify-between mb-4">
@@ -960,6 +1185,35 @@ export default function Maintenance() {
                   <SelectItem value="Closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
+
+              {/* Advanced Filters Toggle */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                data-testid="button-toggle-advanced-filters"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Advanced
+                {showAdvancedFilters ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {/* Property Grouping Toggle */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="group-by-property"
+                  checked={groupByProperty}
+                  onChange={(e) => setGroupByProperty(e.target.checked)}
+                  className="rounded border-gray-300"
+                  data-testid="checkbox-group-by-property"
+                />
+                <label htmlFor="group-by-property" className="text-sm font-medium cursor-pointer">
+                  Group by Property
+                </label>
+              </div>
 
               <Dialog open={showCaseForm} onOpenChange={handleDialogChange}>
                 <DialogTrigger asChild>
@@ -1283,9 +1537,159 @@ export default function Maintenance() {
                 ))}
               </div>
             ) : filteredCases.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6">
-              {filteredCases.map((smartCase, index) => (
-                <Card key={smartCase.id} className={`hover:shadow-md transition-shadow ${selectedCases.includes(smartCase.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-case-${index}`}>
+            groupByProperty ? (
+              // Group by Property View
+              <div className="space-y-8">
+                {groupedSections.map((section: any) => (
+                  <div key={section.propertyId} className="space-y-4" data-testid={`property-group-${section.propertyId}`}>
+                    <div className="flex items-center justify-between border-b border-muted pb-3">
+                      <div className="flex items-center space-x-3">
+                        <Building2 className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <h3 className="font-semibold text-lg" data-testid={`text-property-group-name-${section.propertyId}`}>
+                            {section.property.name || (section.propertyId === 'no-property' ? 'Unassigned Cases' : `${section.property.street}, ${section.property.city}`)}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {section.propertyCases.length} case{section.propertyCases.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {['Urgent', 'High', 'Medium', 'Low'].map(priority => {
+                          const count = section.propertyCases.filter((c: any) => c.priority === priority).length;
+                          if (count === 0) return null;
+                          return (
+                            <Badge
+                              key={priority}
+                              variant="secondary"
+                              className={`${
+                                priority === 'Urgent' ? 'bg-red-100 text-red-800' :
+                                priority === 'High' ? 'bg-orange-100 text-orange-800' :
+                                priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-green-100 text-green-800'
+                              }`}
+                              data-testid={`badge-property-priority-${priority.toLowerCase()}-${section.propertyId}`}
+                            >
+                              {count} {priority}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 ml-6">
+                      {section.propertyCases.map((smartCase: any, index: number) => (
+                        <Card key={smartCase.id} className={`hover:shadow-md transition-shadow ${selectedCases.includes(smartCase.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-grouped-case-${index}`}>
+                          <CardHeader>
+                            <div className="flex items-start justify-between">
+                              <div className="flex items-center space-x-3">
+                                <button
+                                  onClick={() => handleSelectCase(smartCase.id)}
+                                  className="flex-shrink-0 hover:bg-gray-100 p-1 rounded"
+                                  data-testid={`checkbox-grouped-case-${index}`}
+                                >
+                                  {selectedCases.includes(smartCase.id) ? (
+                                    <CheckSquare className="h-5 w-5 text-blue-600" />
+                                  ) : (
+                                    <Square className="h-5 w-5 text-gray-400" />
+                                  )}
+                                </button>
+                                <div className={`w-12 h-12 ${getPriorityCircleColor(smartCase.priority)} rounded-lg flex items-center justify-center`}>
+                                  {getStatusIcon(smartCase.status)}
+                                </div>
+                                <div>
+                                  <CardTitle className="text-lg" data-testid={`text-grouped-case-title-${index}`}>{smartCase.title}</CardTitle>
+                                  {smartCase.category && (
+                                    <p className="text-sm text-muted-foreground" data-testid={`text-grouped-case-category-${index}`}>
+                                      {smartCase.category}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {getPriorityBadge(smartCase.priority)}
+                                {getStatusBadge(smartCase.status)}
+                              </div>
+                            </div>
+                          </CardHeader>
+                          
+                          <CardContent>
+                            {smartCase.description && (
+                              <p className="text-sm text-muted-foreground mb-4" data-testid={`text-grouped-case-description-${index}`}>
+                                {smartCase.description}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                              <div>
+                                <span data-testid={`text-grouped-case-created-${index}`}>
+                                  Created {smartCase.createdAt ? new Date(smartCase.createdAt).toLocaleDateString() : 'Unknown'}
+                                </span>
+                                {smartCase.unitId && (
+                                  <div className="mt-1">
+                                    <span className="text-green-600 font-medium">Unit:</span>
+                                    <span className="ml-1" data-testid={`text-grouped-case-unit-${index}`}>
+                                      {units.find(u => u.id === smartCase.unitId)?.label || 'Unit'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              {(smartCase.estimatedCost || smartCase.actualCost) && (
+                                <div className="text-right">
+                                  {smartCase.actualCost && (
+                                    <div className="text-red-600 font-semibold" data-testid={`text-grouped-case-actual-cost-${index}`}>
+                                      Actual: ${Number(smartCase.actualCost).toLocaleString()}
+                                    </div>
+                                  )}
+                                  {smartCase.estimatedCost && (
+                                    <div className="text-muted-foreground" data-testid={`text-grouped-case-estimated-cost-${index}`}>
+                                      Est: ${Number(smartCase.estimatedCost).toLocaleString()}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Button
+                                  onClick={() => handleEditCase(smartCase)}
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid={`button-grouped-edit-case-${index}`}
+                                >
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit
+                                </Button>
+                                
+                                <Button
+                                  onClick={() => {
+                                    setReminderCaseContext({
+                                      caseId: smartCase.id,
+                                      caseTitle: smartCase.title
+                                    });
+                                    setShowReminderForm(true);
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid={`button-grouped-create-reminder-${index}`}
+                                >
+                                  <Bell className="h-4 w-4 mr-2" />
+                                  Reminder
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Regular List View
+              <div className="grid grid-cols-1 gap-6">
+                {filteredCases.map((smartCase, index) => (
+                  <Card key={smartCase.id} className={`hover:shadow-md transition-shadow ${selectedCases.includes(smartCase.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-case-${index}`}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">
@@ -1423,7 +1827,6 @@ export default function Maintenance() {
                 </Button>
               </CardContent>
             </Card>
-            )
           ) : currentView === 'grid' ? (
             <div className="space-y-8">
               {/* Grid Legend */}
