@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1780,14 +1781,298 @@ export default function Maintenance() {
               )}
             </div>
           ) : currentView === 'heatmap' ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">Priority Heat Map</h3>
-                <p className="text-muted-foreground mb-4">Visual intensity mapping showing maintenance workload</p>
-                <p className="text-sm text-muted-foreground">Coming in next update</p>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              {/* Heatmap Header */}
+              <Card>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center">
+                        <Map className="h-5 w-5 mr-2" />
+                        Priority Heat Map
+                      </CardTitle>
+                      <CardDescription>Visual intensity mapping showing maintenance workload across properties</CardDescription>
+                    </div>
+                    
+                    {/* Heat Map Legend */}
+                    <div className="flex items-center space-x-4 text-sm">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-muted-foreground">Workload Intensity:</span>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-4 h-4 bg-green-100 border border-green-200 rounded"></div>
+                          <span className="text-xs text-muted-foreground">Low</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-4 h-4 bg-yellow-200 border border-yellow-300 rounded"></div>
+                          <span className="text-xs text-muted-foreground">Medium</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-4 h-4 bg-orange-300 border border-orange-400 rounded"></div>
+                          <span className="text-xs text-muted-foreground">High</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <div className="w-4 h-4 bg-red-400 border border-red-500 rounded"></div>
+                          <span className="text-xs text-muted-foreground">Critical</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+
+              {/* Priority Distribution Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {['Urgent', 'High', 'Medium', 'Low'].map(priority => {
+                  const priorityCases = filteredCases.filter(c => c.priority === priority && !(c as any).isArchived);
+                  const priorityColor = priority === 'Urgent' ? 'text-red-600' : 
+                                      priority === 'High' ? 'text-orange-600' : 
+                                      priority === 'Medium' ? 'text-yellow-600' : 'text-green-600';
+                  const priorityBg = priority === 'Urgent' ? 'bg-red-50' : 
+                                    priority === 'High' ? 'bg-orange-50' : 
+                                    priority === 'Medium' ? 'bg-yellow-50' : 'bg-green-50';
+                  
+                  return (
+                    <Card key={priority} className={priorityBg} data-testid={`heatmap-priority-${priority.toLowerCase()}`}>
+                      <CardContent className="p-4 text-center">
+                        <div className={`text-2xl font-bold ${priorityColor}`}>
+                          {priorityCases.length}
+                        </div>
+                        <div className="text-sm font-medium text-foreground">{priority} Priority</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {priorityCases.length === 0 ? 'No cases' : 
+                           priorityCases.length === 1 ? '1 active case' : 
+                           `${priorityCases.length} active cases`}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Property Heatmap Grid */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Property Workload Distribution</CardTitle>
+                  <CardDescription>Click any property to filter maintenance cases</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {properties?.map(property => {
+                      // Calculate workload intensity for this property
+                      const propertyCases = filteredCases.filter(c => 
+                        c.propertyId === property.id && !(c as any).isArchived
+                      );
+                      
+                      // Calculate intensity score based on priority
+                      const intensityScore = propertyCases.reduce((score, c) => {
+                        return score + (c.priority === 'Urgent' ? 4 : 
+                                      c.priority === 'High' ? 3 : 
+                                      c.priority === 'Medium' ? 2 : 1);
+                      }, 0);
+                      
+                      // Determine color intensity based on score - aligned with legend
+                      const getIntensityClass = (score: number) => {
+                        if (score === 0) return 'bg-gray-50 border-gray-200 hover:bg-gray-100'; // No cases
+                        if (score <= 3) return 'bg-green-100 border-green-200 hover:bg-green-200'; // Low intensity - green
+                        if (score <= 8) return 'bg-yellow-200 border-yellow-300 hover:bg-yellow-300'; // Medium intensity - yellow
+                        if (score <= 15) return 'bg-orange-300 border-orange-400 hover:bg-orange-400'; // High intensity - orange  
+                        return 'bg-red-400 border-red-500 hover:bg-red-500'; // Critical intensity - red
+                      };
+
+                      const propertyUnits = units.filter(u => u.propertyId === property.id);
+                      
+                      return (
+                        <HoverCard key={property.id}>
+                          <HoverCardTrigger asChild>
+                            <div
+                              className={`${getIntensityClass(intensityScore)} border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 transform hover:scale-105 hover:shadow-lg`}
+                              onClick={() => {
+                                setPropertyFilter(property.id);
+                                setCurrentView('list');
+                              }}
+                              data-testid={`heatmap-property-${property.id}`}
+                            >
+                          {/* Property Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-foreground text-sm truncate">
+                                {property.name}
+                              </h4>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {property.street}, {property.city}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-foreground">
+                                {propertyCases.length}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {propertyCases.length === 1 ? 'case' : 'cases'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Priority Breakdown */}
+                          <div className="space-y-2">
+                            {['Urgent', 'High', 'Medium', 'Low'].map(priority => {
+                              const count = propertyCases.filter(c => c.priority === priority).length;
+                              if (count === 0) return null;
+                              
+                              const priorityDot = priority === 'Urgent' ? 'bg-red-500' : 
+                                                priority === 'High' ? 'bg-orange-500' : 
+                                                priority === 'Medium' ? 'bg-yellow-500' : 'bg-green-500';
+                              
+                              return (
+                                <div key={priority} className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center space-x-2">
+                                    <div className={`w-2 h-2 rounded-full ${priorityDot}`}></div>
+                                    <span className="text-muted-foreground">{priority}</span>
+                                  </div>
+                                  <span className="font-medium text-foreground">{count}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Unit Summary */}
+                          {propertyUnits.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-200/50">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Units:</span>
+                                <span className="text-foreground font-medium">
+                                  {propertyUnits.length} total
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {propertyUnits.slice(0, 3).map(unit => {
+                                  const unitCases = propertyCases.filter(c => c.unitId === unit.id);
+                                  const unitIntensity = unitCases.reduce((score, c) => {
+                                    return score + (c.priority === 'Urgent' ? 4 : 
+                                                  c.priority === 'High' ? 3 : 
+                                                  c.priority === 'Medium' ? 2 : 1);
+                                  }, 0);
+                                  
+                                  // Use consistent color scale aligned with legend
+                                  const unitColor = unitIntensity === 0 ? 'bg-gray-300 text-gray-700' :
+                                                  unitIntensity <= 2 ? 'bg-green-200 text-green-800' :
+                                                  unitIntensity <= 5 ? 'bg-yellow-300 text-yellow-800' :
+                                                  unitIntensity <= 8 ? 'bg-orange-400 text-orange-900' : 'bg-red-500 text-red-100';
+                                  
+                                  return (
+                                    <div
+                                      key={unit.id}
+                                      className={`${unitColor} text-xs px-2 py-1 rounded`}
+                                      title={`${unit.label}: ${unitCases.length} cases`}
+                                    >
+                                      {unit.label}
+                                    </div>
+                                  );
+                                })}
+                                {propertyUnits.length > 3 && (
+                                  <div className="bg-gray-300 text-gray-700 text-xs px-2 py-1 rounded">
+                                    +{propertyUnits.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                            </div>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-80" data-testid={`heatmap-tooltip-${property.id}`}>
+                            <div className="space-y-3">
+                              <div>
+                                <h4 className="font-semibold text-sm">{property.name}</h4>
+                                <p className="text-xs text-muted-foreground">{property.street}, {property.city}, {property.state}</p>
+                              </div>
+                              
+                              <div className="flex justify-between items-center py-2 border-b">
+                                <span className="text-sm font-medium">Total Active Cases:</span>
+                                <span className="text-lg font-bold">{propertyCases.length}</span>
+                              </div>
+                              
+                              <div className="flex justify-between items-center py-2 border-b">
+                                <span className="text-sm font-medium">Intensity Score:</span>
+                                <span className="text-lg font-bold text-orange-600">{intensityScore}</span>
+                              </div>
+
+                              <div className="space-y-2">
+                                <h5 className="text-sm font-medium">Priority Breakdown:</h5>
+                                {['Urgent', 'High', 'Medium', 'Low'].map(priority => {
+                                  const count = propertyCases.filter(c => c.priority === priority).length;
+                                  if (count === 0) return null;
+                                  
+                                  const priorityColor = priority === 'Urgent' ? 'text-red-600' : 
+                                                       priority === 'High' ? 'text-orange-600' : 
+                                                       priority === 'Medium' ? 'text-yellow-600' : 'text-green-600';
+                                  
+                                  return (
+                                    <div key={priority} className="flex items-center justify-between text-sm">
+                                      <span className={priorityColor}>{priority} Priority</span>
+                                      <span className="font-medium">{count}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {propertyUnits.length > 0 && (
+                                <div className="space-y-2">
+                                  <h5 className="text-sm font-medium">Units ({propertyUnits.length} total):</h5>
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {propertyUnits.slice(0, 8).map(unit => {
+                                      const unitCases = propertyCases.filter(c => c.unitId === unit.id);
+                                      const unitIntensity = unitCases.reduce((score, c) => {
+                                        return score + (c.priority === 'Urgent' ? 4 : 
+                                                        c.priority === 'High' ? 3 : 
+                                                        c.priority === 'Medium' ? 2 : 1);
+                                      }, 0);
+                                      
+                                      const unitTooltipColor = unitIntensity === 0 ? 'bg-gray-100 text-gray-600' :
+                                                               unitIntensity <= 2 ? 'bg-green-100 text-green-800' :
+                                                               unitIntensity <= 5 ? 'bg-yellow-100 text-yellow-800' :
+                                                               unitIntensity <= 8 ? 'bg-orange-100 text-orange-800' : 'bg-red-100 text-red-800';
+                                      
+                                      return (
+                                        <div
+                                          key={unit.id}
+                                          className={`${unitTooltipColor} text-xs px-2 py-1 rounded text-center`}
+                                          title={`${unit.label}: ${unitCases.length} cases, intensity ${unitIntensity}`}
+                                        >
+                                          {unit.label}
+                                        </div>
+                                      );
+                                    })}
+                                    {propertyUnits.length > 8 && (
+                                      <div className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded text-center">
+                                        +{propertyUnits.length - 8}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div className="text-xs text-muted-foreground pt-2 border-t">
+                                Click to view all cases for this property
+                              </div>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      );
+                    })}
+                  </div>
+
+                  {/* Empty State */}
+                  {(!properties || properties.length === 0) && (
+                    <div className="text-center py-12">
+                      <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-foreground mb-2">No Properties Found</h3>
+                      <p className="text-muted-foreground">
+                        Add properties to see the maintenance workload heat map
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           ) : null}
         </main>
       </div>
