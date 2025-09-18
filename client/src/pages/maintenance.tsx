@@ -44,6 +44,7 @@ const createCaseSchema = z.object({
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
   priority: z.enum(["Low", "Medium", "High", "Urgent"]).default("Medium"),
+  status: z.enum(["New", "In Review", "Scheduled", "In Progress", "On Hold", "Resolved", "Closed"]).default("New"),
   category: z.string().optional(),
   createReminder: z.boolean().default(false),
 });
@@ -139,6 +140,28 @@ export default function Maintenance() {
       toast({
         title: "Error",
         description: error.message || "Failed to create reminder",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation for unarchiving single cases
+  const unarchiveMutation = useMutation({
+    mutationFn: async (caseId: string) => {
+      const response = await apiRequest("PATCH", `/api/cases/${caseId}/unarchive`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      toast({
+        title: "Success",
+        description: "Case unarchived successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to unarchive case",
         variant: "destructive",
       });
     },
@@ -641,7 +664,7 @@ export default function Maintenance() {
     if (editingCase) {
       updateCaseMutation.mutate({ id: editingCase.id, data: { ...caseData, createReminder: false } });
     } else {
-      // Create the case first
+      // Create the case first with status included
       const response = await apiRequest("POST", "/api/cases", caseData);
       const newCase = await response.json();
       
@@ -1538,14 +1561,224 @@ export default function Maintenance() {
               )}
             </div>
           ) : currentView === 'kanban' ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Grid className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">Kanban Status Board</h3>
-                <p className="text-muted-foreground mb-4">Drag-and-drop columns for case status management</p>
-                <p className="text-sm text-muted-foreground">Coming in next update</p>
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+              {/* Kanban Board Header */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Kanban Status Board</h3>
+                    <div className="text-sm text-muted-foreground">
+                      Drag cases between columns to update status
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Kanban Columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 xl:grid-cols-8 gap-4 min-h-[600px] overflow-x-auto">
+                {[
+                  { status: 'New', title: 'New', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', isArchive: false },
+                  { status: 'In Review', title: 'In Review', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', isArchive: false },
+                  { status: 'Scheduled', title: 'Scheduled', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200', isArchive: false },
+                  { status: 'In Progress', title: 'In Progress', bgColor: 'bg-yellow-50', borderColor: 'border-yellow-200', isArchive: false },
+                  { status: 'On Hold', title: 'On Hold', bgColor: 'bg-orange-50', borderColor: 'border-orange-200', isArchive: false },
+                  { status: 'Resolved', title: 'Resolved', bgColor: 'bg-green-50', borderColor: 'border-green-200', isArchive: false },
+                  { status: 'Closed', title: 'Closed', bgColor: 'bg-gray-50', borderColor: 'border-gray-200', isArchive: false },
+                  { status: 'Archived', title: 'Archived', bgColor: 'bg-slate-50', borderColor: 'border-slate-300', isArchive: true }
+                ].map(column => {
+                  const columnCases = filteredCases.filter(c => {
+                    if (column.isArchive) {
+                      return (c as any).isArchived === true;
+                    } else {
+                      if (column.status === 'New') return (c.status === 'New' || !c.status) && !(c as any).isArchived;
+                      return c.status === column.status && !(c as any).isArchived;
+                    }
+                  });
+
+                  return (
+                    <div
+                      key={column.status}
+                      className={`${column.bgColor} ${column.borderColor} border-2 rounded-lg p-4 space-y-4`}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.add('ring-2', 'ring-blue-400', 'ring-opacity-50');
+                      }}
+                      onDragLeave={(e) => {
+                        e.currentTarget.classList.remove('ring-2', 'ring-blue-400', 'ring-opacity-50');
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove('ring-2', 'ring-blue-400', 'ring-opacity-50');
+                        
+                        const caseId = e.dataTransfer.getData('text/plain');
+                        
+                        if (caseId) {
+                          const draggedCase = filteredCases.find(c => c.id === caseId);
+                          
+                          if (column.isArchive) {
+                            // Archive the case
+                            bulkArchiveMutation.mutate([caseId]);
+                          } else if (draggedCase && (draggedCase as any).isArchived) {
+                            // Case is being moved from archived to active status
+                            // First unarchive, then update status
+                            unarchiveMutation.mutate(caseId);
+                            setTimeout(() => {
+                              const targetStatus = column.status === 'New' ? 'New' : column.status;
+                              updateCaseStatusMutation.mutate({ id: caseId, status: targetStatus });
+                            }, 100); // Small delay to ensure unarchive completes first
+                          } else {
+                            // Update status for regular columns
+                            const targetStatus = column.status === 'New' ? 'New' : column.status;
+                            updateCaseStatusMutation.mutate({ id: caseId, status: targetStatus });
+                          }
+                          // No immediate toast - wait for mutation success/error
+                        }
+                      }}
+                      data-testid={`kanban-column-${column.status.toLowerCase().replace(' ', '-')}`}
+                    >
+                      {/* Column Header */}
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-semibold text-foreground">{column.title}</h4>
+                        <span className="bg-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-medium">
+                          {columnCases.length}
+                        </span>
+                      </div>
+
+                      {/* Case Cards */}
+                      <div className="space-y-3">
+                        {columnCases.map((smartCase, index) => (
+                          <div
+                            key={smartCase.id}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', smartCase.id);
+                              e.currentTarget.classList.add('opacity-50');
+                            }}
+                            onDragEnd={(e) => {
+                              e.currentTarget.classList.remove('opacity-50');
+                            }}
+                            className="bg-white rounded-lg border border-gray-200 p-4 cursor-move hover:shadow-md transition-shadow"
+                            data-testid={`kanban-card-${smartCase.id}`}
+                          >
+                            {/* Case Priority Badge */}
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <h5 className="font-medium text-foreground text-sm line-clamp-2">
+                                  {smartCase.title}
+                                </h5>
+                              </div>
+                              {getPriorityBadge(smartCase.priority)}
+                            </div>
+
+                            {/* Case Details */}
+                            {smartCase.description && (
+                              <p className="text-xs text-muted-foreground mb-2 line-clamp-2">
+                                {smartCase.description}
+                              </p>
+                            )}
+
+                            {/* Property/Unit Info */}
+                            <div className="text-xs text-muted-foreground mb-2">
+                              {smartCase.propertyId && (
+                                <div>
+                                  {properties?.find(p => p.id === smartCase.propertyId)?.name}
+                                  {smartCase.unitId && (
+                                    <span> - {units.find(u => u.id === smartCase.unitId)?.label}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Cost and Category */}
+                            <div className="flex items-center justify-between text-xs">
+                              <div>
+                                {smartCase.category && (
+                                  <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
+                                    {smartCase.category.split(' ')[0]}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-muted-foreground">
+                                {smartCase.estimatedCost && (
+                                  <span>${Number(smartCase.estimatedCost).toLocaleString()}</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Quick Actions */}
+                            <div className="flex items-center justify-end space-x-1 mt-3 pt-2 border-t border-gray-100">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditCase(smartCase)}
+                                className="h-6 w-6 p-0"
+                                data-testid={`button-edit-kanban-${smartCase.id}`}
+                              >
+                                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="m18.5 2.5 3 3L12 15l-4 1 1-4L18.5 2.5z" />
+                                </svg>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setReminderCaseContext({
+                                    caseId: smartCase.id,
+                                    caseTitle: smartCase.title
+                                  });
+                                  setShowReminderForm(true);
+                                }}
+                                className="h-6 w-6 p-0"
+                                data-testid={`button-remind-kanban-${smartCase.id}`}
+                              >
+                                <Bell className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Add Case to Column */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (!column.isArchive) {
+                              setShowCaseForm(true);
+                              // Pre-select the status for new cases in this column
+                              form.setValue('status', column.status === 'New' ? 'New' : column.status as any);
+                            }
+                          }}
+                          disabled={column.isArchive}
+                          className="w-full border-dashed"
+                          data-testid={`button-add-case-column-${column.status.toLowerCase().replace(' ', '-')}`}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add to {column.title}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Empty State */}
+              {filteredCases.length === 0 && (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <Grid className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Maintenance Cases</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Create your first maintenance case to see the Kanban board
+                    </p>
+                    <Button onClick={() => setShowCaseForm(true)} data-testid="button-add-first-case-kanban">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Your First Case
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           ) : currentView === 'heatmap' ? (
             <Card>
               <CardContent className="p-12 text-center">
