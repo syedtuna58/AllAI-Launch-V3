@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, Archive, ArchiveRestore, CheckSquare, Square } from "lucide-react";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import PropertyAssistant from "@/components/ai/property-assistant";
@@ -61,6 +61,11 @@ export default function Maintenance() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
+  
+  // Bulk operations state
+  const [selectedCases, setSelectedCases] = useState<string[]>([]);
+  const [showBulkArchiveDialog, setShowBulkArchiveDialog] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -301,6 +306,73 @@ export default function Maintenance() {
     },
   });
 
+  // Bulk operations mutations
+  const bulkArchiveMutation = useMutation({
+    mutationFn: async (caseIds: string[]) => {
+      const promises = caseIds.map(id => apiRequest("PATCH", `/api/cases/${id}/archive`));
+      return Promise.all(promises);
+    },
+    onSuccess: (_, caseIds) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      setSelectedCases([]);
+      toast({
+        title: "Success",
+        description: `${caseIds.length} case${caseIds.length > 1 ? 's' : ''} archived successfully`,
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to archive selected cases",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (caseIds: string[]) => {
+      const promises = caseIds.map(id => apiRequest("DELETE", `/api/cases/${id}`));
+      return Promise.all(promises);
+    },
+    onSuccess: (_, caseIds) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      setSelectedCases([]);
+      toast({
+        title: "Success",
+        description: `${caseIds.length} case${caseIds.length > 1 ? 's' : ''} deleted successfully`,
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to delete selected cases",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (isLoading || !isAuthenticated) {
     return null;
   }
@@ -365,6 +437,38 @@ export default function Maintenance() {
     // Note: SmartCase doesn't have entityId directly, but we can filter by property's entity relationship if needed
     return statusMatch && propertyMatch && categoryMatch && unitMatch;
   }) || [];
+
+  // Bulk operations helper functions
+  const handleSelectCase = (caseId: string) => {
+    setSelectedCases(prev => 
+      prev.includes(caseId) 
+        ? prev.filter(id => id !== caseId)
+        : [...prev, caseId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const allCaseIds = filteredCases.map(c => c.id);
+    setSelectedCases(selectedCases.length === allCaseIds.length ? [] : allCaseIds);
+  };
+
+  const isAllSelected = filteredCases.length > 0 && selectedCases.length === filteredCases.length;
+  const isIndeterminate = selectedCases.length > 0 && selectedCases.length < filteredCases.length;
+
+  const selectedCaseTitles = filteredCases
+    .filter(c => selectedCases.includes(c.id))
+    .map(c => c.title)
+    .slice(0, 3); // Show first 3 titles in confirmation
+
+  const handleBulkArchive = () => {
+    setShowBulkArchiveDialog(false);
+    bulkArchiveMutation.mutate(selectedCases);
+  };
+
+  const handleBulkDelete = () => {
+    setShowBulkDeleteDialog(false);
+    bulkDeleteMutation.mutate(selectedCases);
+  };
 
 
   const onSubmit = async (data: z.infer<typeof createCaseSchema>) => {
@@ -784,6 +888,71 @@ export default function Maintenance() {
             </div>
           </div>
 
+          {/* Bulk Operations Toolbar */}
+          {filteredCases.length > 0 && (
+            <Card className="mb-6">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={handleSelectAll}
+                        className="flex items-center space-x-2 text-sm font-medium hover:text-blue-600 transition-colors"
+                        data-testid="button-select-all"
+                      >
+                        {isAllSelected ? (
+                          <CheckSquare className="h-4 w-4" />
+                        ) : isIndeterminate ? (
+                          <div className="h-4 w-4 bg-blue-600 rounded-sm flex items-center justify-center">
+                            <div className="h-2 w-2 bg-white rounded-sm" />
+                          </div>
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                        <span>
+                          {isAllSelected ? `Deselect All (${filteredCases.length})` : 
+                           isIndeterminate ? `Select All (${selectedCases.length}/${filteredCases.length} selected)` :
+                           `Select All (${filteredCases.length})`}
+                        </span>
+                      </button>
+                    </div>
+                    {selectedCases.length > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        {selectedCases.length} case{selectedCases.length > 1 ? 's' : ''} selected
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedCases.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowBulkArchiveDialog(true)}
+                        disabled={bulkArchiveMutation.isPending}
+                        data-testid="button-bulk-archive"
+                      >
+                        <Archive className="h-4 w-4 mr-2" />
+                        Archive ({selectedCases.length})
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowBulkDeleteDialog(true)}
+                        disabled={bulkDeleteMutation.isPending}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        data-testid="button-bulk-delete"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete ({selectedCases.length})
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Mailla AI Assistant */}
           <PropertyAssistant 
             context="maintenance"
@@ -812,10 +981,21 @@ export default function Maintenance() {
           ) : filteredCases.length > 0 ? (
             <div className="grid grid-cols-1 gap-6">
               {filteredCases.map((smartCase, index) => (
-                <Card key={smartCase.id} className="hover:shadow-md transition-shadow" data-testid={`card-case-${index}`}>
+                <Card key={smartCase.id} className={`hover:shadow-md transition-shadow ${selectedCases.includes(smartCase.id) ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`} data-testid={`card-case-${index}`}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => handleSelectCase(smartCase.id)}
+                          className="flex-shrink-0 hover:bg-gray-100 p-1 rounded"
+                          data-testid={`checkbox-case-${index}`}
+                        >
+                          {selectedCases.includes(smartCase.id) ? (
+                            <CheckSquare className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <Square className="h-5 w-5 text-gray-400" />
+                          )}
+                        </button>
                         <div className={`w-12 h-12 ${getPriorityCircleColor(smartCase.priority)} rounded-lg flex items-center justify-center`}>
                           {getStatusIcon(smartCase.status)}
                         </div>
@@ -963,6 +1143,106 @@ export default function Maintenance() {
             }}
             isLoading={createReminderMutation.isPending}
           />
+        </DialogContent>
+      </Dialog>
+      
+      {/* Bulk Archive Confirmation Dialog */}
+      <Dialog open={showBulkArchiveDialog} onOpenChange={setShowBulkArchiveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive Cases</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to archive {selectedCases.length} case{selectedCases.length > 1 ? 's' : ''}?
+            </p>
+            {selectedCaseTitles.length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm font-medium mb-2">Cases to archive:</p>
+                <ul className="text-sm text-muted-foreground ml-4 list-disc">
+                  {selectedCaseTitles.map((title, index) => (
+                    <li key={index}>{title}</li>
+                  ))}
+                  {selectedCases.length > 3 && (
+                    <li>...and {selectedCases.length - 3} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Archived cases can be restored later if needed.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkArchiveDialog(false)}
+              disabled={bulkArchiveMutation.isPending}
+              data-testid="button-cancel-bulk-archive"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkArchive}
+              disabled={bulkArchiveMutation.isPending}
+              data-testid="button-confirm-bulk-archive"
+            >
+              {bulkArchiveMutation.isPending ? "Archiving..." : `Archive ${selectedCases.length} Case${selectedCases.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Cases</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to permanently delete {selectedCases.length} case{selectedCases.length > 1 ? 's' : ''}?
+            </p>
+            {selectedCaseTitles.length > 0 && (
+              <div className="mb-4">
+                <p className="text-sm font-medium mb-2">Cases to delete:</p>
+                <ul className="text-sm text-muted-foreground ml-4 list-disc">
+                  {selectedCaseTitles.map((title, index) => (
+                    <li key={index}>{title}</li>
+                  ))}
+                  {selectedCases.length > 3 && (
+                    <li>...and {selectedCases.length - 3} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+              <p className="text-sm text-red-800 font-medium">
+                ⚠️ This action cannot be undone
+              </p>
+              <p className="text-sm text-red-700">
+                All case data, including descriptions, costs, and related information will be permanently removed.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDeleteDialog(false)}
+              disabled={bulkDeleteMutation.isPending}
+              data-testid="button-cancel-bulk-delete"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+              variant="destructive"
+              data-testid="button-confirm-bulk-delete"
+            >
+              {bulkDeleteMutation.isPending ? "Deleting..." : `Delete ${selectedCases.length} Case${selectedCases.length > 1 ? 's' : ''}`}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
