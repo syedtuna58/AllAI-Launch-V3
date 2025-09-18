@@ -329,6 +329,8 @@ export const smartCases = pgTable("smart_cases", {
   aiTriageJson: jsonb("ai_triage_json"),
   estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
   actualCost: decimal("actual_cost", { precision: 10, scale: 2 }),
+  // Archive functionality
+  isArchived: boolean("is_archived").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
