@@ -20,7 +20,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, Archive, ArchiveRestore, CheckSquare, Square, Search, Grid, List, LayoutGrid, Map } from "lucide-react";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO } from "date-fns";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, Archive, ArchiveRestore, CheckSquare, Square, Search, Grid, List, LayoutGrid, Map, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import PropertyAssistant from "@/components/ai/property-assistant";
@@ -73,6 +74,10 @@ export default function Maintenance() {
   const [selectedCases, setSelectedCases] = useState<string[]>([]);
   const [showBulkArchiveDialog, setShowBulkArchiveDialog] = useState(false);
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  
+  // Calendar view state
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day'>('month');
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -2072,6 +2077,447 @@ export default function Maintenance() {
                   )}
                 </CardContent>
               </Card>
+            </div>
+          ) : currentView === 'timeline' ? (
+            <div className="space-y-6">
+              {/* Timeline Calendar Header */}
+              <Card>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center">
+                        <CalendarIcon className="h-5 w-5 mr-2" />
+                        Timeline Calendar
+                      </CardTitle>
+                      <CardDescription>Schedule view of maintenance cases organized by dates and properties</CardDescription>
+                    </div>
+                    
+                    {/* Calendar View Toggle */}
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-muted rounded-lg p-1">
+                        {['month', 'week', 'day'].map(view => (
+                          <Button
+                            key={view}
+                            variant={calendarView === view ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => setCalendarView(view)}
+                            className="capitalize"
+                            data-testid={`button-calendar-view-${view}`}
+                          >
+                            {view}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+
+              {/* Calendar Navigation */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center space-x-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newDate = new Date(currentDate);
+                          if (calendarView === 'month') {
+                            newDate.setMonth(newDate.getMonth() - 1);
+                          } else if (calendarView === 'week') {
+                            newDate.setDate(newDate.getDate() - 7);
+                          } else {
+                            newDate.setDate(newDate.getDate() - 1);
+                          }
+                          setCurrentDate(newDate);
+                        }}
+                        data-testid="button-calendar-previous"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      
+                      <h3 className="text-xl font-semibold">
+                        {calendarView === 'month' && format(currentDate, 'MMMM yyyy')}
+                        {calendarView === 'week' && `Week of ${format(startOfWeek(currentDate), 'MMM d, yyyy')}`}
+                        {calendarView === 'day' && format(currentDate, 'EEEE, MMMM d, yyyy')}
+                      </h3>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newDate = new Date(currentDate);
+                          if (calendarView === 'month') {
+                            newDate.setMonth(newDate.getMonth() + 1);
+                          } else if (calendarView === 'week') {
+                            newDate.setDate(newDate.getDate() + 7);
+                          } else {
+                            newDate.setDate(newDate.getDate() + 1);
+                          }
+                          setCurrentDate(newDate);
+                        }}
+                        data-testid="button-calendar-next"
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentDate(new Date())}
+                      data-testid="button-calendar-today"
+                    >
+                      Today
+                    </Button>
+                  </div>
+
+                  {/* Calendar Grid */}
+                  {calendarView === 'month' && (
+                    <div className="space-y-4">
+                      {/* Month View - Calendar Grid */}
+                      <div className="grid grid-cols-7 gap-2">
+                        {/* Day Headers */}
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                          <div key={day} className="p-3 text-center font-medium text-muted-foreground">
+                            {day}
+                          </div>
+                        ))}
+                        
+                        {/* Calendar Days */}
+                        {(() => {
+                          const monthStart = startOfMonth(currentDate);
+                          const monthEnd = endOfMonth(currentDate);
+                          const startDate = startOfWeek(monthStart);
+                          const endDate = endOfWeek(monthEnd);
+                          const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
+                          
+                          return dateRange.map(date => {
+                            const dayCases = filteredCases.filter(c => {
+                              const caseDate = c.createdAt ? new Date(c.createdAt) : null;
+                              return caseDate && isSameDay(caseDate, date) && !(c as any).isArchived;
+                            });
+                            
+                            const isCurrentMonth = date.getMonth() === currentDate.getMonth();
+                            const isToday = isSameDay(date, new Date());
+                            
+                            return (
+                              <div
+                                key={date.toISOString()}
+                                className={`min-h-[120px] border rounded-lg p-2 ${
+                                  isCurrentMonth ? 'bg-background' : 'bg-muted/30'
+                                } ${isToday ? 'ring-2 ring-primary' : ''}`}
+                                data-testid={`calendar-day-${format(date, 'yyyy-MM-dd')}`}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className={`text-sm font-medium ${
+                                    isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
+                                  }`}>
+                                    {date.getDate()}
+                                  </span>
+                                  {dayCases.length > 0 && (
+                                    <span className="bg-primary text-primary-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                      {dayCases.length}
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                {/* Cases for this day */}
+                                <div className="space-y-1">
+                                  {dayCases.slice(0, 3).map(smartCase => (
+                                    <HoverCard key={smartCase.id}>
+                                      <HoverCardTrigger asChild>
+                                        <div
+                                          className={`text-xs p-1 rounded cursor-pointer truncate ${
+                                            smartCase.priority === 'Urgent' ? 'bg-red-100 text-red-800 border border-red-200' :
+                                            smartCase.priority === 'High' ? 'bg-orange-100 text-orange-800 border border-orange-200' :
+                                            smartCase.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
+                                            'bg-green-100 text-green-800 border border-green-200'
+                                          }`}
+                                          onClick={() => handleEditCase(smartCase)}
+                                          data-testid={`timeline-case-${smartCase.id}`}
+                                        >
+                                          {smartCase.title}
+                                        </div>
+                                      </HoverCardTrigger>
+                                      <HoverCardContent className="w-80">
+                                        <div className="space-y-2">
+                                          <div className="flex items-start justify-between">
+                                            <h4 className="font-semibold text-sm">{smartCase.title}</h4>
+                                            {getPriorityBadge(smartCase.priority)}
+                                          </div>
+                                          {smartCase.description && (
+                                            <p className="text-sm text-muted-foreground">{smartCase.description}</p>
+                                          )}
+                                          <div className="flex items-center justify-between text-xs">
+                                            <span>Status: {smartCase.status || 'New'}</span>
+                                            {smartCase.estimatedCost && (
+                                              <span>${Number(smartCase.estimatedCost).toLocaleString()}</span>
+                                            )}
+                                          </div>
+                                          {smartCase.propertyId && (
+                                            <div className="text-xs text-muted-foreground">
+                                              Property: {properties?.find(p => p.id === smartCase.propertyId)?.name}
+                                              {smartCase.unitId && (
+                                                <span> - Unit: {units.find(u => u.id === smartCase.unitId)?.label}</span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </HoverCardContent>
+                                    </HoverCard>
+                                  ))}
+                                  {dayCases.length > 3 && (
+                                    <div className="text-xs text-muted-foreground p-1">
+                                      +{dayCases.length - 3} more
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Week View */}
+                  {calendarView === 'week' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-8 gap-2">
+                        {/* Time column header */}
+                        <div className="p-3"></div>
+                        {/* Day headers */}
+                        {(() => {
+                          const weekStart = startOfWeek(currentDate);
+                          const weekDays = eachDayOfInterval({ 
+                            start: weekStart, 
+                            end: endOfWeek(currentDate) 
+                          });
+                          
+                          return weekDays.map(date => (
+                            <div key={date.toISOString()} className="p-3 text-center">
+                              <div className="font-medium">{format(date, 'EEE')}</div>
+                              <div className={`text-2xl ${
+                                isSameDay(date, new Date()) ? 'text-primary font-bold' : 'text-muted-foreground'
+                              }`}>
+                                {date.getDate()}
+                              </div>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                      
+                      {/* Week grid with cases */}
+                      <div className="grid grid-cols-8 gap-2" style={{ minHeight: '400px' }}>
+                        {/* Time labels */}
+                        <div className="space-y-4">
+                          {Array.from({ length: 12 }, (_, i) => i + 6).map(hour => (
+                            <div key={hour} className="h-16 flex items-center text-sm text-muted-foreground">
+                              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Week days with cases */}
+                        {(() => {
+                          const weekStart = startOfWeek(currentDate);
+                          const weekDays = eachDayOfInterval({ 
+                            start: weekStart, 
+                            end: endOfWeek(currentDate) 
+                          });
+                          
+                          return weekDays.map(date => {
+                            const dayCases = filteredCases.filter(c => {
+                              const caseDate = c.createdAt ? new Date(c.createdAt) : null;
+                              return caseDate && isSameDay(caseDate, date) && !(c as any).isArchived;
+                            });
+                            
+                            return (
+                              <div key={date.toISOString()} className="space-y-1">
+                                {Array.from({ length: 12 }, (_, i) => (
+                                  <div key={i} className="h-16 border-t border-muted/30 p-1">
+                                    {i === 0 && dayCases.slice(0, 4).map((smartCase, index) => (
+                                      <div
+                                        key={smartCase.id}
+                                        className={`text-xs p-1 mb-1 rounded cursor-pointer truncate ${
+                                          smartCase.priority === 'Urgent' ? 'bg-red-100 text-red-800' :
+                                          smartCase.priority === 'High' ? 'bg-orange-100 text-orange-800' :
+                                          smartCase.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                                          'bg-green-100 text-green-800'
+                                        }`}
+                                        onClick={() => handleEditCase(smartCase)}
+                                        data-testid={`week-case-${smartCase.id}`}
+                                        style={{ zIndex: 10 + index }}
+                                      >
+                                        {smartCase.title}
+                                      </div>
+                                    ))}
+                                    {i === 0 && dayCases.length > 4 && (
+                                      <div className="text-xs text-muted-foreground">
+                                        +{dayCases.length - 4} more
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Day View */}
+                  {calendarView === 'day' && (
+                    <div className="space-y-4">
+                      {(() => {
+                        const dayCases = filteredCases.filter(c => {
+                          const caseDate = c.createdAt ? new Date(c.createdAt) : null;
+                          return caseDate && isSameDay(caseDate, currentDate) && !(c as any).isArchived;
+                        });
+                        
+                        return (
+                          <div className="grid grid-cols-2 gap-6">
+                            {/* Time slots */}
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-lg mb-4">
+                                Schedule for {format(currentDate, 'EEEE, MMMM d')}
+                              </h4>
+                              
+                              {Array.from({ length: 12 }, (_, i) => i + 6).map(hour => (
+                                <div key={hour} className="flex items-start space-x-4 py-4 border-b border-muted/30">
+                                  <div className="w-20 text-sm text-muted-foreground flex-shrink-0">
+                                    {hour === 12 ? '12:00 PM' : hour > 12 ? `${hour - 12}:00 PM` : `${hour}:00 AM`}
+                                  </div>
+                                  <div className="flex-1 min-h-[60px]">
+                                    {/* Cases would be positioned here based on scheduled times */}
+                                    {hour === 9 && dayCases.slice(0, 2).map(smartCase => (
+                                      <div
+                                        key={smartCase.id}
+                                        className={`p-3 mb-2 rounded-lg cursor-pointer border-l-4 ${
+                                          smartCase.priority === 'Urgent' ? 'bg-red-50 border-l-red-500' :
+                                          smartCase.priority === 'High' ? 'bg-orange-50 border-l-orange-500' :
+                                          smartCase.priority === 'Medium' ? 'bg-yellow-50 border-l-yellow-500' :
+                                          'bg-green-50 border-l-green-500'
+                                        }`}
+                                        onClick={() => handleEditCase(smartCase)}
+                                        data-testid={`day-case-${smartCase.id}`}
+                                      >
+                                        <div className="font-medium text-sm">{smartCase.title}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">
+                                          {smartCase.status} • {smartCase.priority} Priority
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Day Summary */}
+                            <div className="space-y-4">
+                              <h4 className="font-semibold text-lg">Day Summary</h4>
+                              
+                              <Card>
+                                <CardContent className="p-4">
+                                  <div className="text-center">
+                                    <div className="text-3xl font-bold text-primary">{dayCases.length}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {dayCases.length === 1 ? 'Case' : 'Cases'} Today
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                              
+                              {/* Priority Breakdown */}
+                              <Card>
+                                <CardContent className="p-4 space-y-3">
+                                  <h5 className="font-medium">Priority Distribution</h5>
+                                  {['Urgent', 'High', 'Medium', 'Low'].map(priority => {
+                                    const count = dayCases.filter(c => c.priority === priority).length;
+                                    if (count === 0) return null;
+                                    
+                                    return (
+                                      <div key={priority} className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                          <div className={`w-3 h-3 rounded-full ${
+                                            priority === 'Urgent' ? 'bg-red-500' :
+                                            priority === 'High' ? 'bg-orange-500' :
+                                            priority === 'Medium' ? 'bg-yellow-500' : 'bg-green-500'
+                                          }`}></div>
+                                          <span className="text-sm">{priority}</span>
+                                        </div>
+                                        <span className="font-medium">{count}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </CardContent>
+                              </Card>
+                              
+                              {/* Cases List */}
+                              {dayCases.length > 0 && (
+                                <Card>
+                                  <CardContent className="p-4 space-y-3">
+                                    <h5 className="font-medium">All Cases Today</h5>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                                      {dayCases.map(smartCase => (
+                                        <div
+                                          key={smartCase.id}
+                                          className="flex items-center justify-between p-2 rounded hover:bg-muted/50 cursor-pointer"
+                                          onClick={() => handleEditCase(smartCase)}
+                                        >
+                                          <div className="flex-1">
+                                            <div className="font-medium text-sm">{smartCase.title}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                              {smartCase.status} • {properties?.find(p => p.id === smartCase.propertyId)?.name}
+                                            </div>
+                                          </div>
+                                          {getPriorityBadge(smartCase.priority)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Timeline Statistics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {filteredCases.filter(c => !(c as any).isArchived && c.status === 'Scheduled').length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Scheduled Cases</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {filteredCases.filter(c => !(c as any).isArchived && ['Urgent', 'High'].includes(c.priority)).length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">High Priority Cases</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {filteredCases.filter(c => !(c as any).isArchived && c.status === 'Resolved').length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Resolved This Period</div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           ) : null}
         </main>
