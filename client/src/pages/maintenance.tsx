@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -462,6 +462,145 @@ export default function Maintenance() {
   const activeCasesCount = baseFilteredCases.filter(c => !(c as any).isArchived).length;
   const archivedCasesCount = baseFilteredCases.filter(c => (c as any).isArchived).length;
   const allCasesCount = baseFilteredCases.length;
+
+  // Grid Dashboard Data Processing (memoized for performance)
+  const processGridData = () => {
+    if (!properties || !units || !smartCases) return [];
+
+    // Group units by property
+    const propertiesWithUnits = properties.map(property => {
+      const propertyUnits = units.filter(unit => unit.propertyId === property.id);
+      
+      // Calculate issues for property-level cases (not assigned to specific unit)
+      const propertyCases = filteredCases.filter(c => 
+        c.propertyId === property.id && !c.unitId
+      );
+      
+      // Process each unit
+      const unitsWithIssues = propertyUnits.map(unit => {
+        const unitCases = filteredCases.filter(c => c.unitId === unit.id);
+        
+        // Calculate priority score: Urgent=4, High=3, Medium=2, Low=1
+        const priorityScore = unitCases.reduce((sum, c) => {
+          switch (c.priority) {
+            case 'Urgent': return sum + 4;
+            case 'High': return sum + 3;
+            case 'Medium': return sum + 2;
+            case 'Low': return sum + 1;
+            default: return sum + 2;
+          }
+        }, 0);
+        
+        // Get highest priority for color coding
+        const priorities = unitCases.map(c => c.priority || 'Medium');
+        const highestPriority = priorities.includes('Urgent') ? 'Urgent' :
+          priorities.includes('High') ? 'High' :
+          priorities.includes('Medium') ? 'Medium' : 'Low';
+        
+        return {
+          ...unit,
+          caseCount: unitCases.length,
+          priorityScore,
+          highestPriority: unitCases.length > 0 ? highestPriority : null,
+          cases: unitCases
+        };
+      });
+      
+      // Add property-level unit for property-wide cases if any exist
+      const allUnits = [...unitsWithIssues];
+      if (propertyCases.length > 0) {
+        const propertyPriorityScore = propertyCases.reduce((sum, c) => {
+          switch (c.priority) {
+            case 'Urgent': return sum + 4;
+            case 'High': return sum + 3;
+            case 'Medium': return sum + 2;
+            case 'Low': return sum + 1;
+            default: return sum + 2;
+          }
+        }, 0);
+        
+        const propertyPriorities = propertyCases.map(c => c.priority || 'Medium');
+        const propertyHighestPriority = propertyPriorities.includes('Urgent') ? 'Urgent' :
+          propertyPriorities.includes('High') ? 'High' :
+          propertyPriorities.includes('Medium') ? 'Medium' : 'Low';
+          
+        allUnits.push({
+          id: `${property.id}-property`,
+          propertyId: property.id,
+          label: 'Property Common',
+          bedrooms: null,
+          bathrooms: null,
+          sqft: null,
+          floor: null,
+          rentAmount: null,
+          deposit: null,
+          notes: null,
+          hvacBrand: null,
+          hvacModel: null,
+          hvacYear: null,
+          hvacLifetime: null,
+          hvacReminder: false,
+          waterHeaterBrand: null,
+          waterHeaterModel: null,
+          waterHeaterYear: null,
+          waterHeaterLifetime: null,
+          waterHeaterReminder: false,
+          applianceNotes: null,
+          createdAt: new Date().toISOString(),
+          caseCount: propertyCases.length,
+          priorityScore: propertyPriorityScore,
+          highestPriority: propertyHighestPriority,
+          cases: propertyCases
+        });
+      }
+      
+      return {
+        ...property,
+        units: allUnits,
+        totalCases: propertyCases.length + unitsWithIssues.reduce((sum, u) => sum + u.caseCount, 0)
+      };
+    });
+    
+    return propertiesWithUnits.filter(p => p.units.length > 0);
+  };
+
+  const gridData = useMemo(() => processGridData(), [properties, units, filteredCases]);
+  
+  // Color coding helper for units with proper Tailwind classes
+  const getUnitColor = (unit: any) => {
+    if (unit.caseCount === 0) return 'bg-green-50 border-green-200 hover:bg-green-100';
+    
+    switch (unit.highestPriority) {
+      case 'Urgent': return 'bg-red-100 border-red-300 hover:bg-red-200';
+      case 'High': return 'bg-orange-100 border-orange-300 hover:bg-orange-200';
+      case 'Medium': return 'bg-yellow-100 border-yellow-300 hover:bg-yellow-200';
+      case 'Low': return 'bg-blue-100 border-blue-300 hover:bg-blue-200';
+      default: return 'bg-gray-100 border-gray-300 hover:bg-gray-200';
+    }
+  };
+  
+  // Handle unit click to filter cases
+  const handleUnitClick = (unit: any, property: any) => {
+    if (unit.label === 'Property Common') {
+      // Filter by property-level cases only (using 'common' special case)
+      setPropertyFilter(property.id);
+      setUnitFilter(['common']);
+      setCurrentView('list');
+      toast({
+        title: "Filtered Cases",
+        description: `Showing property-level maintenance cases for ${property.name}`,
+      });
+    } else {
+      // Filter by specific unit
+      setPropertyFilter(property.id);
+      setUnitFilter([unit.id]);
+      setCurrentView('list');
+      toast({
+        title: "Filtered Cases",
+        description: `Showing maintenance cases for ${property.name} - ${unit.label}`,
+      });
+    }
+  };
 
   // Bulk operations helper functions
   const handleSelectCase = (caseId: string) => {
@@ -1257,14 +1396,147 @@ export default function Maintenance() {
             </Card>
             )
           ) : currentView === 'grid' ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <LayoutGrid className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">Property Grid View</h3>
-                <p className="text-muted-foreground mb-4">Visual grid showing units with priority indicators and issue counts</p>
-                <p className="text-sm text-muted-foreground">Coming in next update</p>
-              </CardContent>
-            </Card>
+            <div className="space-y-8">
+              {/* Grid Legend */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Property-Unit Grid Dashboard</h3>
+                    <div className="flex items-center space-x-6 text-sm">
+                      <div className="flex items-center space-x-2" data-testid="legend-no-issues">
+                        <div className="w-4 h-4 bg-green-100 border border-green-200 rounded"></div>
+                        <span>No Issues</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-low">
+                        <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded"></div>
+                        <span>Low</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-medium">
+                        <div className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded"></div>
+                        <span>Medium</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-high">
+                        <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
+                        <span>High</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-urgent">
+                        <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
+                        <span>Urgent</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Click any unit to filter maintenance cases by that location
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Property Grids */}
+              {gridData.length > 0 ? (
+                gridData.map((property, propertyIndex) => (
+                  <Card key={property.id} data-testid={`section-property-${property.id}`}>
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-xl">{property.name}</CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {property.street}, {property.city}, {property.state} {property.zipCode}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-foreground">{property.totalCases}</div>
+                          <div className="text-sm text-muted-foreground">Total Issues</div>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {property.units.map((unit, unitIndex) => (
+                          <div
+                            key={unit.id}
+                            onClick={() => handleUnitClick(unit, property)}
+                            className={`
+                              ${getUnitColor(unit)}
+                              p-4 rounded-lg border-2 cursor-pointer transition-all duration-200
+                              hover:shadow-md hover:scale-105
+                            `}
+                            data-testid={`card-unit-${unit.id}`}
+                          >
+                            {/* Unit Label */}
+                            <div className="text-center mb-2">
+                              <div className="font-semibold text-foreground text-lg">
+                                {unit.label}
+                              </div>
+                              {unit.bedrooms && unit.bathrooms && (
+                                <div className="text-xs text-muted-foreground">
+                                  {unit.bedrooms}BR/{unit.bathrooms}BA
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Issue Count Badge */}
+                            <div className="text-center">
+                              {unit.caseCount > 0 ? (
+                                <div className={`
+                                  inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold
+                                  ${unit.highestPriority === 'Urgent' ? 'bg-red-600 text-white' :
+                                    unit.highestPriority === 'High' ? 'bg-orange-600 text-white' :
+                                    unit.highestPriority === 'Medium' ? 'bg-yellow-600 text-white' :
+                                    'bg-blue-600 text-white'
+                                  }
+                                `}>
+                                  {unit.caseCount}
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-600 text-white text-sm font-bold">
+                                  ✓
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Priority Indicator */}
+                            {unit.caseCount > 0 && (
+                              <div className="text-center mt-2">
+                                <div className="text-xs font-medium text-gray-700">
+                                  {unit.highestPriority} Priority
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Add Unit Button */}
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedPropertyId(property.id);
+                            setShowCaseForm(true);
+                          }}
+                          className="w-full"
+                          data-testid={`button-add-case-${property.id}`}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Maintenance Case for {property.name}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card>
+                  <CardContent className="p-12 text-center">
+                    <LayoutGrid className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No Properties with Units</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Create properties and units to see the grid dashboard visualization
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           ) : currentView === 'kanban' ? (
             <Card>
               <CardContent className="p-12 text-center">
