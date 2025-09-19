@@ -1913,62 +1913,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/cases/:id', isAuthenticated, async (req: any, res) => {
     try {
-      // Clean the data: convert empty strings to null for optional fields
-      const cleanedData = {
-        ...req.body,
-        unitId: req.body.unitId === "" ? null : req.body.unitId,
-        propertyId: req.body.propertyId === "" ? null : req.body.propertyId,
-        description: req.body.description === "" ? null : req.body.description,
-        category: req.body.category === "" ? null : req.body.category,
-      };
-      
-      const smartCase = await storage.updateSmartCase(req.params.id, cleanedData);
+      const smartCase = await storage.updateSmartCase(req.params.id, req.body);
       res.json(smartCase);
     } catch (error) {
       console.error("Error updating case:", error);
       res.status(500).json({ message: "Failed to update case" });
-    }
-  });
-
-  // Archive case endpoint
-  app.patch('/api/cases/:id/archive', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const org = await storage.getUserOrganization(userId);
-      if (!org) return res.status(404).json({ message: "Organization not found" });
-      
-      // SECURITY: Check if case exists and belongs to organization
-      const smartCase = await storage.getSmartCase(req.params.id);
-      if (!smartCase || smartCase.orgId !== org.id) {
-        return res.status(404).json({ message: "Case not found" });
-      }
-      
-      const archivedCase = await storage.updateSmartCase(req.params.id, { isArchived: true });
-      res.json({ message: "Case archived successfully", case: archivedCase });
-    } catch (error) {
-      console.error("Error archiving case:", error);
-      res.status(500).json({ message: "Failed to archive case" });
-    }
-  });
-
-  // Unarchive case endpoint
-  app.patch('/api/cases/:id/unarchive', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const org = await storage.getUserOrganization(userId);
-      if (!org) return res.status(404).json({ message: "Organization not found" });
-      
-      // SECURITY: Check if case exists and belongs to organization
-      const smartCase = await storage.getSmartCase(req.params.id);
-      if (!smartCase || smartCase.orgId !== org.id) {
-        return res.status(404).json({ message: "Case not found" });
-      }
-      
-      const unarchivedCase = await storage.updateSmartCase(req.params.id, { isArchived: false });
-      res.json({ message: "Case unarchived successfully", case: unarchivedCase });
-    } catch (error) {
-      console.error("Error unarchiving case:", error);
-      res.status(500).json({ message: "Failed to unarchive case" });
     }
   });
 
@@ -3331,7 +3280,7 @@ Provide helpful analysis based on the actual data. Respond with valid JSON only:
               ...aiData.financials,
               augustCollections: aiData.financials?.augustCollections?.slice(0, 5) || []
             },
-            cases: (aiData as any).cases?.slice(0, 5) || [],
+            cases: aiData.cases?.slice(0, 5) || [],
             reminders: aiData.reminders?.slice(0, 5) || []
           };
 
