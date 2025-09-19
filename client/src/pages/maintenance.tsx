@@ -19,7 +19,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List } from "lucide-react";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import PropertyAssistant from "@/components/ai/property-assistant";
@@ -61,6 +61,7 @@ export default function Maintenance() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
+  const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list">("cards");
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -795,6 +796,89 @@ export default function Maintenance() {
             ]}
           />
 
+          {/* Summary Bar and View Toggle */}
+          <div className="bg-background border rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              {filteredCases.length > 0 ? (
+                <div className="flex items-center space-x-6">
+                  <div className="text-sm">
+                    <span className="font-semibold text-foreground" data-testid="text-total-cases">{filteredCases.length}</span>
+                    <span className="text-muted-foreground ml-1">Total Cases</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-red-600" data-testid="text-urgent-cases">
+                      {filteredCases.filter(c => c.priority === "Urgent").length}
+                    </span>
+                    <span className="text-muted-foreground ml-1">Urgent</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-orange-600" data-testid="text-high-cases">
+                      {filteredCases.filter(c => c.priority === "High").length}
+                    </span>
+                    <span className="text-muted-foreground ml-1">High</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-yellow-600" data-testid="text-medium-cases">
+                      {filteredCases.filter(c => c.priority === "Medium").length}
+                    </span>
+                    <span className="text-muted-foreground ml-1">Medium</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-semibold text-green-600" data-testid="text-open-cases">
+                      {filteredCases.filter(c => c.status === "New" || c.status === "In Progress" || c.status === "Scheduled").length}
+                    </span>
+                    <span className="text-muted-foreground ml-1">Active</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  Ready to track maintenance cases
+                </div>
+              )}
+              
+              {/* View Toggle Buttons - Always Visible */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground mr-2">View:</span>
+                <Button
+                  variant={currentView === "cards" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("cards")}
+                  data-testid="button-view-cards"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" />
+                  Cards
+                </Button>
+                <Button
+                  variant={currentView === "list" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("list")}
+                  data-testid="button-view-list"
+                >
+                  <List className="h-4 w-4 mr-1" />
+                  List
+                </Button>
+                <Button
+                  variant={currentView === "heat-map" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("heat-map")}
+                  data-testid="button-view-heat-map"
+                >
+                  <Map className="h-4 w-4 mr-1" />
+                  Heat Map
+                </Button>
+                <Button
+                  variant={currentView === "kanban" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("kanban")}
+                  data-testid="button-view-kanban"
+                >
+                  <BarChart3 className="h-4 w-4 mr-1" />
+                  Kanban
+                </Button>
+              </div>
+            </div>
+          </div>
+
           {casesLoading ? (
             <div className="grid grid-cols-1 gap-6">
               {[1, 2, 3].map((i) => (
@@ -810,8 +894,11 @@ export default function Maintenance() {
               ))}
             </div>
           ) : filteredCases.length > 0 ? (
-            <div className="grid grid-cols-1 gap-6">
-              {filteredCases.map((smartCase, index) => (
+            <>
+              {/* Render different views based on currentView state */}
+              {currentView === "cards" && (
+                <div className="grid grid-cols-1 gap-6">
+                  {filteredCases.map((smartCase, index) => (
                 <Card key={smartCase.id} className="hover:shadow-md transition-shadow" data-testid={`card-case-${index}`}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -925,8 +1012,37 @@ export default function Maintenance() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              )}
+
+              {/* List View - Coming Soon */}
+              {currentView === "list" && (
+                <div className="bg-background border rounded-lg p-8 text-center">
+                  <List className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">List View</h3>
+                  <p className="text-muted-foreground">List view coming soon...</p>
+                </div>
+              )}
+
+              {/* Heat Map View - Coming Soon */}
+              {currentView === "heat-map" && (
+                <div className="bg-background border rounded-lg p-8 text-center">
+                  <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Heat Map View</h3>
+                  <p className="text-muted-foreground">Heat map view coming soon...</p>
+                </div>
+              )}
+
+              {/* Kanban View - Coming Soon */}
+              {currentView === "kanban" && (
+                <div className="bg-background border rounded-lg p-8 text-center">
+                  <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Kanban View</h3>
+                  <p className="text-muted-foreground">Kanban view coming soon...</p>
+                </div>
+              )}
+            </>
           ) : (
             <Card>
               <CardContent className="p-12 text-center">
