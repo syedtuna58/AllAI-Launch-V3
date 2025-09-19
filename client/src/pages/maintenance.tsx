@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Component, ErrorInfo, ReactNode } from "react";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Sidebar from "@/components/layout/sidebar";
@@ -25,6 +26,57 @@ import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema"
 import PropertyAssistant from "@/components/ai/property-assistant";
 
 // Predefined maintenance categories
+// Error Boundary for Visualization Components
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+class VisualizationErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Visualization Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <Card data-testid="error-boundary-fallback">
+          <CardContent className="p-12 text-center">
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Visualization Error</h3>
+            <p className="text-muted-foreground mb-4">
+              There was an issue loading this view. Please try refreshing the page or switching to a different view.
+            </p>
+            <Button 
+              onClick={() => this.setState({ hasError: false })}
+              variant="outline"
+              data-testid="button-retry-visualization"
+            >
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 const MAINTENANCE_CATEGORIES = [
   "HVAC / Heating & Cooling",
   "Plumbing (Water, Drains, Sewer)",
@@ -907,6 +959,7 @@ export default function Maintenance() {
             <>
               {/* Render different views based on currentView state */}
               {currentView === "cards" && (
+                <VisualizationErrorBoundary>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filteredCases.map((smartCase, index) => (
                 <Card key={smartCase.id} className={`group hover:shadow-lg transition-all duration-200 border border-transparent border-l-4 ${getPriorityBorderClass(smartCase.priority)}`} data-testid={`card-case-${index}`}>
@@ -1044,6 +1097,7 @@ export default function Maintenance() {
                 </Card>
                   ))}
                 </div>
+                </VisualizationErrorBoundary>
               )}
 
               {/* List View - Coming Soon */}
@@ -1057,6 +1111,7 @@ export default function Maintenance() {
 
               {/* Heat Map View */}
               {currentView === "heat-map" && (
+                <VisualizationErrorBoundary>
                 <div className="space-y-6">
                   {/* Heat Map Legend */}
                   <div className="bg-background border rounded-lg p-4" data-testid="heat-map-legend">
@@ -1184,10 +1239,12 @@ export default function Maintenance() {
                     </div>
                   )}
                 </div>
+                </VisualizationErrorBoundary>
               )}
 
               {/* Kanban View */}
               {currentView === "kanban" && (
+                <VisualizationErrorBoundary>
                 <div className="space-y-4">
                   {/* Kanban Board */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 min-h-[600px]">
@@ -1384,6 +1441,7 @@ export default function Maintenance() {
                     })}
                   </div>
                 </div>
+                </VisualizationErrorBoundary>
               )}
             </>
           ) : (
