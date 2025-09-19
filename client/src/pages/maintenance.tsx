@@ -1186,12 +1186,203 @@ export default function Maintenance() {
                 </div>
               )}
 
-              {/* Kanban View - Coming Soon */}
+              {/* Kanban View */}
               {currentView === "kanban" && (
-                <div className="bg-background border rounded-lg p-8 text-center">
-                  <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Kanban View</h3>
-                  <p className="text-muted-foreground">Kanban view coming soon...</p>
+                <div className="space-y-4">
+                  {/* Kanban Board */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 min-h-[600px]">
+                    {["New", "In Review", "Scheduled", "In Progress", "On Hold", "Resolved", "Closed"].map((status) => {
+                      const statusCases = filteredCases.filter(case_ => case_.status === status);
+                      const getStatusColor = (status: string) => {
+                        switch (status) {
+                          case "New": return "border-t-red-500 bg-red-50 dark:bg-red-950/20";
+                          case "In Review": return "border-t-orange-500 bg-orange-50 dark:bg-orange-950/20";
+                          case "Scheduled": return "border-t-yellow-500 bg-yellow-50 dark:bg-yellow-950/20";
+                          case "In Progress": return "border-t-blue-500 bg-blue-50 dark:bg-blue-950/20";
+                          case "On Hold": return "border-t-purple-500 bg-purple-50 dark:bg-purple-950/20";
+                          case "Resolved": return "border-t-green-500 bg-green-50 dark:bg-green-950/20";
+                          case "Closed": return "border-t-gray-500 bg-gray-50 dark:bg-gray-950/20";
+                          default: return "border-t-gray-300 bg-gray-50 dark:bg-gray-950/20";
+                        }
+                      };
+
+                      const handleDragOver = (e: React.DragEvent) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      };
+
+                      const handleDrop = async (e: React.DragEvent) => {
+                        e.preventDefault();
+                        const dragData = e.dataTransfer.getData("text/plain");
+                        if (dragData) {
+                          const { caseId, fromStatus } = JSON.parse(dragData);
+                          if (fromStatus !== status) {
+                            try {
+                              await updateCaseStatusMutation.mutateAsync({
+                                id: caseId,
+                                status: status
+                              });
+                            } catch (error) {
+                              console.error('Error updating case status:', error);
+                            }
+                          }
+                        }
+                      };
+
+                      return (
+                        <div 
+                          key={status} 
+                          className={`${getStatusColor(status)} border border-t-4 rounded-lg p-4 h-fit min-h-[400px]`}
+                          data-testid={`kanban-column-${status.toLowerCase().replace(' ', '-')}`}
+                          onDragOver={handleDragOver}
+                          onDrop={handleDrop}
+                        >
+                          {/* Column Header */}
+                          <div className="flex items-center justify-between mb-4 pb-2 border-b">
+                            <h3 className="font-semibold text-lg">{status}</h3>
+                            <Badge variant="outline" className="text-xs" data-testid={`kanban-count-${status.toLowerCase().replace(' ', '-')}`}>
+                              {statusCases.length}
+                            </Badge>
+                          </div>
+
+                          {/* Cases in Column */}
+                          <div className="space-y-3">
+                            {statusCases.length > 0 ? (
+                              statusCases.map((smartCase, index) => {
+                                const property = properties?.find(p => p.id === smartCase.propertyId);
+                                const unit = units.find(u => u.id === smartCase.unitId);
+                                
+                                return (
+                                  <Card 
+                                    key={smartCase.id} 
+                                    className="group hover:shadow-md transition-all duration-200 cursor-move border border-gray-200 dark:border-gray-700"
+                                    data-testid={`kanban-card-${smartCase.id}`}
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.dataTransfer.setData("text/plain", JSON.stringify({
+                                        caseId: smartCase.id,
+                                        fromStatus: smartCase.status
+                                      }));
+                                      e.dataTransfer.effectAllowed = "move";
+                                    }}
+                                  >
+                                    <CardContent className="p-3">
+                                      {/* Priority Badge */}
+                                      <div className="flex items-start justify-between mb-2">
+                                        <div className={`w-3 h-3 ${getPriorityCircleColor(smartCase.priority)} rounded-full flex-shrink-0 mt-1`}></div>
+                                        {getPriorityBadge(smartCase.priority)}
+                                      </div>
+                                      
+                                      {/* Case Title */}
+                                      <h4 className="font-medium text-sm mb-2 line-clamp-2 group-hover:text-primary">
+                                        {smartCase.title}
+                                      </h4>
+                                      
+                                      {/* Property & Unit Info */}
+                                      <div className="text-xs text-muted-foreground mb-2 space-y-1">
+                                        <div className="flex items-center">
+                                          <MapPin className="h-3 w-3 mr-1" />
+                                          <span className="truncate">
+                                            {property?.name || `${property?.street}, ${property?.city}` || "Unknown Property"}
+                                          </span>
+                                        </div>
+                                        {unit && (
+                                          <div className="flex items-center">
+                                            <Home className="h-3 w-3 mr-1" />
+                                            <span>Unit {unit.label}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Category & Date */}
+                                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                                          {smartCase.category || "General"}
+                                        </span>
+                                        {smartCase.createdAt && (
+                                          <span>
+                                            {format(new Date(smartCase.createdAt), "MMM d")}
+                                          </span>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Quick Actions */}
+                                      <div className="flex items-center space-x-1 mt-3 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 px-2 text-xs"
+                                          onClick={() => {
+                                            setSelectedCase(smartCase);
+                                            setShowCaseDialog(true);
+                                          }}
+                                          data-testid={`button-view-case-${smartCase.id}`}
+                                        >
+                                          <Eye className="h-3 w-3 mr-1" />
+                                          View
+                                        </Button>
+                                        
+                                        {/* Status Change Buttons */}
+                                        {status !== "In Progress" && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
+                                            onClick={async () => {
+                                              try {
+                                                await updateCaseMutation.mutateAsync({
+                                                  id: smartCase.id,
+                                                  status: "In Progress"
+                                                });
+                                              } catch (error) {
+                                                console.error('Error updating case status:', error);
+                                              }
+                                            }}
+                                            disabled={updateCaseMutation.isPending}
+                                            data-testid={`button-start-case-${smartCase.id}`}
+                                          >
+                                            <Play className="h-3 w-3 mr-1" />
+                                            Start
+                                          </Button>
+                                        )}
+                                        
+                                        {status !== "Resolved" && status !== "Closed" && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-xs text-green-600 hover:text-green-700"
+                                            onClick={async () => {
+                                              try {
+                                                await updateCaseMutation.mutateAsync({
+                                                  id: smartCase.id,
+                                                  status: "Resolved"
+                                                });
+                                              } catch (error) {
+                                                console.error('Error updating case status:', error);
+                                              }
+                                            }}
+                                            disabled={updateCaseMutation.isPending}
+                                            data-testid={`button-resolve-case-${smartCase.id}`}
+                                          >
+                                            <CheckCircle className="h-3 w-3 mr-1" />
+                                            Resolve
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <div className="text-sm">No {status.toLowerCase()} cases</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </>
