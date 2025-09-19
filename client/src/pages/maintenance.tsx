@@ -1055,12 +1055,134 @@ export default function Maintenance() {
                 </div>
               )}
 
-              {/* Heat Map View - Coming Soon */}
+              {/* Heat Map View */}
               {currentView === "heat-map" && (
-                <div className="bg-background border rounded-lg p-8 text-center">
-                  <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Heat Map View</h3>
-                  <p className="text-muted-foreground">Heat map view coming soon...</p>
+                <div className="space-y-6">
+                  {/* Heat Map Legend */}
+                  <div className="bg-background border rounded-lg p-4" data-testid="heat-map-legend">
+                    <h3 className="text-sm font-semibold mb-3">Heat Map Legend</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                      <div className="flex items-center space-x-2" data-testid="legend-urgent">
+                        <div className="w-4 h-4 bg-red-500 rounded border"></div>
+                        <span>Urgent Cases</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-high">
+                        <div className="w-4 h-4 bg-orange-500 rounded border"></div>
+                        <span>High Priority</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-medium">
+                        <div className="w-4 h-4 bg-yellow-500 rounded border"></div>
+                        <span>Medium Priority</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-low">
+                        <div className="w-4 h-4 bg-gray-300 rounded border"></div>
+                        <span>Low/No Issues</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-resolved">
+                        <div className="w-4 h-4 bg-green-500 rounded border"></div>
+                        <span>Resolved</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-closed">
+                        <div className="w-4 h-4 bg-gray-600 rounded border"></div>
+                        <span>Closed</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-in-progress">
+                        <div className="w-4 h-4 bg-blue-500 rounded border"></div>
+                        <span>In Progress</span>
+                      </div>
+                      <div className="flex items-center space-x-2" data-testid="legend-on-hold">
+                        <div className="w-4 h-4 bg-purple-500 rounded border"></div>
+                        <span>On Hold</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Properties Heat Map */}
+                  {properties && properties.length > 0 ? (
+                    <div className="space-y-6">
+                      {properties
+                        .filter(property => propertyFilter === "all" || property.id === propertyFilter)
+                        .map((property) => {
+                          const propertyUnits = units.filter(unit => unit.propertyId === property.id);
+                          const propertyCases = filteredCases.filter(case_ => case_.propertyId === property.id);
+                          
+                          return (
+                            <div key={property.id} className="bg-background border rounded-lg p-4" data-testid={`heat-map-property-${property.id}`}>
+                              <div className="flex items-center justify-between mb-4">
+                                <div>
+                                  <h3 className="font-semibold text-lg">
+                                    {property.name || `${property.street}, ${property.city}`}
+                                  </h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    {propertyUnits.length} units • {propertyCases.length} active cases
+                                  </p>
+                                </div>
+                                <div className="text-right text-sm">
+                                  <span className="text-red-600 font-medium">
+                                    {propertyCases.filter(c => c.priority === "Urgent").length} Urgent
+                                  </span>
+                                  <span className="text-orange-600 font-medium ml-3">
+                                    {propertyCases.filter(c => c.priority === "High").length} High
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              {propertyUnits.length > 0 ? (
+                                <div className="grid grid-cols-8 md:grid-cols-12 lg:grid-cols-16 xl:grid-cols-20 gap-2">
+                                  {propertyUnits.map((unit) => {
+                                    const unitCases = propertyCases.filter(case_ => case_.unitId === unit.id);
+                                    const hasUrgent = unitCases.some(c => c.priority === "Urgent");
+                                    const hasHigh = unitCases.some(c => c.priority === "High");
+                                    const hasMedium = unitCases.some(c => c.priority === "Medium");
+                                    const hasResolved = unitCases.some(c => c.status === "Resolved");
+                                    const hasClosed = unitCases.some(c => c.status === "Closed");
+                                    const hasInProgress = unitCases.some(c => c.status === "In Progress");
+                                    const hasOnHold = unitCases.some(c => c.status === "On Hold");
+                                    
+                                    const getUnitColor = () => {
+                                      if (hasUrgent) return "bg-red-500 hover:bg-red-600";
+                                      if (hasHigh) return "bg-orange-500 hover:bg-orange-600";
+                                      if (hasMedium) return "bg-yellow-500 hover:bg-yellow-600";
+                                      if (hasInProgress) return "bg-blue-500 hover:bg-blue-600";
+                                      if (hasOnHold) return "bg-purple-500 hover:bg-purple-600";
+                                      if (hasResolved) return "bg-green-500 hover:bg-green-600";
+                                      if (hasClosed) return "bg-gray-600 hover:bg-gray-700";
+                                      return "bg-gray-300 hover:bg-gray-400";
+                                    };
+                                    
+                                    return (
+                                      <div
+                                        key={unit.id}
+                                        className={`w-8 h-8 ${getUnitColor()} rounded border border-white cursor-pointer transition-all duration-200 flex items-center justify-center text-white text-xs font-medium shadow-sm hover:shadow-md`}
+                                        title={`Unit ${unit.label}: ${unitCases.length} cases`}
+                                        data-testid={`heat-map-unit-${unit.id}`}
+                                      >
+                                        {unit.label}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <div className="mb-2">No units defined for this property</div>
+                                  {propertyCases.length > 0 && (
+                                    <div className="text-sm">
+                                      {propertyCases.length} cases assigned to property level
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="bg-background border rounded-lg p-8 text-center">
+                      <Map className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No Properties Found</h3>
+                      <p className="text-muted-foreground">Add properties to see heat map visualization</p>
+                    </div>
+                  )}
                 </div>
               )}
 
