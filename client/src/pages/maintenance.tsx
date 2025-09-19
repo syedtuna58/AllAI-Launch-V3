@@ -356,6 +356,16 @@ export default function Maintenance() {
     }
   };
 
+  const getPriorityBorderClass = (priority: string | null) => {
+    switch (priority) {
+      case "Urgent": return "[border-left-color:#ef4444] hover:[border-left-color:#dc2626]";
+      case "High": return "[border-left-color:#f97316] hover:[border-left-color:#ea580c]";
+      case "Medium": return "[border-left-color:#eab308] hover:[border-left-color:#ca8a04]";
+      case "Low": return "[border-left-color:#6b7280] hover:[border-left-color:#4b5563]";
+      default: return "[border-left-color:#d1d5db] hover:[border-left-color:#3b82f6]";
+    }
+  };
+
   const filteredProperties = properties || [];
   
   const filteredCases = smartCases?.filter(smartCase => {
@@ -897,69 +907,82 @@ export default function Maintenance() {
             <>
               {/* Render different views based on currentView state */}
               {currentView === "cards" && (
-                <div className="grid grid-cols-1 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filteredCases.map((smartCase, index) => (
-                <Card key={smartCase.id} className="hover:shadow-md transition-shadow" data-testid={`card-case-${index}`}>
-                  <CardHeader>
+                <Card key={smartCase.id} className={`group hover:shadow-lg transition-all duration-200 border border-transparent border-l-4 ${getPriorityBorderClass(smartCase.priority)}`} data-testid={`card-case-${index}`}>
+                  <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-12 h-12 ${getPriorityCircleColor(smartCase.priority)} rounded-lg flex items-center justify-center`}>
+                      <div className="flex items-start space-x-3 flex-1">
+                        <div className={`w-10 h-10 ${getPriorityCircleColor(smartCase.priority)} rounded-full flex items-center justify-center flex-shrink-0`}>
                           {getStatusIcon(smartCase.status)}
                         </div>
-                        <div>
-                          <CardTitle className="text-lg" data-testid={`text-case-title-${index}`}>{smartCase.title}</CardTitle>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base font-semibold leading-tight mb-1" data-testid={`text-case-title-${index}`}>
+                            {smartCase.title}
+                          </CardTitle>
                           {smartCase.category && (
-                            <p className="text-sm text-muted-foreground" data-testid={`text-case-category-${index}`}>
+                            <p className="text-xs text-muted-foreground truncate" data-testid={`text-case-category-${index}`}>
                               {smartCase.category}
                             </p>
                           )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        {getPriorityBadge(smartCase.priority)}
-                        {getStatusBadge(smartCase.status)}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent>
-                    {smartCase.description && (
-                      <p className="text-sm text-muted-foreground mb-4" data-testid={`text-case-description-${index}`}>
-                        {smartCase.description}
-                      </p>
-                    )}
-                    
-                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                      <div>
-                        <span data-testid={`text-case-created-${index}`}>
-                          Created {smartCase.createdAt ? new Date(smartCase.createdAt).toLocaleDateString() : 'Unknown'}
-                        </span>
-                        {smartCase.propertyId && (
-                          <div className="mt-1">
-                            <span className="text-blue-600 font-medium">Property:</span>
-                            <span className="ml-1" data-testid={`text-case-property-${index}`}>
+                          {smartCase.propertyId && (
+                            <p className="text-xs text-blue-600 font-medium mt-1 truncate">
                               {(() => {
                                 const property = properties?.find(p => p.id === smartCase.propertyId);
                                 return property ? (property.name || `${property.street}, ${property.city}`) : 'Property';
                               })()}
-                            </span>
-                          </div>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end space-y-1 flex-shrink-0">
+                        {getPriorityBadge(smartCase.priority)}
+                        {getStatusBadge(smartCase.status)}
+                        <div className="text-xs text-muted-foreground">
+                          {smartCase.createdAt ? new Date(smartCase.createdAt).toLocaleDateString() : 'Unknown'}
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="pt-0">
+                    {/* Description with progressive disclosure */}
+                    {smartCase.description && (
+                      <div className="mb-3">
+                        <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`text-case-description-${index}`}>
+                          {smartCase.description}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Status Badge and Cost - Prominent Display */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        {getStatusBadge(smartCase.status)}
+                        {smartCase.unitId && (
+                          <span className="text-xs bg-muted px-2 py-1 rounded">
+                            Unit {units.find(u => u.id === smartCase.unitId)?.label || 'N/A'}
+                          </span>
                         )}
                       </div>
                       {smartCase.estimatedCost && (
-                        <span data-testid={`text-case-cost-${index}`}>
-                          Est. Cost: ${Number(smartCase.estimatedCost).toLocaleString()}
-                        </span>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold text-foreground" data-testid={`text-case-cost-${index}`}>
+                            ${Number(smartCase.estimatedCost).toLocaleString()}
+                          </span>
+                          <p className="text-xs text-muted-foreground">Est. Cost</p>
+                        </div>
                       )}
                     </div>
                     
-                    <div className="flex space-x-2">
-                      {/* Status Dropdown */}
+                    {/* Quick Actions Row */}
+                    <div className="flex items-center space-x-2">
+                      {/* Status Dropdown - Compact */}
                       <Select 
                         value={smartCase.status || "New"} 
                         onValueChange={(newStatus) => updateCaseStatusMutation.mutate({ id: smartCase.id, status: newStatus })}
                       >
-                        <SelectTrigger className="w-32" data-testid={`select-case-status-${index}`}>
+                        <SelectTrigger className="h-8 text-xs flex-1" data-testid={`select-case-status-${index}`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -973,18 +996,22 @@ export default function Maintenance() {
                         </SelectContent>
                       </Select>
                       
+                      {/* Action Buttons - Icon Only for Compact Design */}
                       <Button 
                         variant="outline" 
-                        size="sm" 
+                        size="sm"
+                        className="h-8 w-8 p-0"
                         onClick={() => handleEditCase(smartCase)}
                         data-testid={`button-edit-case-${index}`}
+                        title="Edit Case"
                       >
-                        Edit
+                        <Wrench className="h-3 w-3" />
                       </Button>
                       
                       <Button 
                         variant="outline" 
                         size="sm"
+                        className="h-8 w-8 p-0"
                         onClick={() => {
                           setReminderCaseContext({
                             caseId: smartCase.id,
@@ -993,21 +1020,24 @@ export default function Maintenance() {
                           setShowReminderForm(true);
                         }}
                         data-testid={`button-remind-case-${index}`}
+                        title="Add Reminder"
                       >
-                        <Bell className="h-4 w-4" />
+                        <Bell className="h-3 w-3" />
                       </Button>
                       
                       <Button 
                         variant="outline" 
                         size="sm"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                         onClick={() => {
                           if (confirm("Are you sure you want to delete this case? This action cannot be undone.")) {
                             deleteCaseMutation.mutate(smartCase.id);
                           }
                         }}
                         data-testid={`button-delete-case-${index}`}
+                        title="Delete Case"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </CardContent>
