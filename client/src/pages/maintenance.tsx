@@ -20,9 +20,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play } from "lucide-react";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
+import { format } from "date-fns";
 import PropertyAssistant from "@/components/ai/property-assistant";
 
 // Predefined maintenance categories
@@ -105,6 +106,8 @@ export default function Maintenance() {
   const { isAuthenticated, isLoading } = useAuth();
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
+  const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
+  const [showCaseDialog, setShowCaseDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
@@ -395,6 +398,19 @@ export default function Maintenance() {
       case "Resolved": return <Badge className="bg-green-100 text-green-800">Resolved</Badge>;
       case "Closed": return <Badge className="bg-green-100 text-green-800">Closed</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  const getStatusVariant = (status: string | null) => {
+    switch (status) {
+      case "New": return "destructive";
+      case "In Review": return "secondary";
+      case "Scheduled": return "outline";
+      case "In Progress": return "default";
+      case "On Hold": return "secondary";
+      case "Resolved": return "default";
+      case "Closed": return "outline";
+      default: return "secondary";
     }
   };
 
@@ -1100,13 +1116,93 @@ export default function Maintenance() {
                 </VisualizationErrorBoundary>
               )}
 
-              {/* List View - Coming Soon */}
+              {/* List View */}
               {currentView === "list" && (
-                <div className="bg-background border rounded-lg p-8 text-center">
-                  <List className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">List View</h3>
-                  <p className="text-muted-foreground">List view coming soon...</p>
+                <VisualizationErrorBoundary>
+                <div className="space-y-4">
+                  {/* List Header */}
+                  <div className="bg-background border rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Maintenance Cases</h3>
+                      <Badge variant="outline" data-testid="list-total-count">
+                        {filteredCases.length} cases
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* List Items */}
+                  <div className="space-y-2">
+                    {filteredCases.map((smartCase, index) => {
+                      const property = properties?.find(p => p.id === smartCase.propertyId);
+                      const unit = units.find(u => u.id === smartCase.unitId);
+                      
+                      return (
+                        <Card key={smartCase.id} className="hover:shadow-md transition-all duration-200" data-testid={`list-case-${index}`}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-4 flex-1">
+                                {/* Priority Indicator */}
+                                <div className={`w-3 h-3 ${getPriorityCircleColor(smartCase.priority)} rounded-full flex-shrink-0`}></div>
+                                
+                                {/* Case Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <h4 className="font-medium text-sm truncate">{smartCase.title}</h4>
+                                    {getPriorityBadge(smartCase.priority)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground space-y-1">
+                                    <div className="flex items-center space-x-4">
+                                      <div className="flex items-center">
+                                        <MapPin className="h-3 w-3 mr-1" />
+                                        <span className="truncate">
+                                          {property?.name || `${property?.street}, ${property?.city}` || "Unknown Property"}
+                                        </span>
+                                      </div>
+                                      {unit && (
+                                        <div className="flex items-center">
+                                          <Home className="h-3 w-3 mr-1" />
+                                          <span>Unit {unit.label}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex items-center">
+                                        <Tag className="h-3 w-3 mr-1" />
+                                        <span>{smartCase.category || "General"}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Status and Actions */}
+                              <div className="flex items-center space-x-3">
+                                <Badge variant={getStatusVariant(smartCase.status)} className="text-xs">
+                                  {smartCase.status || "New"}
+                                </Badge>
+                                {smartCase.createdAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(smartCase.createdAt), "MMM d, yyyy")}
+                                  </span>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedCase(smartCase);
+                                    setShowCaseDialog(true);
+                                  }}
+                                  data-testid={`button-view-list-case-${smartCase.id}`}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 </div>
+                </VisualizationErrorBoundary>
               )}
 
               {/* Heat Map View */}
