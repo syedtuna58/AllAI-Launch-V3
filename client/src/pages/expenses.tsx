@@ -8,6 +8,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import ExpenseForm from "@/components/forms/expense-form";
 import MortgageAdjustmentForm from "@/components/forms/mortgage-adjustment-form";
+import ReminderForm from "@/components/forms/reminder-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -35,6 +36,8 @@ export default function Expenses() {
   const [unitFilter, setUnitFilter] = useState<string[]>([]);
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "category" | "property" | "calendar" | "timeline">("list");
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [reminderExpenseContext, setReminderExpenseContext] = useState<{expenseId: string; expenseDescription: string} | null>(null);
 
   // Check for URL parameters and set filters
   useEffect(() => {
@@ -117,6 +120,55 @@ export default function Expenses() {
       });
     },
   });
+
+  // Mutation for creating reminders
+  const createReminderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/reminders", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
+      setShowReminderForm(false);
+      setReminderExpenseContext(null);
+      toast({
+        title: "Success",
+        description: "Reminder created successfully",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create reminder",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleReminderSubmit = (data: any) => {
+    const reminderData = {
+      ...data,
+      type: "expense",
+      scope: "asset", 
+      scopeId: reminderExpenseContext?.expenseId,
+      payloadJson: {
+        expenseId: reminderExpenseContext?.expenseId,
+        expenseDescription: reminderExpenseContext?.expenseDescription
+      }
+    };
+    createReminderMutation.mutate(reminderData);
+  };
 
   const deleteExpenseMutation = useMutation({
     mutationFn: async (expenseId: string) => {
@@ -550,11 +602,33 @@ export default function Expenses() {
                     units={units}
                     entities={entities}
                     expense={editingExpense}
-                    onSubmit={(data) => {
+                    onSubmit={async (data) => {
+                      const { createReminder, ...expenseData } = data;
+                      
                       if (isEditingSeries && editingExpense) {
-                        bulkEditExpenseMutation.mutate({ expenseId: editingExpense.id, data });
+                        bulkEditExpenseMutation.mutate({ expenseId: editingExpense.id, data: expenseData });
                       } else {
-                        createExpenseMutation.mutate(data);
+                        // Create the expense first
+                        const response = await apiRequest("POST", "/api/expenses", expenseData);
+                        const newExpense = await response.json();
+                        
+                        // If reminder checkbox is checked, open reminder dialog
+                        if (createReminder && !editingExpense) {
+                          setReminderExpenseContext({
+                            expenseId: newExpense.id,
+                            expenseDescription: expenseData.description || `${expenseData.category || 'Miscellaneous'} expense`
+                          });
+                          setShowReminderForm(true);
+                        }
+                        
+                        // Update UI
+                        queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+                        setShowExpenseForm(false);
+                        setEditingExpense(null);
+                        toast({
+                          title: "Success",
+                          description: "Expense logged successfully",
+                        });
                       }
                     }}
                     onClose={() => {
@@ -567,6 +641,7 @@ export default function Expenses() {
                       setShowExpenseForm(false);
                       setShowMortgageAdjustment(true);
                     }}
+                    onCreateReminder={handleReminderSubmit}
                   />
                 </DialogContent>
               </Dialog>
@@ -1599,6 +1674,29 @@ export default function Expenses() {
             properties={properties}
             onClose={() => setShowMortgageAdjustment(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Reminder Creation Dialog */}
+      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Reminder for Expense</DialogTitle>
+          </DialogHeader>
+          {reminderExpenseContext && (
+            <ReminderForm 
+              properties={properties || []}
+              entities={entities || []}
+              units={units || []}
+              defaultType="expense"
+              onSubmit={handleReminderSubmit}
+              onCancel={() => {
+                setShowReminderForm(false);
+                setReminderExpenseContext(null);
+              }}
+              isLoading={createReminderMutation.isPending}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
