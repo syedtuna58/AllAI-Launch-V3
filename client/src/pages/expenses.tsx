@@ -603,32 +603,48 @@ export default function Expenses() {
                     entities={entities}
                     expense={editingExpense}
                     onSubmit={async (data) => {
+                      console.log("Form submitted with data:", data);
                       const { createReminder, ...expenseData } = data;
+                      console.log("createReminder value:", createReminder);
                       
                       if (isEditingSeries && editingExpense) {
                         bulkEditExpenseMutation.mutate({ expenseId: editingExpense.id, data: expenseData });
+                      } else if (editingExpense) {
+                        // Update existing expense
+                        createExpenseMutation.mutate(data);
                       } else {
-                        // Create the expense first
-                        const response = await apiRequest("POST", "/api/expenses", expenseData);
-                        const newExpense = await response.json();
-                        
-                        // If reminder checkbox is checked, open reminder dialog
-                        if (createReminder && !editingExpense) {
-                          setReminderExpenseContext({
-                            expenseId: newExpense.id,
-                            expenseDescription: expenseData.description || `${expenseData.category || 'Miscellaneous'} expense`
+                        try {
+                          // Create the expense first
+                          const response = await apiRequest("POST", "/api/expenses", expenseData);
+                          const newExpense = await response.json();
+                          console.log("New expense created:", newExpense);
+                          
+                          // If reminder checkbox is checked, open reminder dialog
+                          if (createReminder) {
+                            console.log("Opening reminder dialog for expense:", newExpense.id);
+                            setReminderExpenseContext({
+                              expenseId: newExpense.id,
+                              expenseDescription: expenseData.description || `${expenseData.category || 'Miscellaneous'} expense`
+                            });
+                            setShowReminderForm(true);
+                          }
+                          
+                          // Update UI
+                          queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+                          setShowExpenseForm(false);
+                          setEditingExpense(null);
+                          toast({
+                            title: "Success",
+                            description: "Expense logged successfully",
                           });
-                          setShowReminderForm(true);
+                        } catch (error) {
+                          console.error("Error creating expense:", error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to create expense",
+                            variant: "destructive",
+                          });
                         }
-                        
-                        // Update UI
-                        queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
-                        setShowExpenseForm(false);
-                        setEditingExpense(null);
-                        toast({
-                          title: "Success",
-                          description: "Expense logged successfully",
-                        });
                       }
                     }}
                     onClose={() => {
