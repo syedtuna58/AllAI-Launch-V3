@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import type { Property, Unit, OwnershipEntity } from "@shared/schema";
 import ReminderForm from "@/components/forms/reminder-form";
@@ -1503,6 +1504,37 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
           )}
         />
 
+        {/* Create Reminder Checkbox - only show when creating new expenses */}
+        {!expense && (
+          <FormField
+            control={form.control}
+            name="createReminder"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <input
+                    type="checkbox"
+                    checked={field.value}
+                    onChange={field.onChange}
+                    className="mt-1"
+                    data-testid="checkbox-create-reminder"
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel className="flex items-center space-x-1">
+                    <Bell className="h-4 w-4" />
+                    <span>Create Reminder</span>
+                  </FormLabel>
+                  <p className="text-xs text-muted-foreground">
+                    Set up a reminder for this expense (e.g., for tax deadlines, recurring payments, or follow-ups)
+                  </p>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         <div className="flex justify-end space-x-2">
           <Button type="button" variant="outline" onClick={onClose} data-testid="button-cancel-expense">
             Cancel
@@ -1510,13 +1542,26 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
           <Button 
             type="button" 
             disabled={isLoading} 
-            onClick={() => {
+            onClick={async () => {
               const formData = form.getValues();
+              const { createReminder, ...expenseData } = formData;
               const submissionData = {
-                ...formData,
+                ...expenseData,
                 receiptUrl: uploadedReceiptUrl || undefined,
               };
-              onSubmit(submissionData);
+              
+              // First create the expense
+              await onSubmit(submissionData);
+              
+              // If createReminder is checked and this is a new expense, open reminder dialog
+              if (createReminder && !expense) {
+                // We'll need to get the expense ID from the response to set up the reminder context
+                setReminderExpenseContext({
+                  expenseId: "new-expense", // This will need to be updated when we get the actual expense ID
+                  expenseDescription: expenseData.description || `Expense: ${expenseData.category || 'Miscellaneous'}`
+                });
+                setShowReminderForm(true);
+              }
             }}
             data-testid="button-submit-expense"
           >
@@ -1525,6 +1570,45 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
         </div>
         </form>
       </Form>
+
+      {/* Reminder Creation Dialog */}
+      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Reminder for Expense</DialogTitle>
+          </DialogHeader>
+          {reminderExpenseContext && (
+            <ReminderForm 
+              properties={properties || []}
+              entities={entities || []}
+              units={units || []}
+              defaultType="expense"
+              onSubmit={(reminderData) => {
+                if (onCreateReminder) {
+                  const finalReminderData = {
+                    ...reminderData,
+                    type: "expense",
+                    scope: "asset", 
+                    scopeId: reminderExpenseContext.expenseId,
+                    payloadJson: {
+                      expenseId: reminderExpenseContext.expenseId,
+                      expenseDescription: reminderExpenseContext.expenseDescription
+                    }
+                  };
+                  onCreateReminder(finalReminderData);
+                }
+                setShowReminderForm(false);
+                setReminderExpenseContext(null);
+              }}
+              onCancel={() => {
+                setShowReminderForm(false);
+                setReminderExpenseContext(null);
+              }}
+              isLoading={false}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
