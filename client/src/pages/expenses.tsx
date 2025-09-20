@@ -619,17 +619,7 @@ export default function Expenses() {
                           const newExpense = await response.json();
                           console.log("New expense created:", newExpense);
                           
-                          // If reminder checkbox is checked, open reminder dialog
-                          if (createReminder) {
-                            console.log("Opening reminder dialog for expense:", newExpense.id);
-                            setReminderExpenseContext({
-                              expenseId: newExpense.id,
-                              expenseDescription: expenseData.description || `${expenseData.category || 'Miscellaneous'} expense`
-                            });
-                            setShowReminderForm(true);
-                          }
-                          
-                          // Update UI
+                          // Update UI first
                           queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
                           setShowExpenseForm(false);
                           setEditingExpense(null);
@@ -637,6 +627,19 @@ export default function Expenses() {
                             title: "Success",
                             description: "Expense logged successfully",
                           });
+                          
+                          // If reminder checkbox is checked, open reminder dialog after UI updates
+                          if (createReminder) {
+                            console.log("Opening reminder dialog for expense:", newExpense.id);
+                            // Use setTimeout to ensure the expense dialog is closed first
+                            setTimeout(() => {
+                              setReminderExpenseContext({
+                                expenseId: newExpense.id,
+                                expenseDescription: expenseData.description || `${expenseData.category || 'Miscellaneous'} expense`
+                              });
+                              setShowReminderForm(true);
+                            }, 100);
+                          }
                         } catch (error) {
                           console.error("Error creating expense:", error);
                           toast({
