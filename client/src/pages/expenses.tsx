@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Receipt, Plus, DollarSign, Calendar, Building, Tag, Repeat, CheckCircle, Trash2, List, BarChart3, GitCompare, Grid3x3, Clock, PieChart } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart as RechartsPieChart, Pie } from "recharts";
-import type { Transaction, Property, Unit } from "@shared/schema";
+import type { Transaction, Property, Unit, OwnershipEntity } from "@shared/schema";
 import { getExpenseDeductionForYear, getAmortizationStatus, formatAmortizationDisplay } from "@/lib/calculations";
 import PropertyAssistant from "@/components/ai/property-assistant";
 
@@ -77,7 +77,7 @@ export default function Expenses() {
     retry: false,
   });
 
-  const { data: entities = [] } = useQuery<{id: string; name: string}[]>({
+  const { data: entities = [] } = useQuery<OwnershipEntity[]>({
     queryKey: ["/api/entities"],
     retry: false,
   });

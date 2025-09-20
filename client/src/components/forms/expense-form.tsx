@@ -153,6 +153,12 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
   const selectedPropertyUnits = units.filter(unit => unit.propertyId === selectedPropertyId);
   const isBuilding = selectedProperty?.type === "Commercial Building" || selectedProperty?.type === "Residential Building";
   const isMultiUnit = selectedPropertyUnits.length > 1;
+
+// Categories that typically benefit from reminders (outside component to avoid re-creation)
+const reminderSuggestedCategories = [
+  "Insurance", "Taxes", "Professional Services", "Legal", 
+  "Property Management", "Advertising", "Marketing"
+];
   
   // Update selectedPropertyId when editing an expense
   useEffect(() => {
@@ -231,6 +237,20 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
       }
     }
   }, [expense, selectedPropertyId, selectedPropertyUnits, form]);
+
+  // Track if user has manually changed reminder setting to avoid overriding their choice
+  const [userSetReminder, setUserSetReminder] = useState(false);
+  
+  // Auto-suggest reminder for certain expense categories (only on first selection, not overriding user choice)
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "category" && !expense && !userSetReminder && value.category && 
+          reminderSuggestedCategories.includes(value.category)) {
+        form.setValue("createReminder", true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, expense, userSetReminder]);
 
   // Combined Schedule E categories - both for regular categorization AND tax reporting
   const expenseCategories = [
@@ -1515,7 +1535,10 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
                   <input
                     type="checkbox"
                     checked={field.value}
-                    onChange={field.onChange}
+                    onChange={(e) => {
+                      setUserSetReminder(true);
+                      field.onChange(e);
+                    }}
                     className="mt-1"
                     data-testid="checkbox-create-reminder"
                   />
