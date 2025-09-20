@@ -14,10 +14,8 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import type { Property, Unit, OwnershipEntity } from "@shared/schema";
-import ReminderForm from "@/components/forms/reminder-form";
 import { formatNumberWithCommas, removeCommas } from "@/lib/formatters";
 
 const lineItemSchema = z.object({
@@ -146,8 +144,6 @@ interface ExpenseFormProps {
 export default function ExpenseForm({ properties, units, entities, expense, onSubmit, onClose, isLoading, onTriggerMortgageAdjustment, onCreateReminder }: ExpenseFormProps) {
   const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
-  const [showReminderForm, setShowReminderForm] = useState(false);
-  const [reminderExpenseContext, setReminderExpenseContext] = useState<{expenseId: string; expenseDescription: string} | null>(null);
   
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
   const selectedPropertyUnits = units.filter(unit => unit.propertyId === selectedPropertyId);
@@ -1565,26 +1561,13 @@ const reminderSuggestedCategories = [
           <Button 
             type="button" 
             disabled={isLoading} 
-            onClick={async () => {
+            onClick={() => {
               const formData = form.getValues();
-              const { createReminder, ...expenseData } = formData;
               const submissionData = {
-                ...expenseData,
+                ...formData,
                 receiptUrl: uploadedReceiptUrl || undefined,
               };
-              
-              // First create the expense
-              await onSubmit(submissionData);
-              
-              // If createReminder is checked and this is a new expense, open reminder dialog
-              if (createReminder && !expense) {
-                // We'll need to get the expense ID from the response to set up the reminder context
-                setReminderExpenseContext({
-                  expenseId: "new-expense", // This will need to be updated when we get the actual expense ID
-                  expenseDescription: expenseData.description || `Expense: ${expenseData.category || 'Miscellaneous'}`
-                });
-                setShowReminderForm(true);
-              }
+              onSubmit(submissionData);
             }}
             data-testid="button-submit-expense"
           >
@@ -1593,45 +1576,6 @@ const reminderSuggestedCategories = [
         </div>
         </form>
       </Form>
-
-      {/* Reminder Creation Dialog */}
-      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Reminder for Expense</DialogTitle>
-          </DialogHeader>
-          {reminderExpenseContext && (
-            <ReminderForm 
-              properties={properties || []}
-              entities={entities || []}
-              units={units || []}
-              defaultType="expense"
-              onSubmit={(reminderData) => {
-                if (onCreateReminder) {
-                  const finalReminderData = {
-                    ...reminderData,
-                    type: "expense",
-                    scope: "asset", 
-                    scopeId: reminderExpenseContext.expenseId,
-                    payloadJson: {
-                      expenseId: reminderExpenseContext.expenseId,
-                      expenseDescription: reminderExpenseContext.expenseDescription
-                    }
-                  };
-                  onCreateReminder(finalReminderData);
-                }
-                setShowReminderForm(false);
-                setReminderExpenseContext(null);
-              }}
-              onCancel={() => {
-                setShowReminderForm(false);
-                setReminderExpenseContext(null);
-              }}
-              isLoading={false}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
