@@ -8,14 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, HelpCircle, Repeat, Plus, Trash2, Receipt, X } from "lucide-react";
+import { CalendarIcon, HelpCircle, Repeat, Plus, Trash2, Receipt, X, Bell } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useState, useEffect } from "react";
-import type { Property, Unit } from "@shared/schema";
+import type { Property, Unit, OwnershipEntity } from "@shared/schema";
+import ReminderForm from "@/components/forms/reminder-form";
 import { formatNumberWithCommas, removeCommas } from "@/lib/formatters";
 
 const lineItemSchema = z.object({
@@ -60,6 +61,7 @@ const expenseSchema = z.object({
     "other_interest", "repairs", "supplies", "taxes", "utilities", "depreciation", 
     "other_expenses", "capital_improvements"
   ]).optional(),
+  createReminder: z.boolean().default(false),
 }).refine((data) => {
   if (data.isRecurring && !data.recurringFrequency) {
     return false;
@@ -137,11 +139,14 @@ interface ExpenseFormProps {
   onClose?: () => void;
   isLoading: boolean;
   onTriggerMortgageAdjustment?: () => void;
+  onCreateReminder?: (reminderData: any) => void;
 }
 
-export default function ExpenseForm({ properties, units, entities, expense, onSubmit, onClose, isLoading, onTriggerMortgageAdjustment }: ExpenseFormProps) {
+export default function ExpenseForm({ properties, units, entities, expense, onSubmit, onClose, isLoading, onTriggerMortgageAdjustment, onCreateReminder }: ExpenseFormProps) {
   const [uploadedReceiptUrl, setUploadedReceiptUrl] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [reminderExpenseContext, setReminderExpenseContext] = useState<{expenseId: string; expenseDescription: string} | null>(null);
   
   const selectedProperty = properties.find(p => p.id === selectedPropertyId);
   const selectedPropertyUnits = units.filter(unit => unit.propertyId === selectedPropertyId);
@@ -188,6 +193,7 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
       amortizationMethod: expense.amortizationMethod || "straight_line",
       // Tax categorization field
       scheduleECategory: expense.scheduleECategory || undefined,
+      createReminder: false,
     } : {
       description: "",
       amount: undefined,
@@ -208,6 +214,7 @@ export default function ExpenseForm({ properties, units, entities, expense, onSu
       amortizationMethod: "straight_line",
       // Tax categorization field  
       scheduleECategory: undefined,
+      createReminder: false,
     },
   });
 
