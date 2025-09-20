@@ -159,7 +159,7 @@ export default function Expenses() {
   const handleReminderSubmit = (data: any) => {
     const reminderData = {
       ...data,
-      type: "expense",
+      type: "custom",
       scope: "asset", 
       scopeId: reminderExpenseContext?.expenseId,
       payloadJson: {
@@ -603,9 +603,7 @@ export default function Expenses() {
                     entities={entities}
                     expense={editingExpense}
                     onSubmit={async (data) => {
-                      console.log("Form submitted with data:", data);
                       const { createReminder, ...expenseData } = data;
-                      console.log("createReminder value:", createReminder);
                       
                       if (isEditingSeries && editingExpense) {
                         bulkEditExpenseMutation.mutate({ expenseId: editingExpense.id, data: expenseData });
@@ -617,7 +615,6 @@ export default function Expenses() {
                           // Create the expense first
                           const response = await apiRequest("POST", "/api/expenses", expenseData);
                           const newExpense = await response.json();
-                          console.log("New expense created:", newExpense);
                           
                           // Update UI first
                           queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
@@ -630,7 +627,6 @@ export default function Expenses() {
                           
                           // If reminder checkbox is checked, open reminder dialog after UI updates
                           if (createReminder) {
-                            console.log("Opening reminder dialog for expense:", newExpense.id);
                             // Use setTimeout to ensure the expense dialog is closed first
                             setTimeout(() => {
                               setReminderExpenseContext({
@@ -641,7 +637,6 @@ export default function Expenses() {
                             }, 100);
                           }
                         } catch (error) {
-                          console.error("Error creating expense:", error);
                           toast({
                             title: "Error",
                             description: "Failed to create expense",
@@ -1707,7 +1702,7 @@ export default function Expenses() {
               properties={properties || []}
               entities={entities || []}
               units={units || []}
-              defaultType="expense"
+              defaultType="custom"
               onSubmit={handleReminderSubmit}
               onCancel={() => {
                 setShowReminderForm(false);
