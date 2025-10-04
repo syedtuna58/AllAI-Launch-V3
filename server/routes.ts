@@ -17,6 +17,9 @@ import {
   insertTransactionSchema,
   insertExpenseSchema,
   insertReminderSchema,
+  insertContractorAvailabilitySchema,
+  insertContractorBlackoutSchema,
+  insertAppointmentSchema,
 } from "@shared/schema";
 import OpenAI from "openai";
 
@@ -3418,6 +3421,314 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
         message: "Failed to process AI request",
         error: (error as Error).message 
       });
+    }
+  });
+
+  // ========================================
+  // AI TRIAGE & CONTRACTOR ROUTES
+  // ========================================
+
+  // Get all contractors for org
+  app.get('/api/contractors', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractors = await storage.getContractors(org.id);
+      res.json(contractors);
+    } catch (error) {
+      console.error("Error fetching contractors:", error);
+      res.status(500).json({ message: "Failed to fetch contractors" });
+    }
+  });
+
+  // Get contractor by ID
+  app.get('/api/contractors/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+      
+      res.json(contractor);
+    } catch (error) {
+      console.error("Error fetching contractor:", error);
+      res.status(500).json({ message: "Failed to fetch contractor" });
+    }
+  });
+
+  // Update contractor
+  app.patch('/api/contractors/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const validatedData = insertVendorSchema.partial().parse(req.body);
+      const updated = await storage.updateVendor(req.params.id, { ...validatedData, orgId: org.id });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating contractor:", error);
+      res.status(500).json({ message: "Failed to update contractor", error: (error as Error).message });
+    }
+  });
+
+  // Get contractor availability
+  app.get('/api/contractors/:id/availability', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const availability = await storage.getContractorAvailability(req.params.id);
+      res.json(availability);
+    } catch (error) {
+      console.error("Error fetching contractor availability:", error);
+      res.status(500).json({ message: "Failed to fetch availability" });
+    }
+  });
+
+  // Create contractor availability
+  app.post('/api/contractors/:id/availability', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const validatedData = insertContractorAvailabilitySchema.parse({ ...req.body, contractorId: req.params.id });
+      const created = await storage.createContractorAvailability(validatedData);
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating contractor availability:", error);
+      res.status(500).json({ message: "Failed to create availability", error: (error as Error).message });
+    }
+  });
+
+  // Get contractor blackouts
+  app.get('/api/contractors/:id/blackouts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const blackouts = await storage.getContractorBlackouts(req.params.id);
+      res.json(blackouts);
+    } catch (error) {
+      console.error("Error fetching contractor blackouts:", error);
+      res.status(500).json({ message: "Failed to fetch blackouts" });
+    }
+  });
+
+  // Create contractor blackout
+  app.post('/api/contractors/:id/blackouts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const validatedData = insertContractorBlackoutSchema.parse({ ...req.body, contractorId: req.params.id });
+      const created = await storage.createContractorBlackout(validatedData);
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating contractor blackout:", error);
+      res.status(500).json({ message: "Failed to create blackout", error: (error as Error).message });
+    }
+  });
+
+  // Get appointments for org
+  app.get('/api/appointments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const appointments = await storage.getAppointments(org.id);
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+      res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  // Get contractor's appointments
+  app.get('/api/contractors/:id/appointments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.id);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const appointments = await storage.getContractorAppointments(req.params.id);
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching contractor appointments:", error);
+      res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  // Create appointment
+  app.post('/api/appointments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const validatedData = insertAppointmentSchema.parse(req.body);
+
+      const smartCase = await storage.getSmartCase(validatedData.caseId);
+      if (!smartCase) return res.status(404).json({ message: "Case not found" });
+      if (smartCase.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const contractor = await storage.getContractor(validatedData.contractorId);
+      if (!contractor || contractor.orgId !== org.id) {
+        return res.status(403).json({ message: "Invalid contractor" });
+      }
+
+      const created = await storage.createAppointment(validatedData);
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating appointment:", error);
+      res.status(500).json({ message: "Failed to create appointment", error: (error as Error).message });
+    }
+  });
+
+  // Update appointment
+  app.patch('/api/appointments/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+      const smartCase = await storage.getSmartCase(appointment.caseId);
+      if (!smartCase || smartCase.orgId !== org.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = insertAppointmentSchema.partial().parse(req.body);
+      const updated = await storage.updateAppointment(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating appointment:", error);
+      res.status(500).json({ message: "Failed to update appointment", error: (error as Error).message });
+    }
+  });
+
+  // AI-powered smart case enhancement routes
+  app.post('/api/cases/:id/ai-triage', isAuthenticated, async (req: any, res) => {
+    try {
+      const smartCase = await storage.getSmartCase(req.params.id);
+      if (!smartCase) return res.status(404).json({ message: "Case not found" });
+
+      const { aiTriageService } = await import('./aiTriage');
+      
+      const triageResult = await aiTriageService.analyzeMaintenanceRequest({
+        title: smartCase.title,
+        description: smartCase.description || '',
+        category: smartCase.category || undefined,
+        unitId: smartCase.unitId || undefined,
+        propertyId: smartCase.propertyId || undefined,
+        orgId: smartCase.orgId
+      });
+
+      const priority = triageResult.urgency === 'Critical' ? 'Urgent' : triageResult.urgency;
+      
+      await storage.updateSmartCase(req.params.id, {
+        aiTriageJson: triageResult as any,
+        category: triageResult.category,
+        priority: priority,
+        estimatedDuration: triageResult.estimatedDuration
+      });
+
+      res.json({ triageResult });
+    } catch (error) {
+      console.error("Error running AI triage:", error);
+      res.status(500).json({ message: "Failed to run AI triage" });
+    }
+  });
+
+  app.post('/api/cases/:id/assign-contractor', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const smartCase = await storage.getSmartCase(req.params.id);
+      if (!smartCase) return res.status(404).json({ message: "Case not found" });
+      if (smartCase.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const contractors = await storage.getContractors(org.id);
+      
+      const { aiCoordinatorService } = await import('./aiCoordinator');
+      
+      const recommendations = await aiCoordinatorService.findOptimalContractor({
+        caseData: {
+          id: smartCase.id,
+          category: smartCase.category || 'General Maintenance',
+          priority: (smartCase.priority as any) || 'Medium',
+          description: smartCase.description || '',
+          location: '',
+          urgency: (smartCase.priority as any) || 'Medium',
+          estimatedDuration: smartCase.estimatedDuration || '2-4 hours',
+          safetyRisk: 'None',
+          contractorType: smartCase.category || 'General Maintenance'
+        },
+        availableContractors: contractors.map(c => ({
+          id: c.id,
+          name: c.name,
+          category: c.category || undefined,
+          specializations: c.category ? [c.category] : [],
+          availabilityPattern: 'Business hours',
+          responseTimeHours: c.responseTimeHours || 24,
+          estimatedHourlyRate: c.estimatedHourlyRate ? Number(c.estimatedHourlyRate) : undefined,
+          rating: c.rating ? Number(c.rating) : undefined,
+          maxJobsPerDay: c.maxJobsPerDay || 3,
+          currentWorkload: 0,
+          emergencyAvailable: c.emergencyAvailable || false,
+          isActiveContractor: c.isActiveContractor || false
+        }))
+      });
+
+      if (recommendations.length > 0) {
+        const topContractor = recommendations[0];
+        await storage.updateSmartCase(req.params.id, {
+          assignedContractorId: topContractor.contractorId
+        });
+      }
+
+      res.json({ recommendations });
+    } catch (error) {
+      console.error("Error assigning contractor:", error);
+      res.status(500).json({ message: "Failed to assign contractor" });
     }
   });
 
