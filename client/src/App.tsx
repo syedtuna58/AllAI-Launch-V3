@@ -12,6 +12,7 @@ import EntityPerformance from "@/pages/entity-performance";
 import PropertyPerformance from "@/pages/property-performance";
 import Tenants from "@/pages/tenants";
 import Maintenance from "@/pages/maintenance";
+import TenantRequest from "@/pages/tenant-request";
 import Expenses from "@/pages/expenses";
 import Revenue from "@/pages/revenue";
 import Tax from "@/pages/tax";
@@ -48,6 +49,7 @@ function Router() {
           <Route path="/entities/:id/performance" component={EntityPerformance} />
           <Route path="/tenants" component={Tenants} />
           <Route path="/maintenance" component={Maintenance} />
+          <Route path="/tenant-request" component={TenantRequest} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/revenue" component={Revenue} />
           <Route path="/tax" component={Tax} />
