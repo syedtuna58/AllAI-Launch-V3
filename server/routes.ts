@@ -3428,6 +3428,21 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
   // AI TRIAGE & CONTRACTOR ROUTES
   // ========================================
 
+  // Get current user's contractor profile
+  app.get('/api/contractors/me', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contractor = await storage.getContractorByUserId(userId);
+      if (!contractor) {
+        return res.status(404).json({ message: "Contractor profile not found" });
+      }
+      res.json(contractor);
+    } catch (error) {
+      console.error("Error fetching contractor profile:", error);
+      res.status(500).json({ message: "Failed to fetch contractor profile" });
+    }
+  });
+
   // Get all contractors for org
   app.get('/api/contractors', isAuthenticated, async (req: any, res) => {
     try {

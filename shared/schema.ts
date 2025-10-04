@@ -369,6 +369,7 @@ export const caseEvents = pgTable("case_events", {
 export const vendors = pgTable("vendors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orgId: varchar("org_id").notNull().references(() => organizations.id),
+  userId: varchar("user_id").references(() => users.id), // For contractor user accounts
   name: varchar("name").notNull(),
   category: varchar("category"), // plumbing, electrical, hvac, etc.
   phone: varchar("phone"),

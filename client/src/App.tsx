@@ -13,6 +13,7 @@ import PropertyPerformance from "@/pages/property-performance";
 import Tenants from "@/pages/tenants";
 import Maintenance from "@/pages/maintenance";
 import TenantRequest from "@/pages/tenant-request";
+import ContractorDashboard from "@/pages/contractor-dashboard";
 import Expenses from "@/pages/expenses";
 import Revenue from "@/pages/revenue";
 import Tax from "@/pages/tax";
@@ -50,6 +51,7 @@ function Router() {
           <Route path="/tenants" component={Tenants} />
           <Route path="/maintenance" component={Maintenance} />
           <Route path="/tenant-request" component={TenantRequest} />
+          <Route path="/contractor-dashboard" component={ContractorDashboard} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/revenue" component={Revenue} />
           <Route path="/tax" component={Tax} />
