@@ -209,6 +209,7 @@ export interface IStorage {
   // Contractor Blackout operations
   getContractorBlackouts(contractorId: string): Promise<ContractorBlackout[]>;
   createContractorBlackout(blackout: InsertContractorBlackout): Promise<ContractorBlackout>;
+  updateContractorBlackout(id: string, blackout: Partial<InsertContractorBlackout>): Promise<ContractorBlackout>;
   deleteContractorBlackout(id: string): Promise<void>;
   
   // Appointment operations
@@ -2675,6 +2676,15 @@ export class DatabaseStorage implements IStorage {
   async createContractorBlackout(blackout: InsertContractorBlackout): Promise<ContractorBlackout> {
     const [created] = await db.insert(contractorBlackouts).values(blackout).returning();
     return created;
+  }
+
+  async updateContractorBlackout(id: string, blackoutData: Partial<InsertContractorBlackout>): Promise<ContractorBlackout> {
+    const [updated] = await db
+      .update(contractorBlackouts)
+      .set(blackoutData)
+      .where(eq(contractorBlackouts.id, id))
+      .returning();
+    return updated;
   }
 
   async deleteContractorBlackout(id: string): Promise<void> {

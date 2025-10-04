@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -175,12 +176,20 @@ export default function ContractorDashboardPage() {
               <>
             <Card data-testid="card-contractor-info">
               <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5 text-primary" />
-                  <span className="font-medium">Viewing as: {contractor.name}</span>
-                  {contractor.category && (
-                    <Badge variant="outline">{contractor.category}</Badge>
-                  )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="h-5 w-5 text-primary" />
+                    <span className="font-medium">Viewing as: {contractor.name}</span>
+                    {contractor.category && (
+                      <Badge variant="outline">{contractor.category}</Badge>
+                    )}
+                  </div>
+                  <Link href="/contractor-availability">
+                    <Button variant="outline" size="sm" data-testid="button-manage-availability">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Manage Availability
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>

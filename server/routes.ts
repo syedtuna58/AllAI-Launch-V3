@@ -3574,6 +3574,45 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // Update contractor blackout
+  app.patch('/api/contractors/:contractorId/blackouts/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.contractorId);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const validatedData = insertContractorBlackoutSchema.partial().parse(req.body);
+      const updated = await storage.updateContractorBlackout(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating contractor blackout:", error);
+      res.status(500).json({ message: "Failed to update blackout", error: (error as Error).message });
+    }
+  });
+
+  // Delete contractor blackout
+  app.delete('/api/contractors/:contractorId/blackouts/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.contractorId);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      await storage.deleteContractorBlackout(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting contractor blackout:", error);
+      res.status(500).json({ message: "Failed to delete blackout" });
+    }
+  });
+
   // Get appointments for org
   app.get('/api/appointments', isAuthenticated, async (req: any, res) => {
     try {
