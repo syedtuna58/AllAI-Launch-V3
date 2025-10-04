@@ -39,12 +39,17 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Contractor scheduling enums (declared early for organizations table)
+export const schedulingModeEnum = pgEnum("scheduling_mode", ["contractor_first", "mutual_availability"]);
+
 // Organizations
 export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   ownerId: varchar("owner_id").notNull().references(() => users.id),
   timezone: varchar("timezone").default("America/New_York"),
+  schedulingMode: schedulingModeEnum("scheduling_mode").default("contractor_first"),
+  defaultAccessApprovalHours: integer("default_access_approval_hours").default(24),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -329,6 +334,13 @@ export const smartCases = pgTable("smart_cases", {
   aiTriageJson: jsonb("ai_triage_json"),
   estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
   actualCost: decimal("actual_cost", { precision: 10, scale: 2 }),
+  // Contractor assignment fields
+  assignedContractorId: varchar("assigned_contractor_id").references(() => vendors.id),
+  scheduledStartAt: timestamp("scheduled_start_at"),
+  scheduledEndAt: timestamp("scheduled_end_at"),
+  estimatedDuration: varchar("estimated_duration"),
+  triageConversationId: varchar("triage_conversation_id"),
+  reporterUserId: varchar("reporter_user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -369,6 +381,12 @@ export const vendors = pgTable("vendors", {
   vendorType: vendorTypeEnum("vendor_type").default("individual"),
   w9OnFile: boolean("w9_on_file").default(false),
   taxExempt: boolean("tax_exempt").default(false),
+  // Contractor-specific fields
+  isActiveContractor: boolean("is_active_contractor").default(false),
+  emergencyAvailable: boolean("emergency_available").default(false),
+  estimatedHourlyRate: decimal("estimated_hourly_rate", { precision: 10, scale: 2 }),
+  maxJobsPerDay: integer("max_jobs_per_day").default(3),
+  responseTimeHours: integer("response_time_hours").default(24),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -380,6 +398,84 @@ export const camCategories = pgTable("cam_categories", {
   code: varchar("code"),
   description: text("description"),
   isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Contractor Availability (weekly schedule)
+export const contractorAvailability = pgTable("contractor_availability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull().references(() => vendors.id),
+  dayOfWeek: integer("day_of_week").notNull(), // 0=Sunday, 1=Monday, ..., 6=Saturday
+  startTime: varchar("start_time").notNull(), // "09:00"
+  endTime: varchar("end_time").notNull(), // "17:00"
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Contractor Blackouts (unavailable periods)
+export const contractorBlackouts = pgTable("contractor_blackouts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull().references(() => vendors.id),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  reason: varchar("reason"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Appointments
+export const appointmentStatusEnum = pgEnum("appointment_status", ["Scheduled", "In Progress", "Completed", "Cancelled", "No Show"]);
+
+export const appointments = pgTable("appointments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => smartCases.id),
+  contractorId: varchar("contractor_id").notNull().references(() => vendors.id),
+  scheduledStartAt: timestamp("scheduled_start_at").notNull(),
+  scheduledEndAt: timestamp("scheduled_end_at").notNull(),
+  actualStartAt: timestamp("actual_start_at"),
+  actualEndAt: timestamp("actual_end_at"),
+  status: appointmentStatusEnum("status").default("Scheduled"),
+  notes: text("notes"),
+  requiresTenantAccess: boolean("requires_tenant_access").default(false),
+  tenantApproved: boolean("tenant_approved").default(false),
+  tenantApprovedAt: timestamp("tenant_approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Triage Conversations (AI chat sessions)
+export const triageConversations = pgTable("triage_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  propertyId: varchar("property_id").references(() => properties.id),
+  unitId: varchar("unit_id").references(() => units.id),
+  status: varchar("status").default("active"), // active, completed, abandoned
+  caseCreated: boolean("case_created").default(false),
+  createdCaseId: varchar("created_case_id").references(() => smartCases.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Triage Messages
+export const triageMessages = pgTable("triage_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => triageConversations.id),
+  role: varchar("role").notNull(), // user, assistant, system
+  content: text("content").notNull(),
+  mediaUrls: text("media_urls").array(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Duration Learning Logs (AI learns from historical data)
+export const durationLearningLogs = pgTable("duration_learning_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => smartCases.id),
+  category: varchar("category").notNull(),
+  estimatedDuration: varchar("estimated_duration"),
+  actualDuration: integer("actual_duration"), // in minutes
+  accuracyScore: decimal("accuracy_score", { precision: 3, scale: 2 }),
+  contractorId: varchar("contractor_id").references(() => vendors.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -728,6 +824,25 @@ export const insertExpenseSchema = insertTransactionSchema.extend({
   path: ["entityId"],
 });
 
+// Contractor-related insert schemas
+export const insertContractorAvailabilitySchema = createInsertSchema(contractorAvailability).omit({ id: true, createdAt: true });
+export const insertContractorBlackoutSchema = createInsertSchema(contractorBlackouts).omit({ id: true, createdAt: true });
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTriageConversationSchema = createInsertSchema(triageConversations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTriageMessageSchema = createInsertSchema(triageMessages).omit({ id: true, createdAt: true });
+export const insertDurationLearningLogSchema = createInsertSchema(durationLearningLogs).omit({ id: true, createdAt: true });
+
+// Contractor availability update schema
+export const contractorAvailabilityUpdateSchema = z.object({
+  contractorId: z.string(),
+  availability: z.array(z.object({
+    dayOfWeek: z.number().min(0).max(6),
+    startTime: z.string(),
+    endTime: z.string(),
+    isActive: z.boolean().default(true),
+  })),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -761,6 +876,20 @@ export type InsertReminder = z.infer<typeof insertReminderSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type RentPayment = typeof rentPayments.$inferSelect;
 export type InsertRentPayment = typeof rentPayments.$inferInsert;
+
+// Contractor-related types
+export type ContractorAvailability = typeof contractorAvailability.$inferSelect;
+export type InsertContractorAvailability = z.infer<typeof insertContractorAvailabilitySchema>;
+export type ContractorBlackout = typeof contractorBlackouts.$inferSelect;
+export type InsertContractorBlackout = z.infer<typeof insertContractorBlackoutSchema>;
+export type Appointment = typeof appointments.$inferSelect;
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+export type TriageConversation = typeof triageConversations.$inferSelect;
+export type InsertTriageConversation = z.infer<typeof insertTriageConversationSchema>;
+export type TriageMessage = typeof triageMessages.$inferSelect;
+export type InsertTriageMessage = z.infer<typeof insertTriageMessageSchema>;
+export type DurationLearningLog = typeof durationLearningLogs.$inferSelect;
+export type InsertDurationLearningLog = z.infer<typeof insertDurationLearningLogSchema>;
 
 // Tax-related insert schemas
 export const insertDepreciationAssetSchema = createInsertSchema(depreciationAssets).omit({ id: true, createdAt: true }).extend({
