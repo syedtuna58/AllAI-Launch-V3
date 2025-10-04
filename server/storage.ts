@@ -24,6 +24,11 @@ import {
   notifications,
   threads,
   messages,
+  contractorAvailability,
+  contractorBlackouts,
+  appointments,
+  triageConversations,
+  triageMessages,
   type User,
   type UpsertUser,
   type Organization,
@@ -54,6 +59,16 @@ import {
   type Reminder,
   type InsertReminder,
   type Notification,
+  type ContractorAvailability,
+  type InsertContractorAvailability,
+  type ContractorBlackout,
+  type InsertContractorBlackout,
+  type Appointment,
+  type InsertAppointment,
+  type TriageConversation,
+  type InsertTriageConversation,
+  type TriageMessage,
+  type InsertTriageMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
@@ -178,6 +193,38 @@ export interface IStorage {
       dueDate: Date;
     }>;
   }>;
+  
+  // Contractor operations
+  getContractors(orgId: string): Promise<Vendor[]>;
+  getContractor(id: string): Promise<Vendor | undefined>;
+  updateVendor(id: string, vendor: Partial<InsertVendor>): Promise<Vendor>;
+  
+  // Contractor Availability operations
+  getContractorAvailability(contractorId: string): Promise<ContractorAvailability[]>;
+  createContractorAvailability(availability: InsertContractorAvailability): Promise<ContractorAvailability>;
+  updateContractorAvailability(id: string, availability: Partial<InsertContractorAvailability>): Promise<ContractorAvailability>;
+  deleteContractorAvailability(id: string): Promise<void>;
+  
+  // Contractor Blackout operations
+  getContractorBlackouts(contractorId: string): Promise<ContractorBlackout[]>;
+  createContractorBlackout(blackout: InsertContractorBlackout): Promise<ContractorBlackout>;
+  deleteContractorBlackout(id: string): Promise<void>;
+  
+  // Appointment operations
+  getAppointments(orgId: string): Promise<Appointment[]>;
+  getAppointment(id: string): Promise<Appointment | undefined>;
+  getContractorAppointments(contractorId: string): Promise<Appointment[]>;
+  getCaseAppointments(caseId: string): Promise<Appointment[]>;
+  createAppointment(appointment: InsertAppointment): Promise<Appointment>;
+  updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
+  deleteAppointment(id: string): Promise<void>;
+  
+  // AI Triage operations
+  getTriageConversation(id: string): Promise<TriageConversation | undefined>;
+  createTriageConversation(conversation: InsertTriageConversation): Promise<string>;
+  updateTriageConversation(id: string, conversation: Partial<InsertTriageConversation>): Promise<TriageConversation>;
+  getTriageMessages(conversationId: string): Promise<TriageMessage[]>;
+  createTriageMessage(message: InsertTriageMessage): Promise<TriageMessage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2556,6 +2603,165 @@ export class DatabaseStorage implements IStorage {
         console.log(`Generated missing ${recurringTransaction.type} for ${expectedDate.toISOString().split('T')[0]}: ${recurringTransaction.description}`);
       }
     }
+  }
+
+  // Contractor operations
+  async getContractors(orgId: string): Promise<Vendor[]> {
+    return db.select().from(vendors).where(
+      and(
+        eq(vendors.orgId, orgId),
+        eq(vendors.isActiveContractor, true)
+      )
+    );
+  }
+
+  async getContractor(id: string): Promise<Vendor | undefined> {
+    const [contractor] = await db.select().from(vendors).where(eq(vendors.id, id));
+    return contractor;
+  }
+
+  async updateVendor(id: string, vendorData: Partial<InsertVendor>): Promise<Vendor> {
+    const [vendor] = await db
+      .update(vendors)
+      .set(vendorData)
+      .where(eq(vendors.id, id))
+      .returning();
+    return vendor;
+  }
+
+  // Contractor Availability operations
+  async getContractorAvailability(contractorId: string): Promise<ContractorAvailability[]> {
+    return db.select().from(contractorAvailability)
+      .where(eq(contractorAvailability.contractorId, contractorId))
+      .orderBy(asc(contractorAvailability.dayOfWeek));
+  }
+
+  async createContractorAvailability(availability: InsertContractorAvailability): Promise<ContractorAvailability> {
+    const [created] = await db.insert(contractorAvailability).values(availability).returning();
+    return created;
+  }
+
+  async updateContractorAvailability(id: string, availabilityData: Partial<InsertContractorAvailability>): Promise<ContractorAvailability> {
+    const [updated] = await db
+      .update(contractorAvailability)
+      .set(availabilityData)
+      .where(eq(contractorAvailability.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteContractorAvailability(id: string): Promise<void> {
+    await db.delete(contractorAvailability).where(eq(contractorAvailability.id, id));
+  }
+
+  // Contractor Blackout operations
+  async getContractorBlackouts(contractorId: string): Promise<ContractorBlackout[]> {
+    return db.select().from(contractorBlackouts)
+      .where(eq(contractorBlackouts.contractorId, contractorId))
+      .orderBy(asc(contractorBlackouts.startDate));
+  }
+
+  async createContractorBlackout(blackout: InsertContractorBlackout): Promise<ContractorBlackout> {
+    const [created] = await db.insert(contractorBlackouts).values(blackout).returning();
+    return created;
+  }
+
+  async deleteContractorBlackout(id: string): Promise<void> {
+    await db.delete(contractorBlackouts).where(eq(contractorBlackouts.id, id));
+  }
+
+  // Appointment operations
+  async getAppointments(orgId: string): Promise<Appointment[]> {
+    const result = await db
+      .select({
+        id: appointments.id,
+        caseId: appointments.caseId,
+        contractorId: appointments.contractorId,
+        scheduledStartAt: appointments.scheduledStartAt,
+        scheduledEndAt: appointments.scheduledEndAt,
+        actualStartAt: appointments.actualStartAt,
+        actualEndAt: appointments.actualEndAt,
+        status: appointments.status,
+        notes: appointments.notes,
+        requiresTenantAccess: appointments.requiresTenantAccess,
+        tenantApproved: appointments.tenantApproved,
+        tenantApprovedAt: appointments.tenantApprovedAt,
+        createdAt: appointments.createdAt,
+        updatedAt: appointments.updatedAt,
+      })
+      .from(appointments)
+      .innerJoin(smartCases, eq(appointments.caseId, smartCases.id))
+      .where(eq(smartCases.orgId, orgId))
+      .orderBy(desc(appointments.scheduledStartAt));
+    
+    return result;
+  }
+
+  async getAppointment(id: string): Promise<Appointment | undefined> {
+    const [appointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    return appointment;
+  }
+
+  async getContractorAppointments(contractorId: string): Promise<Appointment[]> {
+    return db.select().from(appointments)
+      .where(eq(appointments.contractorId, contractorId))
+      .orderBy(asc(appointments.scheduledStartAt));
+  }
+
+  async getCaseAppointments(caseId: string): Promise<Appointment[]> {
+    return db.select().from(appointments)
+      .where(eq(appointments.caseId, caseId))
+      .orderBy(desc(appointments.scheduledStartAt));
+  }
+
+  async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
+    const [created] = await db.insert(appointments).values(appointment).returning();
+    return created;
+  }
+
+  async updateAppointment(id: string, appointmentData: Partial<InsertAppointment>): Promise<Appointment> {
+    const [updated] = await db
+      .update(appointments)
+      .set(appointmentData)
+      .where(eq(appointments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAppointment(id: string): Promise<void> {
+    await db.delete(appointments).where(eq(appointments.id, id));
+  }
+
+  // AI Triage operations
+  async getTriageConversation(id: string): Promise<TriageConversation | undefined> {
+    const [conversation] = await db.select().from(triageConversations)
+      .where(eq(triageConversations.id, id));
+    return conversation;
+  }
+
+  async createTriageConversation(conversation: InsertTriageConversation): Promise<string> {
+    const [created] = await db.insert(triageConversations).values(conversation).returning();
+    return created.id;
+  }
+
+  async updateTriageConversation(id: string, conversationData: Partial<InsertTriageConversation>): Promise<TriageConversation> {
+    const [updated] = await db
+      .update(triageConversations)
+      .set({ ...conversationData, updatedAt: new Date() })
+      .where(eq(triageConversations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getTriageMessages(conversationId: string): Promise<TriageMessage[]> {
+    return db.select().from(triageMessages)
+      .where(eq(triageMessages.conversationId, conversationId))
+      .orderBy(asc(triageMessages.createdAt));
+  }
+
+  async createTriageMessage(message: InsertTriageMessage): Promise<TriageMessage> {
+    const [created] = await db.insert(triageMessages).values(message).returning();
+    return created;
   }
 }
 
