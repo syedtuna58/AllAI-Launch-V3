@@ -28,6 +28,15 @@ export function RoleProvider({ children, defaultRole }: RoleProviderProps) {
 
   const [currentRole, setCurrentRole] = useState<UserRole>(getInitialRole);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('selectedRole');
+      if (!saved && defaultRole) {
+        setCurrentRole(defaultRole);
+      }
+    } catch (e) {}
+  }, [defaultRole]);
+
   const setRole = (role: UserRole) => {
     setCurrentRole(role);
     try {

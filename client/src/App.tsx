@@ -71,11 +71,8 @@ function Router() {
 }
 
 function AppContent() {
-  const { user } = useAuth();
-  const defaultRole = user?.role as 'admin' | 'contractor' | 'tenant' | undefined;
-  
   return (
-    <RoleProvider defaultRole={defaultRole}>
+    <RoleProvider defaultRole="admin">
       <TooltipProvider>
         <Toaster />
         <Router />
