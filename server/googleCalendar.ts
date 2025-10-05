@@ -130,6 +130,125 @@ export async function updateCalendarEvent(
   }
 }
 
+export async function checkAvailability(
+  startDateTime: Date,
+  endDateTime: Date
+): Promise<{ available: boolean; conflicts: any[] }> {
+  try {
+    const calendar = await getUncachableGoogleCalendarClient();
+
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startDateTime.toISOString(),
+      timeMax: endDateTime.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    const events = response.data.items || [];
+    
+    const conflicts = events.filter(event => {
+      if (!event.start?.dateTime || !event.end?.dateTime) return false;
+      
+      const eventStart = new Date(event.start.dateTime);
+      const eventEnd = new Date(event.end.dateTime);
+      
+      const overlaps = (
+        (startDateTime >= eventStart && startDateTime < eventEnd) ||
+        (endDateTime > eventStart && endDateTime <= eventEnd) ||
+        (startDateTime <= eventStart && endDateTime >= eventEnd)
+      );
+      
+      return overlaps;
+    });
+
+    return {
+      available: conflicts.length === 0,
+      conflicts: conflicts.map(c => ({
+        summary: c.summary,
+        start: c.start?.dateTime,
+        end: c.end?.dateTime,
+      }))
+    };
+  } catch (error) {
+    console.error('Error checking calendar availability:', error);
+    throw new Error('Failed to check calendar availability. Please try again or contact support.');
+  }
+}
+
+export async function findAvailableSlots(
+  startDate: Date,
+  endDate: Date,
+  durationMinutes: number
+): Promise<{ start: Date; end: Date }[]> {
+  try {
+    const calendar = await getUncachableGoogleCalendarClient();
+
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startDate.toISOString(),
+      timeMax: endDate.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    const busyEvents = (response.data.items || []).filter(
+      e => e.start?.dateTime && e.end?.dateTime
+    );
+
+    const availableSlots: { start: Date; end: Date }[] = [];
+    const workingHoursStart = 9;
+    const workingHoursEnd = 17;
+
+    let currentDate = new Date(startDate);
+    while (currentDate < endDate) {
+      if (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+
+      let slotStart = new Date(currentDate);
+      slotStart.setHours(workingHoursStart, 0, 0, 0);
+      
+      const dayEnd = new Date(currentDate);
+      dayEnd.setHours(workingHoursEnd, 0, 0, 0);
+
+      while (slotStart < dayEnd) {
+        const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
+        
+        if (slotEnd > dayEnd) break;
+
+        const hasConflict = busyEvents.some(event => {
+          const eventStart = new Date(event.start!.dateTime!);
+          const eventEnd = new Date(event.end!.dateTime!);
+          
+          return (
+            (slotStart >= eventStart && slotStart < eventEnd) ||
+            (slotEnd > eventStart && slotEnd <= eventEnd) ||
+            (slotStart <= eventStart && slotEnd >= eventEnd)
+          );
+        });
+
+        if (!hasConflict) {
+          availableSlots.push({
+            start: new Date(slotStart),
+            end: new Date(slotEnd),
+          });
+        }
+
+        slotStart = new Date(slotEnd);
+      }
+
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return availableSlots.slice(0, 10);
+  } catch (error) {
+    console.error('Error finding available slots:', error);
+    return [];
+  }
+}
+
 export async function deleteCalendarEvent(eventId: string) {
   try {
     const calendar = await getUncachableGoogleCalendarClient();

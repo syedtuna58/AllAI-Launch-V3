@@ -3771,6 +3771,46 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // Check contractor calendar availability
+  app.post('/api/contractors/:id/check-availability', isAuthenticated, async (req: any, res) => {
+    try {
+      const { startDateTime, endDateTime } = req.body;
+      
+      if (!startDateTime || !endDateTime) {
+        return res.status(400).json({ message: "startDateTime and endDateTime are required" });
+      }
+
+      const { checkAvailability, findAvailableSlots } = await import('./googleCalendar');
+      
+      const availability = await checkAvailability(
+        new Date(startDateTime),
+        new Date(endDateTime)
+      );
+
+      if (!availability.available) {
+        const startDate = new Date(startDateTime);
+        const endDate = new Date(startDateTime);
+        endDate.setDate(endDate.getDate() + 7);
+        
+        const alternateSlots = await findAvailableSlots(startDate, endDate, 120);
+        
+        return res.json({
+          available: false,
+          conflicts: availability.conflicts,
+          alternateSlots
+        });
+      }
+
+      res.json({ available: true, conflicts: [] });
+    } catch (error) {
+      console.error("Error checking availability:", error);
+      res.status(503).json({ 
+        message: "Calendar service unavailable. Please try again later.",
+        error: (error as Error).message 
+      });
+    }
+  });
+
   // Tenant appointment approval endpoints
   app.post('/api/appointments/:id/tenant-approve', async (req: any, res) => {
     try {
