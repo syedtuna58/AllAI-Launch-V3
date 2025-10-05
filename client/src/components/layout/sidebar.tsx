@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/contexts/RoleContext";
@@ -95,10 +95,10 @@ export default function Sidebar() {
               asChild
               data-testid={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
             >
-              <a href={item.href} className="flex items-center space-x-3">
+              <Link href={item.href} className="flex items-center space-x-3">
                 <Icon className="h-5 w-5" />
                 <span>{item.name}</span>
-              </a>
+              </Link>
             </Button>
           );
         })}
