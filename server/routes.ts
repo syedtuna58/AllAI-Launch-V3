@@ -3666,6 +3666,31 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
       }
 
       const created = await storage.createAppointment(validatedData);
+
+      try {
+        const { createCalendarEvent } = await import('./googleCalendar');
+        const property = smartCase.propertyId ? await storage.getProperty(smartCase.propertyId) : null;
+        const unit = smartCase.unitId ? await storage.getUnit(smartCase.unitId) : null;
+        
+        const location = property 
+          ? `${property.street}, ${property.city}, ${property.state} ${property.zipCode}${unit ? ` - Unit ${unit.label}` : ''}`
+          : '';
+        
+        const eventId = await createCalendarEvent(
+          `Maintenance: ${smartCase.title}`,
+          `${smartCase.description || ''}\n\nContractor: ${contractor.name}\nLocation: ${location}`,
+          new Date(created.scheduledStartAt),
+          new Date(created.scheduledEndAt),
+          []
+        );
+
+        if (eventId) {
+          await storage.updateAppointment(created.id, { googleCalendarEventId: eventId });
+        }
+      } catch (calendarError) {
+        console.error("Failed to create Google Calendar event:", calendarError);
+      }
+
       res.json(created);
     } catch (error) {
       console.error("Error creating appointment:", error);
@@ -3690,6 +3715,31 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
 
       const validatedData = insertAppointmentSchema.partial().parse(req.body);
       const updated = await storage.updateAppointment(req.params.id, validatedData);
+
+      if (appointment.googleCalendarEventId && (validatedData.scheduledStartAt || validatedData.scheduledEndAt)) {
+        try {
+          const { updateCalendarEvent } = await import('./googleCalendar');
+          const contractor = await storage.getContractor(appointment.contractorId);
+          const property = smartCase.propertyId ? await storage.getProperty(smartCase.propertyId) : null;
+          const unit = smartCase.unitId ? await storage.getUnit(smartCase.unitId) : null;
+          
+          const location = property 
+            ? `${property.street}, ${property.city}, ${property.state} ${property.zipCode}${unit ? ` - Unit ${unit.label}` : ''}`
+            : '';
+          
+          await updateCalendarEvent(
+            appointment.googleCalendarEventId,
+            `Maintenance: ${smartCase.title}`,
+            `${smartCase.description || ''}\n\nContractor: ${contractor?.name || 'Unknown'}\nLocation: ${location}`,
+            new Date(updated.scheduledStartAt),
+            new Date(updated.scheduledEndAt),
+            []
+          );
+        } catch (calendarError) {
+          console.error("Failed to update Google Calendar event:", calendarError);
+        }
+      }
+
       res.json(updated);
     } catch (error) {
       console.error("Error updating appointment:", error);

@@ -439,6 +439,7 @@ export const appointments = pgTable("appointments", {
   requiresTenantAccess: boolean("requires_tenant_access").default(false),
   tenantApproved: boolean("tenant_approved").default(false),
   tenantApprovedAt: timestamp("tenant_approved_at"),
+  googleCalendarEventId: varchar("google_calendar_event_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
