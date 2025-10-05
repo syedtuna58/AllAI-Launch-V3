@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
+import { RoleProvider } from "@/contexts/RoleContext";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Properties from "@/pages/properties";
@@ -69,13 +70,24 @@ function Router() {
   );
 }
 
-function App() {
+function AppContent() {
+  const { user } = useAuth();
+  const defaultRole = user?.role as 'admin' | 'contractor' | 'tenant' | undefined;
+  
   return (
-    <QueryClientProvider client={queryClient}>
+    <RoleProvider defaultRole={defaultRole}>
       <TooltipProvider>
         <Toaster />
         <Router />
       </TooltipProvider>
+    </RoleProvider>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
     </QueryClientProvider>
   );
 }

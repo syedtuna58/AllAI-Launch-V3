@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import QuickAddModal from "@/components/modals/quick-add-modal";
 import ReminderForm from "@/components/forms/reminder-form";
+import { RoleSwitcher } from "@/components/role-switcher";
 import { useAuth } from "@/hooks/useAuth";
 import { Search, Bell, Plus } from "lucide-react";
 import type { Notification, Property, OwnershipEntity, Unit } from "@shared/schema";
@@ -90,6 +91,9 @@ export default function Header({ title }: HeaderProps) {
         </div>
         
         <div className="flex items-center space-x-4">
+          {/* Role Switcher */}
+          {user && <RoleSwitcher />}
+          
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
