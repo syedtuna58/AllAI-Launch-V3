@@ -2,17 +2,19 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/contexts/RoleContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserProfileForm from "@/components/forms/user-profile-form";
-import { Building, Home, Users, Wrench, Receipt, DollarSign, Bell, Settings, Building2, User, LogOut, ChevronDown, Calculator } from "lucide-react";
+import { Building, Home, Users, Wrench, Receipt, DollarSign, Bell, Settings, Building2, User, LogOut, ChevronDown, Calculator, ClipboardList, MessageSquare } from "lucide-react";
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
+  const { currentRole } = useRole();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  const navigation = [
+  const adminNavigation = [
     { name: "Dashboard", href: "/", icon: Home },
     { name: "My Properties", href: "/properties", icon: Building },
     { name: "Entities", href: "/entities", icon: Building2 },
@@ -23,6 +25,23 @@ export default function Sidebar() {
     { name: "Tax", href: "/tax", icon: Calculator },
     { name: "Reminders", href: "/reminders", icon: Bell },
   ];
+
+  const contractorNavigation = [
+    { name: "Dashboard", href: "/contractor-dashboard", icon: Home },
+    { name: "My Jobs", href: "/maintenance", icon: Wrench },
+  ];
+
+  const tenantNavigation = [
+    { name: "Dashboard", href: "/tenant-dashboard", icon: Home },
+    { name: "Submit Request", href: "/tenant-request", icon: MessageSquare },
+    { name: "My Requests", href: "/maintenance", icon: ClipboardList },
+  ];
+
+  const navigation = currentRole === 'admin' 
+    ? adminNavigation 
+    : currentRole === 'contractor'
+    ? contractorNavigation
+    : tenantNavigation;
 
   const isActive = (path: string) => {
     if (path === "/" && location === "/") return true;
