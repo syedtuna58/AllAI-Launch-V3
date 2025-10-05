@@ -15,6 +15,8 @@ import Maintenance from "@/pages/maintenance";
 import TenantRequest from "@/pages/tenant-request";
 import ContractorDashboard from "@/pages/contractor-dashboard";
 import ContractorAvailability from "@/pages/contractor-availability";
+import AdminDashboard from "@/pages/admin-dashboard";
+import TenantDashboard from "@/pages/tenant-dashboard";
 import Expenses from "@/pages/expenses";
 import Revenue from "@/pages/revenue";
 import Tax from "@/pages/tax";
@@ -52,8 +54,10 @@ function Router() {
           <Route path="/tenants" component={Tenants} />
           <Route path="/maintenance" component={Maintenance} />
           <Route path="/tenant-request" component={TenantRequest} />
+          <Route path="/tenant-dashboard" component={TenantDashboard} />
           <Route path="/contractor-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
+          <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/revenue" component={Revenue} />
           <Route path="/tax" component={Tax} />

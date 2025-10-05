@@ -1,533 +1,700 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Calendar, Clock, AlertTriangle, CheckCircle2, MapPin, Wrench, DollarSign, Info } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Calendar, Clock, MapPin, Heart, CheckCircle, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
-import type { SmartCase } from "@shared/schema";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { LiveNotification } from "@/components/ui/live-notification";
+import Header from "@/components/layout/header";
+import Sidebar from "@/components/layout/sidebar";
+import { Link } from "wouter";
 
-interface Appointment {
+interface ContractorCase {
   id: string;
-  caseId: string;
-  contractorId: string;
-  scheduledStart: Date;
-  scheduledEnd: Date;
+  title: string;
+  description: string;
+  priority: string;
   status: string;
-  smartCase?: SmartCase;
+  category: string;
+  buildingName?: string;
+  roomNumber?: string;
+  locationText?: string;
+  estimatedCost?: number;
+  actualCost?: number;
+  assignedContractorId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export default function ContractorDashboardPage() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
-  const [showCaseDetail, setShowCaseDetail] = useState(false);
+interface ContractorAppointment {
+  id: string;
+  caseId?: string;
+  contractorId: string;
+  scheduledStartAt: string;
+  scheduledEndAt: string;
+  status: string;
+  notes?: string;
+}
 
-  const { data: contractor, isLoading: loadingContractor, isError: contractorError } = useQuery<any>({
-    queryKey: ['/api/contractors/me'],
-  });
+const PRIORITY_COLORS = {
+  Low: "text-green-700 border-green-300",
+  Medium: "text-amber-700 border-amber-300",
+  High: "text-orange-600 border-orange-300",
+  Urgent: "text-orange-700 border-orange-300"
+};
 
-  const contractorId = contractor?.id;
+const STATUS_COLORS = {
+  New: "text-blue-700 border-blue-300",
+  Assigned: "text-cyan-700 border-cyan-300",
+  "In Review": "text-amber-700 border-amber-300",
+  Scheduled: "text-purple-700 border-purple-300",
+  "In Progress": "text-orange-600 border-orange-300",
+  "On Hold": "text-gray-700 border-gray-300",
+  Resolved: "text-green-700 border-green-300",
+  Closed: "text-gray-600 border-gray-300",
+  Pending: "text-blue-700 border-blue-300",
+  Confirmed: "text-green-700 border-green-300",
+  Completed: "text-green-700 border-green-300"
+};
 
-  const { data: appointments = [], isLoading: loadingAppointments } = useQuery<Appointment[]>({
-    queryKey: ['/api/contractors', contractorId, 'appointments'],
-    enabled: !!contractorId,
-  });
-
-  const { data: allCases = [] } = useQuery<SmartCase[]>({
-    queryKey: ['/api/cases'],
-  });
-
-  const assignedCases = allCases.filter(c => 
-    c.assignedContractorId === contractorId || appointments.some(a => a.caseId === c.id)
-  );
-
-  const updateAppointmentMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const res = await apiRequest('PATCH', `/api/appointments/${id}`, data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/contractors', contractorId, 'appointments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/appointments'] });
-      toast({
-        title: "Appointment updated",
-        description: "The appointment has been updated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Update failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const updateCaseStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const res = await apiRequest('PATCH', `/api/cases/${id}`, { status });
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
-      toast({
-        title: "Status updated",
-        description: "Case status has been updated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Update failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const handleAcceptAppointment = async (appointment: Appointment) => {
-    await updateAppointmentMutation.mutateAsync({
-      id: appointment.id,
-      data: { status: "confirmed" },
-    });
-  };
-
-  const handleDeclineAppointment = async (appointment: Appointment) => {
-    await updateAppointmentMutation.mutateAsync({
-      id: appointment.id,
-      data: { status: "declined" },
-    });
-  };
-
-  const handleUpdateCaseStatus = async (caseId: string, status: string) => {
-    await updateCaseStatusMutation.mutateAsync({ id: caseId, status });
-  };
-
-  const viewCaseDetail = (caseItem: SmartCase) => {
-    setSelectedCase(caseItem);
-    setShowCaseDetail(true);
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case "urgent": return "destructive";
-      case "high": return "default";
-      case "medium": return "secondary";
-      default: return "outline";
+const CaseCard = ({
+  case_,
+  isFavorite,
+  onToggleFavorite,
+  onAcceptCase,
+  updateCaseStatus,
+  acceptCaseMutation
+}: {
+  case_: ContractorCase,
+  isFavorite: boolean,
+  onToggleFavorite: (caseId: string) => void,
+  onAcceptCase: (case_: ContractorCase) => void,
+  updateCaseStatus: any,
+  acceptCaseMutation: any
+}) => {
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case "Urgent":
+        return <AlertTriangle className="h-4 w-4 text-orange-600" />;
+      case "High":
+        return <AlertTriangle className="h-4 w-4" />;
+      default:
+        return <Clock className="h-4 w-4" />;
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "completed": return "default";
-      case "in_progress": return "secondary";
-      case "pending": return "outline";
-      case "confirmed": return "default";
-      case "declined": return "destructive";
-      default: return "outline";
-    }
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
-
-  const upcomingAppointments = appointments.filter(a => 
-    new Date(a.scheduledStart) > new Date() && a.status !== "declined"
-  );
-
-  const pendingAppointments = appointments.filter(a => 
-    a.status === "pending"
-  );
 
   return (
-    <div data-testid="page-contractor-dashboard" className="min-h-screen bg-background flex">
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <CardTitle className="text-lg flex items-center gap-2">
+              {getPriorityIcon(case_.priority)}
+              {case_.title}
+            </CardTitle>
+            <CardDescription className="mt-1">
+              {case_.buildingName && case_.roomNumber ?
+                `${case_.buildingName} - Room ${case_.roomNumber}` :
+                case_.locationText || 'Location TBD'
+              }
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 bg-transparent hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+              onClick={() => onToggleFavorite(case_.id)}
+              data-testid={`button-favorite-${case_.id}`}
+              aria-pressed={isFavorite}
+              title={isFavorite ? 'Unfavorite' : 'Favorite'}
+            >
+              <Heart
+                className={`h-4 w-4 transition-colors ${isFavorite
+                  ? 'text-pink-500 fill-pink-500'
+                  : 'text-muted-foreground hover:text-pink-400'
+                }`}
+              />
+            </Button>
+            <div className="flex flex-col gap-2">
+              <Badge variant="outline" className={PRIORITY_COLORS[case_.priority as keyof typeof PRIORITY_COLORS] || "bg-gray-100"}>
+                {case_.priority}
+              </Badge>
+              <Badge variant="outline" className={STATUS_COLORS[case_.status as keyof typeof STATUS_COLORS] || "bg-gray-100"}>
+                {case_.status}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm text-muted-foreground mb-4">{case_.description}</p>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <MapPin className="h-4 w-4" />
+              <span>{case_.category}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              <span>{formatDateTime(case_.createdAt)}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            {case_.status === "New" && (
+              <Button
+                size="sm"
+                onClick={() => onAcceptCase(case_)}
+                disabled={acceptCaseMutation.isPending}
+                data-testid={`button-accept-case-${case_.id}`}
+              >
+                Accept Case
+              </Button>
+            )}
+            {case_.status === "Scheduled" && (
+              <Button
+                size="sm"
+                onClick={() => updateCaseStatus.mutate({ caseId: case_.id, status: "In Progress" })}
+                disabled={updateCaseStatus.isPending}
+                data-testid={`button-start-case-${case_.id}`}
+              >
+                Start Work
+              </Button>
+            )}
+            {case_.status === "In Progress" && (
+              <Button
+                size="sm"
+                variant="default"
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={() => updateCaseStatus.mutate({ caseId: case_.id, status: "Resolved" })}
+                disabled={updateCaseStatus.isPending}
+                data-testid={`button-complete-case-${case_.id}`}
+              >
+                Mark Complete
+              </Button>
+            )}
+            {case_.status === "Resolved" && (
+              <Button
+                size="sm"
+                variant="default"
+                className="bg-gray-600 hover:bg-gray-700 text-white"
+                onClick={() => updateCaseStatus.mutate({ caseId: case_.id, status: "Closed" })}
+                disabled={updateCaseStatus.isPending}
+                data-testid={`button-close-case-${case_.id}`}
+              >
+                Close & Archive
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default function ContractorDashboard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [selectedTab, setSelectedTab] = useState("cases");
+  const [acceptDialogOpen, setAcceptDialogOpen] = useState(false);
+  const [acceptingCase, setAcceptingCase] = useState<ContractorCase | null>(null);
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [acceptNotes, setAcceptNotes] = useState("");
+  const [estimatedDuration, setEstimatedDuration] = useState(120);
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [typeFilter, setTypeFilter] = useState<string>("All");
+  const [hideClosedCases, setHideClosedCases] = useState<boolean>(true);
+  const [favoriteCases, setFavoriteCases] = useState<Set<string>>(new Set());
+
+  const { data: assignedCases = [], isLoading: casesLoading } = useQuery<ContractorCase[]>({
+    queryKey: ['/api/contractor/cases'],
+    enabled: !!user
+  });
+
+  const { data: appointments = [], isLoading: appointmentsLoading } = useQuery<ContractorAppointment[]>({
+    queryKey: ['/api/contractor/appointments'],
+    enabled: !!user
+  });
+
+  const updateCaseStatus = useMutation({
+    mutationFn: async ({ caseId, status, notes }: { caseId: string; status: string; notes?: string }) => {
+      return await apiRequest("PATCH", `/api/cases/${caseId}`, {
+        status,
+        ...(notes && { notes })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      toast({
+        title: "Status Updated",
+        description: "Case status has been updated successfully."
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update case status. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateAppointmentStatus = useMutation({
+    mutationFn: async ({ appointmentId, status, notes }: { appointmentId: string; status: string; notes?: string }) => {
+      return await apiRequest("PATCH", `/api/appointments/${appointmentId}`, {
+        status,
+        ...(notes && { notes })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/appointments'] });
+      toast({
+        title: "Appointment Updated",
+        description: "Appointment status has been updated successfully."
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Update Failed",
+        description: "Failed to update appointment status. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const acceptCaseMutation = useMutation({
+    mutationFn: async ({ caseId, scheduledDateTime, notes, estimatedDurationMinutes }: {
+      caseId: string;
+      scheduledDateTime: string;
+      notes?: string;
+      estimatedDurationMinutes?: number;
+    }) => {
+      return await apiRequest("POST", `/api/contractor/accept-case`, {
+        caseId,
+        scheduledDateTime,
+        notes,
+        estimatedDurationMinutes
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/appointments'] });
+
+      setAcceptDialogOpen(false);
+      setAcceptingCase(null);
+      setScheduledDate("");
+      setScheduledTime("");
+      setAcceptNotes("");
+
+      toast({
+        title: "Case Accepted!",
+        description: "Case has been accepted and scheduled successfully."
+      });
+    },
+    onError: (error: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/appointments'] });
+
+      const errorMessage = error?.message || "Unknown error occurred";
+
+      if (errorMessage.includes("Scheduling conflict") || errorMessage.includes("conflicts with existing")) {
+        toast({
+          title: "Scheduling Conflict",
+          description: "This time slot conflicts with another appointment. Please choose a different time.",
+          variant: "destructive"
+        });
+      } else if (errorMessage.includes("Cannot accept case")) {
+        toast({
+          title: "Case No Longer Available",
+          description: "This case has already been accepted by another contractor or its status has changed.",
+          variant: "destructive"
+        });
+        setAcceptDialogOpen(false);
+        setAcceptingCase(null);
+        setScheduledDate("");
+        setScheduledTime("");
+        setAcceptNotes("");
+      } else {
+        toast({
+          title: "Accept Failed",
+          description: `Failed to accept case: ${errorMessage}`,
+          variant: "destructive"
+        });
+      }
+    }
+  });
+
+  const handleAcceptCase = (case_: ContractorCase) => {
+    setAcceptingCase(case_);
+    setAcceptDialogOpen(true);
+  };
+
+  const handleConfirmAccept = () => {
+    if (!acceptingCase || !scheduledDate || !scheduledTime) {
+      toast({
+        title: "Missing Information",
+        description: "Please select both date and time for the appointment.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+    
+    acceptCaseMutation.mutate({
+      caseId: acceptingCase.id,
+      scheduledDateTime,
+      notes: acceptNotes,
+      estimatedDurationMinutes: estimatedDuration
+    });
+  };
+
+  const handleToggleFavorite = (caseId: string) => {
+    setFavoriteCases(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(caseId)) {
+        newSet.delete(caseId);
+      } else {
+        newSet.add(caseId);
+      }
+      return newSet;
+    });
+  };
+
+  const filteredCases = assignedCases.filter(case_ => {
+    if (hideClosedCases && case_.status === "Closed") return false;
+    if (statusFilter !== "All" && case_.status !== statusFilter) return false;
+    if (typeFilter !== "All" && case_.category !== typeFilter) return false;
+    return true;
+  });
+
+  const myCases = filteredCases.filter(c => c.assignedContractorId === user?.id);
+  const newCases = filteredCases.filter(c => c.status === "New" && !c.assignedContractorId);
+  const activeCases = myCases.filter(c => ["Scheduled", "In Progress"].includes(c.status || ""));
+  const favoritedCases = filteredCases.filter(c => favoriteCases.has(c.id));
+
+  const categories = Array.from(new Set(assignedCases.map(c => c.category).filter(Boolean)));
+  const statuses = Array.from(new Set(assignedCases.map(c => c.status).filter(Boolean)));
+
+  return (
+    <div className="min-h-screen bg-background flex">
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header title="Contractor Dashboard" />
-        
+
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
-            {loadingContractor && (
-              <Card data-testid="card-loading">
-                <CardContent className="p-6 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                  <p className="text-muted-foreground">Loading contractor profile...</p>
-                </CardContent>
-              </Card>
-            )}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground" data-testid="text-contractor-dashboard-title">
+                  Contractor Dashboard
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  Manage your maintenance cases and schedule appointments
+                </p>
+              </div>
+              <Link href="/contractor-availability">
+                <Button variant="outline" data-testid="button-manage-availability">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Manage Availability
+                </Button>
+              </Link>
+            </div>
 
-            {contractorError && (
-              <Card data-testid="card-not-contractor">
-                <CardContent className="p-6 text-center text-muted-foreground">
-                  <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>You don't have a contractor profile linked to your account.</p>
-                  <p className="text-sm mt-2">Please contact your administrator to set up contractor access.</p>
-                </CardContent>
-              </Card>
-            )}
-
-            {contractor && (
-              <>
-            <Card data-testid="card-contractor-info">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Wrench className="h-5 w-5 text-primary" />
-                    <span className="font-medium">Viewing as: {contractor.name}</span>
-                    {contractor.category && (
-                      <Badge variant="outline">{contractor.category}</Badge>
-                    )}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">My Cases</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold" data-testid="text-my-cases-count">
+                    {myCases.length}
                   </div>
-                  <Link href="/contractor-availability">
-                    <Button variant="outline" size="sm" data-testid="button-manage-availability">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Manage Availability
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card data-testid="card-stat-pending">
-                <CardHeader className="pb-2">
-                  <CardDescription>Pending Appointments</CardDescription>
-                  <CardTitle className="text-3xl">{pendingAppointments.length}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xs text-muted-foreground">Require your response</p>
+                  <p className="text-xs text-muted-foreground">Assigned to you</p>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-stat-upcoming">
-                <CardHeader className="pb-2">
-                  <CardDescription>Upcoming Appointments</CardDescription>
-                  <CardTitle className="text-3xl">{upcomingAppointments.length}</CardTitle>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Work</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-muted-foreground">Next 30 days</p>
+                  <div className="text-2xl font-bold text-orange-600" data-testid="text-active-cases-count">
+                    {activeCases.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">In progress</p>
                 </CardContent>
               </Card>
 
-              <Card data-testid="card-stat-assigned">
-                <CardHeader className="pb-2">
-                  <CardDescription>Assigned Cases</CardDescription>
-                  <CardTitle className="text-3xl">{assignedCases.length}</CardTitle>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">New Cases</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-muted-foreground">Active work orders</p>
+                  <div className="text-2xl font-bold text-blue-600" data-testid="text-new-cases-count">
+                    {newCases.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Available to accept</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Favorites</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-pink-600" data-testid="text-favorites-count">
+                    {favoritedCases.length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Saved cases</p>
                 </CardContent>
               </Card>
             </div>
 
-            <Tabs defaultValue="pending" data-testid="tabs-main">
-              <TabsList>
-                <TabsTrigger value="pending" data-testid="tab-pending">
-                  Pending ({pendingAppointments.length})
+            <Card>
+              <CardHeader>
+                <CardTitle>Filters</CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-4 items-center">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Statuses</SelectItem>
+                    {statuses.map(status => (
+                      <SelectItem key={status} value={status}>{status}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-type-filter">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Types</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat!}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="hide-closed"
+                    checked={hideClosedCases}
+                    onCheckedChange={setHideClosedCases}
+                    data-testid="switch-hide-closed"
+                  />
+                  <Label htmlFor="hide-closed">Hide Closed Cases</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="cases" data-testid="tab-my-cases">
+                  My Cases ({myCases.length})
                 </TabsTrigger>
-                <TabsTrigger value="upcoming" data-testid="tab-upcoming">
-                  Upcoming ({upcomingAppointments.length})
+                <TabsTrigger value="new" data-testid="tab-new-cases">
+                  New Cases ({newCases.length})
                 </TabsTrigger>
-                <TabsTrigger value="cases" data-testid="tab-cases">
-                  My Cases ({assignedCases.length})
+                <TabsTrigger value="active" data-testid="tab-active">
+                  Active ({activeCases.length})
+                </TabsTrigger>
+                <TabsTrigger value="favorites" data-testid="tab-favorites">
+                  Favorites ({favoritedCases.length})
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="pending" className="space-y-4">
-                {pendingAppointments.length === 0 ? (
-                  <Card data-testid="card-no-pending">
-                    <CardContent className="p-6 text-center text-muted-foreground">
-                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No pending appointments</p>
-                    </CardContent>
-                  </Card>
+              <TabsContent value="cases" className="mt-6 space-y-4">
+                {casesLoading ? (
+                  <div className="text-center py-8">Loading cases...</div>
+                ) : myCases.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No cases assigned to you. Check the "New Cases" tab to accept new work.
+                  </div>
                 ) : (
-                  pendingAppointments.map((appointment) => (
-                    <Card key={appointment.id} data-testid={`card-appointment-${appointment.id}`}>
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">
-                              {appointment.smartCase?.title || "Maintenance Request"}
-                            </CardTitle>
-                            <CardDescription className="mt-2">
-                              {appointment.smartCase?.description?.substring(0, 150) || ""}
-                              {(appointment.smartCase?.description?.length || 0) > 150 && "..."}
-                            </CardDescription>
-                          </div>
-                          <Badge variant={getPriorityColor(appointment.smartCase?.priority || "")}>
-                            {appointment.smartCase?.priority || "Medium"}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span data-testid={`text-date-${appointment.id}`}>
-                              {format(new Date(appointment.scheduledStart), "MMM d, yyyy")}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span data-testid={`text-time-${appointment.id}`}>
-                              {format(new Date(appointment.scheduledStart), "h:mm a")} - 
-                              {format(new Date(appointment.scheduledEnd), "h:mm a")}
-                            </span>
-                          </div>
-                        </div>
-
-                        {appointment.smartCase?.aiTriageJson ? (
-                          <div className="bg-muted p-3 rounded-lg text-sm" data-testid={`ai-analysis-${appointment.id}`}>
-                            <p className="font-medium mb-1">AI Analysis:</p>
-                            <p className="text-muted-foreground">
-                              {String((appointment.smartCase.aiTriageJson as any)?.summary || "No AI analysis available")}
-                            </p>
-                          </div>
-                        ) : null}
-
-                        <div className="flex gap-2">
-                          <Button
-                            data-testid={`button-accept-${appointment.id}`}
-                            onClick={() => handleAcceptAppointment(appointment)}
-                            disabled={updateAppointmentMutation.isPending}
-                            className="flex-1"
-                          >
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Accept
-                          </Button>
-                          <Button
-                            data-testid={`button-decline-${appointment.id}`}
-                            onClick={() => handleDeclineAppointment(appointment)}
-                            disabled={updateAppointmentMutation.isPending}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            Decline
-                          </Button>
-                          {appointment.smartCase && (
-                            <Button
-                              data-testid={`button-view-${appointment.id}`}
-                              onClick={() => viewCaseDetail(appointment.smartCase!)}
-                              variant="ghost"
-                            >
-                              <Info className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                  myCases.map((case_) => (
+                    <CaseCard
+                      key={case_.id}
+                      case_={case_}
+                      isFavorite={favoriteCases.has(case_.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                      onAcceptCase={handleAcceptCase}
+                      updateCaseStatus={updateCaseStatus}
+                      acceptCaseMutation={acceptCaseMutation}
+                    />
                   ))
                 )}
               </TabsContent>
 
-              <TabsContent value="upcoming" className="space-y-4">
-                {upcomingAppointments.length === 0 ? (
-                  <Card data-testid="card-no-upcoming">
-                    <CardContent className="p-6 text-center text-muted-foreground">
-                      <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No upcoming appointments</p>
-                    </CardContent>
-                  </Card>
+              <TabsContent value="new" className="mt-6 space-y-4">
+                {newCases.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No new cases available at the moment.
+                  </div>
                 ) : (
-                  upcomingAppointments.map((appointment) => (
-                    <Card key={appointment.id} data-testid={`card-upcoming-${appointment.id}`}>
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <CardTitle className="text-lg">
-                            {appointment.smartCase?.title || "Maintenance Request"}
-                          </CardTitle>
-                          <Badge variant={getStatusColor(appointment.status)}>
-                            {appointment.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span>{format(new Date(appointment.scheduledStart), "MMM d, yyyy")}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>
-                              {format(new Date(appointment.scheduledStart), "h:mm a")} - 
-                              {format(new Date(appointment.scheduledEnd), "h:mm a")}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  newCases.map((case_) => (
+                    <CaseCard
+                      key={case_.id}
+                      case_={case_}
+                      isFavorite={favoriteCases.has(case_.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                      onAcceptCase={handleAcceptCase}
+                      updateCaseStatus={updateCaseStatus}
+                      acceptCaseMutation={acceptCaseMutation}
+                    />
                   ))
                 )}
               </TabsContent>
 
-              <TabsContent value="cases" className="space-y-4">
-                {assignedCases.length === 0 ? (
-                  <Card data-testid="card-no-cases">
-                    <CardContent className="p-6 text-center text-muted-foreground">
-                      <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No assigned cases</p>
-                    </CardContent>
-                  </Card>
+              <TabsContent value="active" className="mt-6 space-y-4">
+                {activeCases.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No active cases.
+                  </div>
                 ) : (
-                  assignedCases.map((caseItem) => (
-                    <Card key={caseItem.id} data-testid={`card-case-${caseItem.id}`}>
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <CardTitle className="text-lg">{caseItem.title}</CardTitle>
-                            <CardDescription>{caseItem.description}</CardDescription>
-                          </div>
-                          <div className="flex flex-col gap-2 items-end">
-                            <Badge variant={getPriorityColor(caseItem.priority || "")}>
-                              {caseItem.priority}
-                            </Badge>
-                            {caseItem.category && (
-                              <Badge variant="outline">{caseItem.category}</Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {caseItem.aiTriageJson ? (
-                          <div className="bg-muted p-3 rounded-lg text-sm">
-                            <p className="font-medium mb-1">AI Summary:</p>
-                            <p className="text-muted-foreground">
-                              {String((caseItem.aiTriageJson as any)?.summary || "No summary available")}
-                            </p>
-                            {(caseItem.aiTriageJson as any)?.safetyWarning ? (
-                              <div className="flex items-start gap-2 mt-2 text-amber-600 dark:text-amber-500">
-                                <AlertTriangle className="h-4 w-4 mt-0.5" />
-                                <p className="text-sm">{String((caseItem.aiTriageJson as any).safetyWarning)}</p>
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : null}
+                  activeCases.map((case_) => (
+                    <CaseCard
+                      key={case_.id}
+                      case_={case_}
+                      isFavorite={favoriteCases.has(case_.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                      onAcceptCase={handleAcceptCase}
+                      updateCaseStatus={updateCaseStatus}
+                      acceptCaseMutation={acceptCaseMutation}
+                    />
+                  ))
+                )}
+              </TabsContent>
 
-                        <div className="flex gap-2">
-                          <Select
-                            value={caseItem.status || "New"}
-                            onValueChange={(status) => handleUpdateCaseStatus(caseItem.id, status)}
-                          >
-                            <SelectTrigger data-testid={`select-status-${caseItem.id}`}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="New">New</SelectItem>
-                              <SelectItem value="In Review">In Review</SelectItem>
-                              <SelectItem value="Scheduled">Scheduled</SelectItem>
-                              <SelectItem value="In Progress">In Progress</SelectItem>
-                              <SelectItem value="On Hold">On Hold</SelectItem>
-                              <SelectItem value="Resolved">Resolved</SelectItem>
-                              <SelectItem value="Closed">Closed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            data-testid={`button-view-case-${caseItem.id}`}
-                            onClick={() => viewCaseDetail(caseItem)}
-                            variant="outline"
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+              <TabsContent value="favorites" className="mt-6 space-y-4">
+                {favoritedCases.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No favorited cases. Click the heart icon on any case to add it to favorites.
+                  </div>
+                ) : (
+                  favoritedCases.map((case_) => (
+                    <CaseCard
+                      key={case_.id}
+                      case_={case_}
+                      isFavorite={favoriteCases.has(case_.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                      onAcceptCase={handleAcceptCase}
+                      updateCaseStatus={updateCaseStatus}
+                      acceptCaseMutation={acceptCaseMutation}
+                    />
                   ))
                 )}
               </TabsContent>
             </Tabs>
-              </>
-            )}
           </div>
         </main>
       </div>
 
-      <Dialog open={showCaseDetail} onOpenChange={setShowCaseDetail}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-case-detail">
+      <Dialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-accept-case">
           <DialogHeader>
-            <DialogTitle>{selectedCase?.title}</DialogTitle>
+            <DialogTitle>Accept Case & Schedule Appointment</DialogTitle>
+            <DialogDescription>
+              {acceptingCase?.title}
+            </DialogDescription>
           </DialogHeader>
-          {selectedCase && (
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-medium mb-1">Description</h4>
-                <p className="text-sm text-muted-foreground">{selectedCase.description}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium mb-1">Priority</h4>
-                  <Badge variant={getPriorityColor(selectedCase.priority || "")} data-testid="text-detail-priority">
-                    {selectedCase.priority}
-                  </Badge>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium mb-1">Status</h4>
-                  <Badge variant="outline" data-testid="text-detail-status">{selectedCase.status}</Badge>
-                </div>
-                {selectedCase.category && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-1">Category</h4>
-                    <Badge variant="outline" data-testid="text-detail-category">{selectedCase.category}</Badge>
-                  </div>
-                )}
-              </div>
-
-              {selectedCase.aiTriageJson ? (
-                <div className="border rounded-lg p-4 space-y-3">
-                  <h4 className="text-sm font-medium">AI Triage Analysis</h4>
-                  <div className="space-y-2 text-sm">
-                    {(selectedCase.aiTriageJson as any)?.summary ? (
-                      <div>
-                        <span className="font-medium">Summary: </span>
-                        <span className="text-muted-foreground" data-testid="text-detail-ai-summary">
-                          {String((selectedCase.aiTriageJson as any).summary)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {(selectedCase.aiTriageJson as any)?.estimatedCost ? (
-                      <div>
-                        <span className="font-medium">Estimated Cost: </span>
-                        <span className="text-muted-foreground" data-testid="text-detail-estimated-cost">
-                          ${(selectedCase.aiTriageJson as any).estimatedCost.min} - 
-                          ${(selectedCase.aiTriageJson as any).estimatedCost.max}
-                        </span>
-                      </div>
-                    ) : null}
-                    {(selectedCase.aiTriageJson as any)?.recommendedActions ? (
-                      <div>
-                        <span className="font-medium">Recommended Actions: </span>
-                        <span className="text-muted-foreground" data-testid="text-detail-recommended-actions">
-                          {String(Array.isArray((selectedCase.aiTriageJson as any).recommendedActions)
-                            ? (selectedCase.aiTriageJson as any).recommendedActions.join(", ")
-                            : (selectedCase.aiTriageJson as any).recommendedActions)}
-                        </span>
-                      </div>
-                    ) : null}
-                    {(selectedCase.aiTriageJson as any)?.safetyWarning ? (
-                      <div className="flex items-start gap-2 text-amber-600 dark:text-amber-500 mt-2">
-                        <AlertTriangle className="h-4 w-4 mt-0.5" />
-                        <div>
-                          <span className="font-medium">Safety Warning: </span>
-                          <span data-testid="text-detail-safety-warning">
-                            {String((selectedCase.aiTriageJson as any).safetyWarning)}
-                          </span>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="scheduled-date">Appointment Date</Label>
+              <Input
+                id="scheduled-date"
+                type="date"
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+                data-testid="input-scheduled-date"
+              />
             </div>
-          )}
+            <div className="grid gap-2">
+              <Label htmlFor="scheduled-time">Appointment Time</Label>
+              <Input
+                id="scheduled-time"
+                type="time"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                data-testid="input-scheduled-time"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="estimated-duration">Estimated Duration (minutes)</Label>
+              <Input
+                id="estimated-duration"
+                type="number"
+                value={estimatedDuration}
+                onChange={(e) => setEstimatedDuration(Number(e.target.value))}
+                min={15}
+                step={15}
+                data-testid="input-estimated-duration"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="accept-notes">Notes (optional)</Label>
+              <Textarea
+                id="accept-notes"
+                value={acceptNotes}
+                onChange={(e) => setAcceptNotes(e.target.value)}
+                placeholder="Add any notes or special requirements..."
+                data-testid="textarea-accept-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAcceptDialogOpen(false)}
+              data-testid="button-cancel-accept"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmAccept}
+              disabled={acceptCaseMutation.isPending}
+              data-testid="button-confirm-accept"
+            >
+              {acceptCaseMutation.isPending ? "Accepting..." : "Accept & Schedule"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {user?.id && (
+        <LiveNotification
+          userRole="contractor"
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }

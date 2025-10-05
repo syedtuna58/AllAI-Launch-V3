@@ -3283,8 +3283,8 @@ Provide helpful analysis based on the actual data. Respond with valid JSON only:
               ...aiData.financials,
               augustCollections: aiData.financials?.augustCollections?.slice(0, 5) || []
             },
-            cases: aiData.cases?.slice(0, 5) || [],
-            reminders: aiData.reminders?.slice(0, 5) || []
+            cases: (aiData as any).cases?.slice(0, 5) || [],
+            reminders: (aiData as any).reminders?.slice(0, 5) || []
           };
 
           const retryPrompt = `You are Mailla, a property management assistant. Answer briefly using actual data.${contextualGuidance}
@@ -3960,5 +3960,64 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
   });
 
   const httpServer = createServer(app);
+  
+  // WebSocket server setup for real-time notifications
+  const { WebSocketServer } = await import('ws');
+  const { notificationService } = await import('./notificationService.js');
+  
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    verifyClient: (info, callback) => {
+      // For now, accept all connections - authentication will be handled per message
+      callback(true);
+    }
+  });
+  
+  wss.on('connection', async (ws, req: any) => {
+    try {
+      // Try to get user from session if available
+      let userId = 'anonymous';
+      let userRole = 'user';
+      let orgId = '';
+      
+      // Check if request has authenticated user
+      if (req.user?.claims?.sub) {
+        userId = req.user.claims.sub;
+        const userOrg = await storage.getUserOrganization(userId);
+        if (userOrg) {
+          userRole = 'admin'; // Default to admin for now
+          orgId = userOrg.id;
+        }
+      }
+      
+      // Add connection to notification service
+      notificationService.addWebSocketConnection(ws, {
+        userId,
+        role: userRole,
+        orgId
+      });
+      
+      console.log(`✅ WebSocket connected: ${userId} (${userRole}) in org ${orgId || 'none'}`);
+      
+      // Handle disconnection
+      ws.on('close', () => {
+        notificationService.removeWebSocketConnection(ws);
+      });
+      
+      // Handle errors
+      ws.on('error', (error) => {
+        console.error('❌ WebSocket error:', error);
+        notificationService.removeWebSocketConnection(ws);
+      });
+      
+    } catch (error) {
+      console.error('❌ Error setting up WebSocket connection:', error);
+      ws.close(1011, 'Internal server error');
+    }
+  });
+  
+  console.log('✅ WebSocket server initialized on /ws');
+  
   return httpServer;
 }
