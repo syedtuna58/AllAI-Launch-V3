@@ -152,6 +152,11 @@ export default function Maintenance() {
     retry: false,
   });
 
+  const { data: contractors = [] } = useQuery<any[]>({
+    queryKey: ["/api/contractors"],
+    retry: false,
+  });
+
   const selectedProperty = properties?.find(p => p.id === selectedPropertyId);
   const selectedPropertyUnits = units.filter(unit => unit.propertyId === selectedPropertyId);
   const isBuilding = selectedProperty?.type === "Commercial Building" || selectedProperty?.type === "Residential Building";
@@ -320,6 +325,48 @@ export default function Maintenance() {
       toast({
         title: "Error",
         description: "Failed to update case status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const aiTriageMutation = useMutation({
+    mutationFn: async (caseId: string) => {
+      const response = await apiRequest("POST", `/api/cases/${caseId}/ai-triage`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      toast({
+        title: "AI Triage Complete",
+        description: "Case has been analyzed and categorized",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to run AI triage",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignContractorMutation = useMutation({
+    mutationFn: async (caseId: string) => {
+      const response = await apiRequest("POST", `/api/cases/${caseId}/assign-contractor`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      toast({
+        title: "Contractor Assigned",
+        description: "Best contractor has been assigned to this case",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign contractor",
         variant: "destructive",
       });
     },
@@ -1556,6 +1603,143 @@ export default function Maintenance() {
         </main>
       </div>
       
+      {/* Case Detail Dialog */}
+      <Dialog open={showCaseDialog} onOpenChange={setShowCaseDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Case Details</DialogTitle>
+          </DialogHeader>
+          {selectedCase && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold">{selectedCase.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{selectedCase.description}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-sm font-medium">Status:</span>
+                  <Badge variant={getStatusVariant(selectedCase.status)} className="ml-2">
+                    {selectedCase.status || "New"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Priority:</span>
+                  <Badge variant={getPriorityVariant(selectedCase.priority)} className="ml-2">
+                    {selectedCase.priority || "Medium"}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Category:</span>
+                  <span className="ml-2 text-sm">{selectedCase.category || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium">Estimated Duration:</span>
+                  <span className="ml-2 text-sm">{selectedCase.estimatedDuration || "N/A"}</span>
+                </div>
+              </div>
+
+              {selectedCase.aiTriageJson && (
+                <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
+                  <h4 className="font-semibold mb-2 flex items-center">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    AI Triage Analysis
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium">Urgency:</span>
+                      <span className="ml-2">{(selectedCase.aiTriageJson as any).urgency || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Safety Risk:</span>
+                      <span className="ml-2">{(selectedCase.aiTriageJson as any).safetyRisk || "N/A"}</span>
+                    </div>
+                    {(selectedCase.aiTriageJson as any).reasoning && (
+                      <div>
+                        <span className="font-medium">Reasoning:</span>
+                        <p className="ml-2 text-muted-foreground">{(selectedCase.aiTriageJson as any).reasoning}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedCase.assignedContractorId && (
+                <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950">
+                  <h4 className="font-semibold mb-2 flex items-center">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Assigned Contractor
+                  </h4>
+                  <div className="text-sm">
+                    {(() => {
+                      const contractor = contractors.find(c => c.id === selectedCase.assignedContractorId);
+                      return contractor ? (
+                        <div className="space-y-1">
+                          <div><span className="font-medium">Name:</span> {contractor.name}</div>
+                          <div><span className="font-medium">Category:</span> {contractor.category || "N/A"}</div>
+                          {contractor.rating && (
+                            <div><span className="font-medium">Rating:</span> {contractor.rating}/5</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span>Contractor information not available</span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3">AI Actions</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => aiTriageMutation.mutate(selectedCase.id)}
+                    disabled={aiTriageMutation.isPending}
+                    data-testid="button-ai-triage"
+                  >
+                    {aiTriageMutation.isPending ? "Analyzing..." : "Run AI Triage"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => assignContractorMutation.mutate(selectedCase.id)}
+                    disabled={assignContractorMutation.isPending}
+                    data-testid="button-assign-contractor"
+                  >
+                    {assignContractorMutation.isPending ? "Assigning..." : "Assign Best Contractor"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-semibold mb-3">Case Actions</h4>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => {
+                      setShowCaseDialog(false);
+                      setEditingCase(selectedCase);
+                      setShowCaseForm(true);
+                    }}
+                    data-testid="button-edit-case"
+                  >
+                    Edit Case
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => handleDeleteCase(selectedCase.id)}
+                    disabled={deleteCaseMutation.isPending}
+                    data-testid="button-delete-case"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Reminder Dialog */}
       <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
