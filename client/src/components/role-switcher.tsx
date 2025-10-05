@@ -12,7 +12,7 @@ export function RoleSwitcher() {
     admin: {
       label: 'Admin View',
       icon: Building2,
-      path: '/admin-dashboard',
+      path: '/',
       color: 'text-blue-600 dark:text-blue-400'
     },
     contractor: {
@@ -28,11 +28,6 @@ export function RoleSwitcher() {
       color: 'text-green-600 dark:text-green-400'
     }
   };
-
-  useEffect(() => {
-    const config = roleConfig[currentRole];
-    setLocation(config.path);
-  }, []);
 
   const handleRoleChange = (newRole: UserRole) => {
     setRole(newRole);
