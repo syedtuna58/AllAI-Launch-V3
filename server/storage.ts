@@ -80,6 +80,7 @@ export interface IStorage {
   
   // Organization operations
   getUserOrganization(userId: string): Promise<Organization | undefined>;
+  getOrganization(orgId: string): Promise<Organization | undefined>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
   
   // Ownership entity operations
@@ -261,6 +262,16 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return org?.organizations;
+  }
+
+  async getOrganization(orgId: string): Promise<Organization | undefined> {
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.id, orgId))
+      .limit(1);
+    
+    return org;
   }
 
   async createOrganization(orgData: InsertOrganization): Promise<Organization> {
@@ -2707,6 +2718,7 @@ export class DatabaseStorage implements IStorage {
         requiresTenantAccess: appointments.requiresTenantAccess,
         tenantApproved: appointments.tenantApproved,
         tenantApprovedAt: appointments.tenantApprovedAt,
+        googleCalendarEventId: appointments.googleCalendarEventId,
         createdAt: appointments.createdAt,
         updatedAt: appointments.updatedAt,
       })
