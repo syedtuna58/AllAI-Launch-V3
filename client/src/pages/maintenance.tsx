@@ -379,6 +379,8 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      setShowCaseDialog(false);
+      setSelectedCase(null);
       toast({
         title: "Success", 
         description: "Case deleted successfully",
@@ -403,6 +405,10 @@ export default function Maintenance() {
       });
     },
   });
+
+  const handleDeleteCase = (id: string) => {
+    deleteCaseMutation.mutate(id);
+  };
 
   if (isLoading || !isAuthenticated) {
     return null;
@@ -468,6 +474,16 @@ export default function Maintenance() {
       case "Medium": return <Badge className="bg-yellow-100 text-yellow-800">Medium</Badge>;
       case "Low": return <Badge className="bg-gray-100 text-gray-800">Low</Badge>;
       default: return <Badge variant="secondary">{priority}</Badge>;
+    }
+  };
+
+  const getPriorityVariant = (priority: string | null): "default" | "destructive" | "outline" | "secondary" => {
+    switch (priority) {
+      case "Urgent": return "destructive";
+      case "High": return "destructive";
+      case "Medium": return "default";
+      case "Low": return "secondary";
+      default: return "secondary";
     }
   };
 
@@ -1530,7 +1546,7 @@ export default function Maintenance() {
                                             className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700"
                                             onClick={async () => {
                                               try {
-                                                await updateCaseMutation.mutateAsync({
+                                                await updateCaseStatusMutation.mutateAsync({
                                                   id: smartCase.id,
                                                   status: "In Progress"
                                                 });
@@ -1538,7 +1554,7 @@ export default function Maintenance() {
                                                 console.error('Error updating case status:', error);
                                               }
                                             }}
-                                            disabled={updateCaseMutation.isPending}
+                                            disabled={updateCaseStatusMutation.isPending}
                                             data-testid={`button-start-case-${smartCase.id}`}
                                           >
                                             <Play className="h-3 w-3 mr-1" />
@@ -1553,7 +1569,7 @@ export default function Maintenance() {
                                             className="h-6 px-2 text-xs text-green-600 hover:text-green-700"
                                             onClick={async () => {
                                               try {
-                                                await updateCaseMutation.mutateAsync({
+                                                await updateCaseStatusMutation.mutateAsync({
                                                   id: smartCase.id,
                                                   status: "Resolved"
                                                 });
@@ -1561,7 +1577,7 @@ export default function Maintenance() {
                                                 console.error('Error updating case status:', error);
                                               }
                                             }}
-                                            disabled={updateCaseMutation.isPending}
+                                            disabled={updateCaseStatusMutation.isPending}
                                             data-testid={`button-resolve-case-${smartCase.id}`}
                                           >
                                             <CheckCircle className="h-3 w-3 mr-1" />
@@ -1639,7 +1655,7 @@ export default function Maintenance() {
                 </div>
               </div>
 
-              {selectedCase.aiTriageJson && (
+              {selectedCase.aiTriageJson ? (
                 <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
                   <h4 className="font-semibold mb-2 flex items-center">
                     <AlertTriangle className="h-4 w-4 mr-2" />
@@ -1648,21 +1664,21 @@ export default function Maintenance() {
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="font-medium">Urgency:</span>
-                      <span className="ml-2">{(selectedCase.aiTriageJson as any).urgency || "N/A"}</span>
+                      <span className="ml-2">{String((selectedCase.aiTriageJson as any)?.urgency || "N/A")}</span>
                     </div>
                     <div>
                       <span className="font-medium">Safety Risk:</span>
-                      <span className="ml-2">{(selectedCase.aiTriageJson as any).safetyRisk || "N/A"}</span>
+                      <span className="ml-2">{String((selectedCase.aiTriageJson as any)?.safetyRisk || "N/A")}</span>
                     </div>
-                    {(selectedCase.aiTriageJson as any).reasoning && (
+                    {(selectedCase.aiTriageJson as any)?.reasoning && (
                       <div>
                         <span className="font-medium">Reasoning:</span>
-                        <p className="ml-2 text-muted-foreground">{(selectedCase.aiTriageJson as any).reasoning}</p>
+                        <p className="ml-2 text-muted-foreground">{String((selectedCase.aiTriageJson as any).reasoning)}</p>
                       </div>
                     )}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {selectedCase.assignedContractorId && (
                 <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950">
