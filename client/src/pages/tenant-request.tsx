@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -9,336 +9,341 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, Mic, Image as ImageIcon, Loader2, CheckCircle, AlertTriangle, Info } from "lucide-react";
-import type { SmartCase } from "@shared/schema";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Bot, User as UserIcon, Loader2, CheckCircle, AlertTriangle, Send, Building, Home } from "lucide-react";
+import { useLocation } from "wouter";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: Date;
+  data?: any;
+}
+
+interface PropertyMatch {
+  id: string;
+  name: string;
+  address: string;
+  confidence: number;
+  unitId?: string;
+  unitNumber?: string;
+}
 
 export default function TenantRequestPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [description, setDescription] = useState("");
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [attachments, setAttachments] = useState<File[]>([]);
-
-
-  const updateCaseMutation = useMutation({
-    mutationFn: async ({ caseId, data }: { caseId: string; data: any }) => {
-      const res = await apiRequest('PATCH', `/api/cases/${caseId}`, data);
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
-      toast({
-        title: "Request submitted",
-        description: "Your maintenance request has been submitted successfully. We'll get back to you soon!",
-      });
-      setDescription("");
-      setAnalysis(null);
-      setAttachments([]);
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const handleAnalyze = async () => {
-    if (!description.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Missing description",
-        description: "Please describe your maintenance issue",
-      });
-      return;
+  const [, navigate] = useLocation();
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: "Hi! I'm Mailla, your AI maintenance assistant. 👋\n\nTell me what's going on, and I'll help you get it fixed. What maintenance issue are you experiencing?",
+      timestamp: new Date(),
     }
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [conversationState, setConversationState] = useState<"initial" | "property_matching" | "confirming" | "creating">("initial");
+  const [propertyMatches, setPropertyMatches] = useState<PropertyMatch[]>([]);
+  const [selectedProperty, setSelectedProperty] = useState<PropertyMatch | null>(null);
+  const [issueDescription, setIssueDescription] = useState("");
+  const [triageData, setTriageData] = useState<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    setAnalyzing(true);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async (content: string) => {
+    if (!content.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: content.trim(),
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue("");
+    setIsProcessing(true);
+
     try {
-      if (analysis?.caseId) {
-        const deleteRes = await apiRequest('DELETE', `/api/cases/${analysis.caseId}`, undefined);
-        if (!deleteRes.ok) {
-          console.warn('Failed to delete previous draft');
+      if (conversationState === "initial") {
+        setIssueDescription(content);
+        
+        const res = await apiRequest('POST', '/api/triage/chat', {
+          message: content,
+          step: "analyze_issue"
+        });
+        const data = await res.json();
+
+        setTriageData(data.triage);
+        setPropertyMatches(data.propertyMatches || []);
+
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: data.response,
+          timestamp: new Date(),
+          data: {
+            triage: data.triage,
+            properties: data.propertyMatches
+          }
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+        setConversationState("property_matching");
+
+      } else if (conversationState === "confirming") {
+        if (content.toLowerCase().includes("yes") || content.toLowerCase().includes("confirm") || content.toLowerCase().includes("submit")) {
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: "Great! Creating your maintenance request now...",
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+          setConversationState("creating");
+
+          const caseRes = await apiRequest('POST', '/api/cases', {
+            title: triageData?.suggestedTitle || "Maintenance Request",
+            description: issueDescription,
+            status: "New",
+            type: "maintenance",
+            priority: triageData?.urgency?.toLowerCase() || "medium",
+            category: triageData?.category || "general",
+            propertyId: selectedProperty?.id,
+            unitId: selectedProperty?.unitId,
+            aiTriageJson: triageData,
+          });
+
+          if (caseRes.ok) {
+            const newCase = await caseRes.json();
+            
+            const successMessage: Message = {
+              id: (Date.now() + 2).toString(),
+              role: "assistant",
+              content: `✅ **Request submitted successfully!**\n\nYour case number is **${newCase.caseNumber}**.\n\nWe'll review it and assign a contractor shortly. You'll receive notifications when there are updates.`,
+              timestamp: new Date(),
+            };
+            setMessages(prev => [...prev, successMessage]);
+
+            toast({
+              title: "Request submitted",
+              description: `Case ${newCase.caseNumber} has been created`,
+            });
+
+            queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
+
+            setTimeout(() => {
+              navigate("/tenant-dashboard");
+            }, 3000);
+          }
+        } else {
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: "No problem! What would you like to change? You can start over by describing the issue again.",
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+          setConversationState("initial");
+          setPropertyMatches([]);
+          setSelectedProperty(null);
         }
       }
-
-      const caseRes = await apiRequest('POST', '/api/cases', {
-        title: "Tenant Maintenance Request",
-        description: description,
-        status: "draft",
-        type: "maintenance",
-        priority: "medium",
-      });
-      const tempCase = await caseRes.json();
-
-      const triageRes = await apiRequest('POST', `/api/cases/${tempCase.id}/ai-triage`, {
-        userMessage: description,
-        attachments: attachments.map(f => f.name),
-      });
-      const triageResult = await triageRes.json();
-
-      setAnalysis({
-        caseId: tempCase.id,
-        ...triageResult,
-      });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Analysis failed",
+        title: "Error",
         description: (error as Error).message,
       });
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "I'm sorry, something went wrong. Could you try again?",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setAnalyzing(false);
+      setIsProcessing(false);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!analysis) return;
-
-    await updateCaseMutation.mutateAsync({
-      caseId: analysis.caseId,
-      data: {
-        title: analysis.suggestedTitle || "Maintenance Request",
-        status: "open",
-        priority: analysis.urgency || "medium",
-        category: analysis.category || "general",
-        aiTriageJson: {
-          summary: analysis.summary,
-          category: analysis.category,
-          urgency: analysis.urgency,
-          safetyWarning: analysis.safetyWarning,
-          estimatedCost: analysis.estimatedCost,
-          recommendedActions: analysis.recommendedActions,
-          suggestedTitle: analysis.suggestedTitle,
-          analyzedAt: new Date().toISOString(),
-        },
-      },
-    });
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachments(Array.from(e.target.files));
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(inputValue);
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority?.toLowerCase()) {
-      case "urgent": return "destructive";
-      case "high": return "default";
-      case "medium": return "secondary";
-      default: return "outline";
-    }
+  const handlePropertySelect = (property: PropertyMatch) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: `${property.unitNumber ? `Unit ${property.unitNumber} - ` : ""}${property.name}`,
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => [...prev, userMessage]);
+    setSelectedProperty(property);
+    setIsProcessing(true);
+
+    const assistantMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: `Perfect! I'll create a maintenance request for ${property.unitNumber ? `Unit ${property.unitNumber} at ` : ""}${property.name}.\n\n📋 **Summary:**\n- **Issue:** ${triageData?.summary || issueDescription}\n- **Category:** ${triageData?.category || "General Maintenance"}\n- **Priority:** ${triageData?.urgency || "Medium"}\n- **Property:** ${property.name}\n\nShall I submit this request?`,
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, assistantMessage]);
+    setConversationState("confirming");
+    setIsProcessing(false);
   };
 
   return (
     <div data-testid="page-tenant-request" className="min-h-screen bg-background flex">
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <Header title="Report Maintenance Issue" />
+        <Header title="Mailla AI Assistant" />
         
         <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <Card data-testid="card-request-form">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Info className="h-5 w-5 text-primary" />
-                  Mailla AI Assistant
-                </CardTitle>
-                <CardDescription>
-                  Describe your maintenance issue in your own words. Our AI will analyze it and help route it to the right person.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label htmlFor="description" className="text-sm font-medium mb-2 block">
-                    What's the issue?
-                  </label>
-                  <Textarea
-                    id="description"
-                    data-testid="input-description"
-                    placeholder="For example: 'The toilet in my bathroom is running constantly and won't stop filling' or 'My heater isn't working and it's getting cold'"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={6}
-                    className="resize-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Add photos or voice notes (optional)</label>
-                  <div className="flex gap-2">
-                    <Button
-                      data-testid="button-upload-image"
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => document.getElementById('file-upload')?.click()}
-                    >
-                      <ImageIcon className="h-4 w-4 mr-2" />
-                      Upload Photos
-                    </Button>
-                    <Button
-                      data-testid="button-record-audio"
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled
-                    >
-                      <Mic className="h-4 w-4 mr-2" />
-                      Record Audio (Coming Soon)
-                    </Button>
-                    <input
-                      id="file-upload"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
+          <div className="max-w-4xl mx-auto h-full flex flex-col">
+            <Card className="flex-1 flex flex-col" data-testid="card-chat">
+              <CardHeader className="border-b">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Bot className="h-6 w-6 text-primary" />
                   </div>
-                  {attachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {attachments.map((file, i) => (
-                        <Badge key={i} variant="secondary" data-testid={`badge-attachment-${i}`}>
-                          {file.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <Button
-                  data-testid="button-analyze"
-                  onClick={handleAnalyze}
-                  disabled={analyzing || !description.trim()}
-                  className="w-full"
-                >
-                  {analyzing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      AI is analyzing your request...
-                    </>
-                  ) : (
-                    "Analyze & Submit"
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {analyzing && (
-              <Card data-testid="card-analyzing">
-                <CardContent className="p-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Understanding your issue...
-                    </div>
-                    <Progress value={33} className="h-2" />
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Identifying category and urgency...
-                    </div>
-                    <Progress value={66} className="h-2" />
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Finding the best contractor...
-                    </div>
-                    <Progress value={90} className="h-2" />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {analysis && !analyzing && (
-              <Card data-testid="card-analysis-result">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    AI Analysis Complete
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground mb-1">Category</div>
-                      <Badge variant="outline" data-testid="text-category">
-                        {analysis.category || "General"}
-                      </Badge>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground mb-1">Priority</div>
-                      <Badge variant={getPriorityColor(analysis.urgency)} data-testid="text-urgency">
-                        {analysis.urgency || "Medium"}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {analysis.safetyWarning && (
-                    <Alert variant="destructive" data-testid="alert-safety-warning">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertDescription>
-                        <strong>Safety Warning:</strong> {analysis.safetyWarning}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">What we understood</div>
-                    <p className="text-sm" data-testid="text-summary">
-                      {analysis.summary || "We'll review your request and assign it to the appropriate person."}
-                    </p>
+                    <CardTitle>Mailla AI Assistant</CardTitle>
+                    <CardDescription>Smart maintenance request triage</CardDescription>
                   </div>
-
-                  {analysis.estimatedCost && (
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground mb-1">Estimated Cost</div>
-                      <p className="text-lg font-semibold" data-testid="text-estimated-cost">
-                        ${analysis.estimatedCost.min} - ${analysis.estimatedCost.max}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="pt-4">
-                    <Button
-                      data-testid="button-confirm-submit"
-                      onClick={handleSubmit}
-                      disabled={updateCaseMutation.isPending}
-                      className="w-full"
-                    >
-                      {updateCaseMutation.isPending ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        "Confirm & Submit Request"
+                </div>
+              </CardHeader>
+              
+              <CardContent className="flex-1 overflow-auto p-6 space-y-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                    data-testid={`message-${message.role}`}
+                  >
+                    {message.role === "assistant" && (
+                      <Avatar className="h-8 w-8 mt-1">
+                        <AvatarFallback className="bg-primary/10">
+                          <Bot className="h-4 w-4 text-primary" />
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    
+                    <div className={`flex flex-col gap-2 max-w-[80%] ${message.role === "user" ? "items-end" : "items-start"}`}>
+                      <div
+                        className={`rounded-lg px-4 py-2 ${
+                          message.role === "user"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      </div>
+                      
+                      {message.data?.properties && message.data.properties.length > 0 && (
+                        <div className="w-full space-y-2 mt-2">
+                          {message.data.properties.map((property: PropertyMatch) => (
+                            <Button
+                              key={property.id}
+                              variant="outline"
+                              className="w-full justify-start text-left h-auto py-3"
+                              onClick={() => handlePropertySelect(property)}
+                              disabled={isProcessing}
+                              data-testid={`button-property-${property.id}`}
+                            >
+                              <div className="flex items-start gap-3 w-full">
+                                <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  {property.unitNumber ? (
+                                    <Home className="h-5 w-5 text-primary" />
+                                  ) : (
+                                    <Building className="h-5 w-5 text-primary" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-sm">
+                                    {property.unitNumber && `Unit ${property.unitNumber} - `}
+                                    {property.name}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {property.address}
+                                  </div>
+                                  <Badge variant="secondary" className="mt-1 text-xs">
+                                    {Math.round(property.confidence * 100)}% match
+                                  </Badge>
+                                </div>
+                              </div>
+                            </Button>
+                          ))}
+                        </div>
                       )}
-                    </Button>
+                    </div>
+                    
+                    {message.role === "user" && (
+                      <Avatar className="h-8 w-8 mt-1">
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          <UserIcon className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {!analysis && !analyzing && (
-              <Card data-testid="card-info">
-                <CardContent className="p-6">
-                  <div className="text-center text-muted-foreground space-y-2">
-                    <Info className="h-8 w-8 mx-auto mb-3 opacity-50" />
-                    <p className="text-sm">
-                      Our AI assistant will help identify the issue, determine its urgency, and route it to the right person for quick resolution.
-                    </p>
-                    <p className="text-xs">
-                      Typical response time: 24-48 hours for routine issues, 2-4 hours for urgent issues
-                    </p>
+                ))}
+                
+                {isProcessing && (
+                  <div className="flex gap-3" data-testid="indicator-processing">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary/10">
+                        <Bot className="h-4 w-4 text-primary" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="bg-muted rounded-lg px-4 py-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                )}
+                
+                <div ref={messagesEndRef} />
+              </CardContent>
+              
+              <div className="border-t p-4">
+                <div className="flex gap-2">
+                  <Textarea
+                    data-testid="input-message"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={
+                      conversationState === "confirming"
+                        ? "Type 'yes' to confirm or 'no' to cancel..."
+                        : "Describe your maintenance issue..."
+                    }
+                    rows={2}
+                    className="resize-none"
+                    disabled={isProcessing || conversationState === "creating"}
+                  />
+                  <Button
+                    data-testid="button-send"
+                    onClick={() => sendMessage(inputValue)}
+                    disabled={isProcessing || !inputValue.trim() || conversationState === "creating"}
+                    size="icon"
+                    className="h-auto"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         </main>
       </div>

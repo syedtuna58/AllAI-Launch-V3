@@ -70,21 +70,15 @@ function Router() {
   );
 }
 
-function AppContent() {
-  return (
-    <RoleProvider defaultRole="admin">
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </RoleProvider>
-  );
-}
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <TooltipProvider>
+        <RoleProvider defaultRole="admin">
+          <Toaster />
+          <Router />
+        </RoleProvider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }

@@ -3780,6 +3780,115 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // Conversational Mailla AI triage chat endpoint
+  app.post('/api/triage/chat', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const { message, step } = req.body;
+
+      if (!message || !step) {
+        return res.status(400).json({ message: "Message and step are required" });
+      }
+
+      if (step === "analyze_issue") {
+        const { aiTriageService } = await import('./aiTriage');
+        
+        const triageResult = await aiTriageService.analyzeMaintenanceRequest({
+          title: message.substring(0, 100),
+          description: message,
+          orgId: org.id
+        });
+
+        const properties = await storage.getProperties(org.id);
+        
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const propertyContext = properties.map((p: any) => ({
+          id: p.id,
+          name: p.address || p.name || 'Property',
+          address: p.address || '',
+          type: p.type
+        }));
+
+        const matchPrompt = `Given this maintenance issue: "${message}"
+
+And these properties:
+${propertyContext.map(p => `- ${p.name} (${p.address}) [ID: ${p.id}]`).join('\n')}
+
+Analyze which property this issue most likely relates to. Return a JSON array of property matches with confidence scores (0-1).
+
+Response format:
+{
+  "matches": [
+    {"id": "property_id", "name": "property_name", "address": "address", "confidence": 0.95, "reasoning": "why this match"}
+  ]
+}`;
+
+        let propertyMatches = [];
+        try {
+          const matchResponse = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              { role: "system", content: "You are an AI assistant helping match maintenance requests to properties." },
+              { role: "user", content: matchPrompt }
+            ],
+            response_format: { type: "json_object" }
+          });
+
+          const matchContent = matchResponse.choices[0].message.content;
+          if (matchContent) {
+            const matchResult = JSON.parse(matchContent);
+            propertyMatches = matchResult.matches || [];
+          }
+        } catch (error) {
+          console.error("Property matching error:", error);
+          propertyMatches = propertyContext.slice(0, 3).map(p => ({
+            id: p.id,
+            name: p.name,
+            address: p.address,
+            confidence: 0.5
+          }));
+        }
+
+        const response = `I understand! It sounds like you're experiencing a **${triageResult.category}** issue${triageResult.urgency === 'Critical' || triageResult.urgency === 'High' ? ` that needs ${triageResult.urgency.toLowerCase()} attention` : ''}.
+
+${triageResult.safetyRisk !== 'None' ? `⚠️ **Safety Note:** This may involve a ${triageResult.safetyRisk.toLowerCase()} safety risk.\n\n` : ''}**What I found:**
+- **Category:** ${triageResult.category} (${triageResult.subcategory})
+- **Priority:** ${triageResult.urgency}
+- **Estimated time:** ${triageResult.estimatedDuration}
+
+Which property is this for? Select one below:`;
+
+        res.json({
+          response,
+          triage: {
+            category: triageResult.category,
+            subcategory: triageResult.subcategory,
+            urgency: triageResult.urgency,
+            estimatedDuration: triageResult.estimatedDuration,
+            safetyRisk: triageResult.safetyRisk,
+            preliminaryDiagnosis: triageResult.preliminaryDiagnosis,
+            summary: triageResult.preliminaryDiagnosis,
+            suggestedTitle: `${triageResult.category}: ${triageResult.subcategory}`
+          },
+          propertyMatches: propertyMatches.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            address: m.address,
+            confidence: m.confidence
+          }))
+        });
+      } else {
+        res.status(400).json({ message: "Invalid step" });
+      }
+    } catch (error) {
+      console.error("Mailla triage chat error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
   app.post('/api/cases/:id/assign-contractor', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
