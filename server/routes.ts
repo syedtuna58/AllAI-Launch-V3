@@ -3665,7 +3665,31 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
         return res.status(403).json({ message: "Invalid contractor" });
       }
 
-      const created = await storage.createAppointment(validatedData);
+      let appointmentData = { ...validatedData };
+      
+      if (validatedData.requiresTenantAccess) {
+        const crypto = await import('crypto');
+        appointmentData.approvalToken = crypto.randomBytes(32).toString('hex');
+        appointmentData.approvalExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        appointmentData.proposedBy = 'contractor';
+      }
+
+      const created = await storage.createAppointment(appointmentData);
+
+      if (validatedData.requiresTenantAccess && created.approvalToken) {
+        const { notificationService } = await import('./notificationService');
+        
+        const tenantEmail = 'tenant@example.com';
+        const approvalLink = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/appointments/${created.id}/approve?token=${created.approvalToken}`;
+        
+        await notificationService.sendEmailNotification({
+          type: 'case_scheduled',
+          title: 'Appointment Approval Required',
+          subject: 'Please approve your maintenance appointment',
+          message: `A contractor has proposed a maintenance appointment.\n\nDate: ${new Date(created.scheduledStartAt).toLocaleDateString()}\nTime: ${new Date(created.scheduledStartAt).toLocaleTimeString()} - ${new Date(created.scheduledEndAt).toLocaleTimeString()}\n\nPlease click the link below to approve or decline:\n${approvalLink}`,
+          to: tenantEmail
+        }, tenantEmail);
+      }
 
       try {
         const { createCalendarEvent } = await import('./googleCalendar');
@@ -3744,6 +3768,114 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     } catch (error) {
       console.error("Error updating appointment:", error);
       res.status(500).json({ message: "Failed to update appointment", error: (error as Error).message });
+    }
+  });
+
+  // Tenant appointment approval endpoints
+  app.post('/api/appointments/:id/tenant-approve', async (req: any, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Approval token is required" });
+      }
+
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      if (appointment.approvalToken !== token) {
+        return res.status(403).json({ message: "Invalid approval token" });
+      }
+
+      if (appointment.approvalExpiresAt && new Date(appointment.approvalExpiresAt) < new Date()) {
+        return res.status(410).json({ message: "Approval link has expired" });
+      }
+
+      if (appointment.tenantApproved) {
+        return res.status(400).json({ message: "Appointment already approved" });
+      }
+
+      const updated = await storage.updateAppointment(req.params.id, {
+        tenantApproved: true,
+        tenantApprovedAt: new Date(),
+        status: 'Scheduled'
+      });
+
+      const smartCase = await storage.getSmartCase(appointment.caseId);
+      if (smartCase) {
+        await storage.updateSmartCase(smartCase.id, {
+          status: 'Scheduled'
+        });
+
+        const { notificationService } = await import('./notificationService');
+        if (appointment.contractorId) {
+          await notificationService.notify({
+            message: `Tenant approved appointment for case ${smartCase.title}`,
+            type: 'case_scheduled',
+            title: 'Appointment Approved',
+            caseId: smartCase.id,
+            orgId: smartCase.orgId
+          }, appointment.contractorId, smartCase.orgId);
+        }
+      }
+
+      res.json({ message: "Appointment approved successfully", appointment: updated });
+    } catch (error) {
+      console.error("Error approving appointment:", error);
+      res.status(500).json({ message: "Failed to approve appointment" });
+    }
+  });
+
+  app.post('/api/appointments/:id/tenant-decline', async (req: any, res) => {
+    try {
+      const { token, reason } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ message: "Approval token is required" });
+      }
+
+      const appointment = await storage.getAppointment(req.params.id);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      if (appointment.approvalToken !== token) {
+        return res.status(403).json({ message: "Invalid approval token" });
+      }
+
+      if (appointment.approvalExpiresAt && new Date(appointment.approvalExpiresAt) < new Date()) {
+        return res.status(410).json({ message: "Approval link has expired" });
+      }
+
+      await storage.updateAppointment(req.params.id, {
+        status: 'Cancelled',
+        notes: `Declined by tenant. Reason: ${reason || 'Not specified'}`
+      });
+
+      const smartCase = await storage.getSmartCase(appointment.caseId);
+      if (smartCase) {
+        await storage.updateSmartCase(smartCase.id, {
+          status: 'In Review'
+        });
+
+        const { notificationService } = await import('./notificationService');
+        if (appointment.contractorId) {
+          await notificationService.notify({
+            message: `Tenant declined appointment for case ${smartCase.title}. Reason: ${reason || 'Not specified'}`,
+            type: 'case_updated',
+            title: 'Appointment Declined',
+            caseId: smartCase.id,
+            orgId: smartCase.orgId
+          }, appointment.contractorId, smartCase.orgId);
+        }
+      }
+
+      res.json({ message: "Appointment declined successfully" });
+    } catch (error) {
+      console.error("Error declining appointment:", error);
+      res.status(500).json({ message: "Failed to decline appointment" });
     }
   });
 

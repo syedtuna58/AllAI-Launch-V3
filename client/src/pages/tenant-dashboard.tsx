@@ -1,12 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, AlertTriangle, CheckCircle, MapPin, Wrench } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar, Clock, AlertTriangle, CheckCircle, MapPin, Wrench, ThumbsUp, ThumbsDown } from "lucide-react";
 import { LiveNotification } from "@/components/ui/live-notification";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import { Link } from "wouter";
@@ -57,7 +61,11 @@ const STATUS_COLORS = {
 
 export default function TenantDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState("cases");
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<TenantAppointment | null>(null);
+  const [declineReason, setDeclineReason] = useState("");
 
   const { data: myCases = [], isLoading: casesLoading } = useQuery<TenantCase[]>({
     queryKey: ['/api/tenant/cases'],
@@ -74,6 +82,73 @@ export default function TenantDashboard() {
   const upcomingAppointments = appointments.filter(a => 
     new Date(a.scheduledStartAt) > new Date() && a.status !== 'Cancelled'
   );
+
+  const approveMutation = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const res = await apiRequest('POST', `/api/appointments/${appointmentId}/tenant-approve`, {
+        token: 'mock-token-for-testing'
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/appointments'] });
+      toast({
+        title: "Appointment Approved",
+        description: "The contractor has been notified of your approval.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Approval Failed",
+        description: error.message,
+      });
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: async ({ appointmentId, reason }: { appointmentId: string; reason: string }) => {
+      const res = await apiRequest('POST', `/api/appointments/${appointmentId}/tenant-decline`, {
+        token: 'mock-token-for-testing',
+        reason
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/appointments'] });
+      setDeclineDialogOpen(false);
+      setDeclineReason("");
+      toast({
+        title: "Appointment Declined",
+        description: "The contractor has been notified.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Decline Failed",
+        description: error.message,
+      });
+    },
+  });
+
+  const handleApprove = (appointment: TenantAppointment) => {
+    approveMutation.mutate(appointment.id);
+  };
+
+  const handleDeclineClick = (appointment: TenantAppointment) => {
+    setSelectedAppointment(appointment);
+    setDeclineDialogOpen(true);
+  };
+
+  const handleDeclineConfirm = () => {
+    if (selectedAppointment) {
+      declineMutation.mutate({
+        appointmentId: selectedAppointment.id,
+        reason: declineReason
+      });
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -355,9 +430,27 @@ export default function TenantDashboard() {
                             </div>
                           </div>
 
-                          <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                            Approve Access
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              className="flex-1 bg-green-600 hover:bg-green-700"
+                              onClick={() => handleApprove(appointment)}
+                              disabled={approveMutation.isPending}
+                              data-testid={`button-approve-${appointment.id}`}
+                            >
+                              <ThumbsUp className="h-4 w-4 mr-2" />
+                              Approve
+                            </Button>
+                            <Button 
+                              variant="destructive"
+                              className="flex-1"
+                              onClick={() => handleDeclineClick(appointment)}
+                              disabled={declineMutation.isPending}
+                              data-testid={`button-decline-${appointment.id}`}
+                            >
+                              <ThumbsDown className="h-4 w-4 mr-2" />
+                              Decline
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     ))
@@ -375,6 +468,42 @@ export default function TenantDashboard() {
           userId={user.id}
         />
       )}
+
+      <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
+        <DialogContent data-testid="dialog-decline">
+          <DialogHeader>
+            <DialogTitle>Decline Appointment</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for declining this appointment. This will help us reschedule at a better time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              data-testid="input-decline-reason"
+              placeholder="e.g., I won't be available at this time"
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeclineDialogOpen(false)}
+              data-testid="button-cancel-decline"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeclineConfirm}
+              disabled={declineMutation.isPending}
+              data-testid="button-confirm-decline"
+            >
+              Confirm Decline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
