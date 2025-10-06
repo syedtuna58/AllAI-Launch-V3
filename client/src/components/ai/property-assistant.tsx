@@ -12,6 +12,7 @@ import { Loader2, Bot, Send, Lightbulb, CheckCircle, Calendar, AlertCircle, Tren
 import { apiRequest } from "@/lib/queryClient";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRole } from "@/contexts/RoleContext";
 
 type AIResponse = {
   answer: {
@@ -243,7 +244,7 @@ function EnhancedAIResponse({ content, timestamp, isLatest = false }: EnhancedAI
   );
 }
 
-const DEFAULT_EXAMPLE_QUESTIONS = [
+const ADMIN_EXAMPLE_QUESTIONS = [
   "What needs my attention this week?",
   "How are my properties performing?", 
   "Which property is my best investment?",
@@ -254,12 +255,35 @@ const DEFAULT_EXAMPLE_QUESTIONS = [
   "Should I raise rent on any properties?"
 ];
 
+const TENANT_EXAMPLE_QUESTIONS = [
+  "How do I report a maintenance issue?",
+  "What's the status of my maintenance request?",
+  "My sink is leaking, what should I do?",
+  "When is the next inspection scheduled?",
+  "How can I request urgent repairs?",
+  "The heater isn't working properly",
+  "Can you help me track my repair requests?",
+  "Is there an update on my ticket?"
+];
+
+const CONTRACTOR_EXAMPLE_QUESTIONS = [
+  "What jobs do I have scheduled this week?",
+  "Show me my pending appointments",
+  "Which jobs need urgent attention?",
+  "What's my workload for today?",
+  "Any new maintenance requests assigned to me?",
+  "Show me jobs awaiting tenant approval",
+  "What are my upcoming scheduled jobs?",
+  "Which properties need my service?"
+];
+
 type PropertyAssistantProps = {
   context?: string;
   exampleQuestions?: string[];
 };
 
 export default function PropertyAssistant({ context = "dashboard", exampleQuestions: customQuestions }: PropertyAssistantProps) {
+  const { currentRole } = useRole();
   const [question, setQuestion] = useState("");
   const [conversation, setConversation] = useState<Array<{
     type: "user" | "ai";
@@ -273,14 +297,21 @@ export default function PropertyAssistant({ context = "dashboard", exampleQuesti
   }>>([]);
   const [isAsking, setIsAsking] = useState(false);
 
-  // Get a rotating set of 4 example questions
+  // Get a rotating set of 4 example questions based on role
   const getExampleQuestions = () => {
-    const questions = customQuestions || DEFAULT_EXAMPLE_QUESTIONS;
     if (customQuestions) {
-      // If custom questions provided, use them as-is
-      return questions;
+      return customQuestions;
     }
-    // Otherwise, randomize the default questions
+    
+    // Select questions based on current role
+    let questions = ADMIN_EXAMPLE_QUESTIONS;
+    if (currentRole === "tenant") {
+      questions = TENANT_EXAMPLE_QUESTIONS;
+    } else if (currentRole === "contractor") {
+      questions = CONTRACTOR_EXAMPLE_QUESTIONS;
+    }
+    
+    // Randomize and return 4 questions
     const shuffled = [...questions].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, 4);
   };
