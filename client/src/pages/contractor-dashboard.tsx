@@ -20,6 +20,7 @@ import { LiveNotification } from "@/components/ui/live-notification";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import { Link } from "wouter";
+import PropertyAssistant from "@/components/ai/property-assistant";
 
 interface ContractorCase {
   id: string;
@@ -424,6 +425,9 @@ export default function ContractorDashboard() {
                 </Button>
               </Link>
             </div>
+
+            {/* Mailla AI Assistant */}
+            <PropertyAssistant context="contractor-dashboard" />
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card>

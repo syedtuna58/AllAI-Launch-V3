@@ -348,7 +348,7 @@ export default function TenantDashboard() {
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                           <Bot className="h-6 w-6 text-primary" />
                         </div>
-                        <div className="text-left">
+                        <div className="text-left flex-1">
                           <CardTitle>Mailla AI Assistant</CardTitle>
                           <CardDescription>Quick maintenance request help</CardDescription>
                         </div>
@@ -357,6 +357,34 @@ export default function TenantDashboard() {
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
+
+                {!maillaOpen && (
+                  <CardContent className="pt-0 pb-4">
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        "My sink is leaking",
+                        "Report a maintenance issue",
+                        "Check status of my request",
+                        "The heater isn't working"
+                      ].map((suggestion, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMaillaOpen(true);
+                            setInputValue(suggestion);
+                          }}
+                          data-testid={`button-suggestion-${index}`}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+                  </CardContent>
+                )}
                 
                 <CollapsibleContent>
                   <CardContent className="space-y-4">
