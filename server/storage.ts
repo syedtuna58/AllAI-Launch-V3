@@ -29,6 +29,11 @@ import {
   appointments,
   triageConversations,
   triageMessages,
+  userCategories,
+  userCategoryMembers,
+  messageThreads,
+  chatMessages,
+  threadParticipants,
   type User,
   type UpsertUser,
   type Organization,
@@ -69,6 +74,16 @@ import {
   type InsertTriageConversation,
   type TriageMessage,
   type InsertTriageMessage,
+  type UserCategory,
+  type InsertUserCategory,
+  type UserCategoryMember,
+  type InsertUserCategoryMember,
+  type MessageThread,
+  type InsertMessageThread,
+  type ChatMessage,
+  type InsertChatMessage,
+  type ThreadParticipant,
+  type InsertThreadParticipant,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
@@ -228,6 +243,27 @@ export interface IStorage {
   updateTriageConversation(id: string, conversation: Partial<InsertTriageConversation>): Promise<TriageConversation>;
   getTriageMessages(conversationId: string): Promise<TriageMessage[]>;
   createTriageMessage(message: InsertTriageMessage): Promise<TriageMessage>;
+  
+  // User Category operations
+  getUserCategories(orgId: string): Promise<UserCategory[]>;
+  getUserCategory(id: string): Promise<UserCategory | undefined>;
+  createUserCategory(category: InsertUserCategory): Promise<UserCategory>;
+  updateUserCategory(id: string, category: Partial<InsertUserCategory>): Promise<UserCategory>;
+  deleteUserCategory(id: string): Promise<void>;
+  
+  // User Category Member operations
+  getCategoryMembers(categoryId: string): Promise<UserCategoryMember[]>;
+  getUserCategoryMemberships(userId: string): Promise<UserCategoryMember[]>;
+  addCategoryMember(member: InsertUserCategoryMember): Promise<UserCategoryMember>;
+  removeCategoryMember(categoryId: string, userId: string): Promise<void>;
+  
+  // Messaging operations
+  getMessageThreads(orgId: string, userId: string): Promise<MessageThread[]>;
+  getMessageThread(id: string): Promise<MessageThread | undefined>;
+  createMessageThread(thread: InsertMessageThread, participantIds: string[]): Promise<MessageThread>;
+  getThreadMessages(threadId: string): Promise<ChatMessage[]>;
+  sendMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  markThreadAsRead(threadId: string, userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2798,6 +2834,125 @@ export class DatabaseStorage implements IStorage {
   async createTriageMessage(message: InsertTriageMessage): Promise<TriageMessage> {
     const [created] = await db.insert(triageMessages).values(message).returning();
     return created;
+  }
+
+  // User Category operations
+  async getUserCategories(orgId: string): Promise<UserCategory[]> {
+    return db.select().from(userCategories)
+      .where(and(eq(userCategories.orgId, orgId), eq(userCategories.isActive, true)))
+      .orderBy(asc(userCategories.name));
+  }
+
+  async getUserCategory(id: string): Promise<UserCategory | undefined> {
+    const [category] = await db.select().from(userCategories).where(eq(userCategories.id, id));
+    return category;
+  }
+
+  async createUserCategory(category: InsertUserCategory): Promise<UserCategory> {
+    const [created] = await db.insert(userCategories).values(category).returning();
+    return created;
+  }
+
+  async updateUserCategory(id: string, categoryData: Partial<InsertUserCategory>): Promise<UserCategory> {
+    const [updated] = await db
+      .update(userCategories)
+      .set(categoryData)
+      .where(eq(userCategories.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteUserCategory(id: string): Promise<void> {
+    await db.update(userCategories)
+      .set({ isActive: false })
+      .where(eq(userCategories.id, id));
+  }
+
+  // User Category Member operations
+  async getCategoryMembers(categoryId: string): Promise<UserCategoryMember[]> {
+    return db.select().from(userCategoryMembers)
+      .where(and(eq(userCategoryMembers.categoryId, categoryId), eq(userCategoryMembers.isActive, true)))
+      .orderBy(asc(userCategoryMembers.createdAt));
+  }
+
+  async getUserCategoryMemberships(userId: string): Promise<UserCategoryMember[]> {
+    return db.select().from(userCategoryMembers)
+      .where(and(eq(userCategoryMembers.userId, userId), eq(userCategoryMembers.isActive, true)))
+      .orderBy(asc(userCategoryMembers.createdAt));
+  }
+
+  async addCategoryMember(member: InsertUserCategoryMember): Promise<UserCategoryMember> {
+    const [created] = await db.insert(userCategoryMembers).values(member).returning();
+    return created;
+  }
+
+  async removeCategoryMember(categoryId: string, userId: string): Promise<void> {
+    await db.update(userCategoryMembers)
+      .set({ isActive: false })
+      .where(and(
+        eq(userCategoryMembers.categoryId, categoryId),
+        eq(userCategoryMembers.userId, userId)
+      ));
+  }
+
+  // Messaging operations
+  async getMessageThreads(orgId: string, userId: string): Promise<MessageThread[]> {
+    const threads = await db
+      .select()
+      .from(messageThreads)
+      .innerJoin(threadParticipants, eq(messageThreads.id, threadParticipants.threadId))
+      .where(and(
+        eq(messageThreads.orgId, orgId),
+        eq(threadParticipants.userId, userId)
+      ))
+      .orderBy(desc(messageThreads.lastMessageAt));
+    
+    return threads.map(t => t.message_threads);
+  }
+
+  async getMessageThread(id: string): Promise<MessageThread | undefined> {
+    const [thread] = await db.select().from(messageThreads).where(eq(messageThreads.id, id));
+    return thread;
+  }
+
+  async createMessageThread(thread: InsertMessageThread, participantIds: string[]): Promise<MessageThread> {
+    const [created] = await db.insert(messageThreads).values(thread).returning();
+    
+    // Add participants
+    await db.insert(threadParticipants).values(
+      participantIds.map(userId => ({
+        threadId: created.id,
+        userId
+      }))
+    );
+    
+    return created;
+  }
+
+  async getThreadMessages(threadId: string): Promise<ChatMessage[]> {
+    return db.select().from(chatMessages)
+      .where(eq(chatMessages.threadId, threadId))
+      .orderBy(asc(chatMessages.createdAt));
+  }
+
+  async sendMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [created] = await db.insert(chatMessages).values(message).returning();
+    
+    // Update thread's lastMessageAt
+    await db.update(messageThreads)
+      .set({ lastMessageAt: created.createdAt })
+      .where(eq(messageThreads.id, message.threadId!));
+    
+    return created;
+  }
+
+  async markThreadAsRead(threadId: string, userId: string): Promise<void> {
+    await db.update(threadParticipants)
+      .set({ lastReadAt: new Date() })
+      .where(and(
+        eq(threadParticipants.threadId, threadId),
+        eq(threadParticipants.userId, userId)
+      ));
   }
 }
 
