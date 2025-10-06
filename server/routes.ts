@@ -3443,6 +3443,61 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // Get cases assigned to current contractor
+  app.get('/api/contractor/cases', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contractor = await storage.getContractorByUserId(userId);
+      
+      if (!contractor) {
+        return res.json([]); // Return empty array if not a contractor
+      }
+
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      // Get all cases assigned to this contractor
+      const allCases = await storage.getSmartCases(org.id);
+      const contractorCases = allCases.filter((c: any) => c.assignedContractorId === contractor.id);
+
+      // Enrich with property/unit details
+      const enrichedCases = await Promise.all(contractorCases.map(async (case_: any) => {
+        const property = case_.propertyId ? await storage.getProperty(case_.propertyId) : null;
+        const unit = case_.unitId ? await storage.getUnit(case_.unitId) : null;
+        
+        return {
+          ...case_,
+          buildingName: property?.name,
+          roomNumber: unit?.label,
+          locationText: property ? `${property.street}, ${property.city}` : undefined
+        };
+      }));
+
+      res.json(enrichedCases);
+    } catch (error) {
+      console.error("Error fetching contractor cases:", error);
+      res.status(500).json({ message: "Failed to fetch contractor cases" });
+    }
+  });
+
+  // Get appointments for current contractor
+  app.get('/api/contractor/appointments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contractor = await storage.getContractorByUserId(userId);
+      
+      if (!contractor) {
+        return res.json([]); // Return empty array if not a contractor
+      }
+
+      const appointments = await storage.getContractorAppointments(contractor.id);
+      res.json(appointments);
+    } catch (error) {
+      console.error("Error fetching contractor appointments:", error);
+      res.status(500).json({ message: "Failed to fetch contractor appointments" });
+    }
+  });
+
   // Get all contractors for org
   app.get('/api/contractors', isAuthenticated, async (req: any, res) => {
     try {
