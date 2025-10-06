@@ -916,3 +916,134 @@ export type DepreciationAsset = typeof depreciationAssets.$inferSelect;
 export type InsertDepreciationAsset = z.infer<typeof insertDepreciationAssetSchema>;
 export type DepreciationSchedule = typeof depreciationSchedules.$inferSelect;
 export type InsertDepreciationSchedule = z.infer<typeof insertDepreciationScheduleSchema>;
+
+// ============================================================================
+// USER CATEGORIES & MESSAGING SYSTEM (Added for role switching & in-app messaging)
+// ============================================================================
+
+// User Categories - Dynamic role categories that admins can create
+export const userCategories = pgTable("user_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  name: varchar("name").notNull(), // e.g., "RNs", "MDs", "Fellows", "Residents", "ODs"
+  description: text("description"),
+  color: varchar("color").default("#0080FF"), // For UI display
+  icon: varchar("icon").default("Users"), // Lucide icon name
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Category Members - Maps users to categories (many-to-many)
+export const userCategoryMembers = pgTable("user_category_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  categoryId: varchar("category_id").notNull().references(() => userCategories.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  displayRole: varchar("display_role"), // Optional: specific role within category, e.g., "Senior RN", "Chief Resident"
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Message Threads - Conversation threads between users
+export const messageThreads = pgTable("message_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  subject: varchar("subject"),
+  isDirect: boolean("is_direct").notNull().default(true), // true for 1:1, false for group
+  lastMessageAt: timestamp("last_message_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Chat Messages - Individual messages within threads
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  threadId: varchar("thread_id").notNull().references(() => messageThreads.id),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  body: text("body").notNull(),
+  attachments: text("attachments").array().default([]), // Array of attachment URLs
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Thread Participants - Maps users/categories to threads
+export const threadParticipants = pgTable("thread_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  threadId: varchar("thread_id").notNull().references(() => messageThreads.id),
+  userId: varchar("user_id").references(() => users.id), // For individual participants
+  categoryId: varchar("category_id").references(() => userCategories.id), // For category-wide threads
+  lastReadAt: timestamp("last_read_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Relations for new tables
+export const userCategoriesRelations = relations(userCategories, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [userCategories.orgId],
+    references: [organizations.id],
+  }),
+  members: many(userCategoryMembers),
+}));
+
+export const userCategoryMembersRelations = relations(userCategoryMembers, ({ one }) => ({
+  category: one(userCategories, {
+    fields: [userCategoryMembers.categoryId],
+    references: [userCategories.id],
+  }),
+  user: one(users, {
+    fields: [userCategoryMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const messageThreadsRelations = relations(messageThreads, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [messageThreads.orgId],
+    references: [organizations.id],
+  }),
+  chatMessages: many(chatMessages),
+  participants: many(threadParticipants),
+}));
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  thread: one(messageThreads, {
+    fields: [chatMessages.threadId],
+    references: [messageThreads.id],
+  }),
+  sender: one(users, {
+    fields: [chatMessages.senderId],
+    references: [users.id],
+  }),
+}));
+
+export const threadParticipantsRelations = relations(threadParticipants, ({ one }) => ({
+  thread: one(messageThreads, {
+    fields: [threadParticipants.threadId],
+    references: [messageThreads.id],
+  }),
+  user: one(users, {
+    fields: [threadParticipants.userId],
+    references: [users.id],
+  }),
+  category: one(userCategories, {
+    fields: [threadParticipants.categoryId],
+    references: [userCategories.id],
+  }),
+}));
+
+// Insert schemas for new tables
+export const insertUserCategorySchema = createInsertSchema(userCategories).omit({ id: true, createdAt: true });
+export const insertUserCategoryMemberSchema = createInsertSchema(userCategoryMembers).omit({ id: true, createdAt: true });
+export const insertMessageThreadSchema = createInsertSchema(messageThreads).omit({ id: true, createdAt: true });
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
+export const insertThreadParticipantSchema = createInsertSchema(threadParticipants).omit({ id: true, createdAt: true });
+
+// Types for new tables
+export type UserCategory = typeof userCategories.$inferSelect;
+export type InsertUserCategory = z.infer<typeof insertUserCategorySchema>;
+export type UserCategoryMember = typeof userCategoryMembers.$inferSelect;
+export type InsertUserCategoryMember = z.infer<typeof insertUserCategoryMemberSchema>;
+export type MessageThread = typeof messageThreads.$inferSelect;
+export type InsertMessageThread = z.infer<typeof insertMessageThreadSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type ThreadParticipant = typeof threadParticipants.$inferSelect;
+export type InsertThreadParticipant = z.infer<typeof insertThreadParticipantSchema>;
