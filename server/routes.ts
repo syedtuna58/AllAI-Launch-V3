@@ -3,6 +3,9 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService } from "./objectStorage";
+import { db } from "./db";
+import { users, organizationMembers } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { 
   insertOrganizationSchema,
   insertOwnershipEntitySchema,
@@ -4359,6 +4362,36 @@ Which property is this for? Select one below:`;
   
   console.log('✅ WebSocket server initialized on /ws');
   
+  // Get users in organization
+  app.get('/api/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      // Get all organization members
+      const members = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profilePicture: users.profilePicture,
+        })
+        .from(organizationMembers)
+        .innerJoin(users, eq(organizationMembers.userId, users.id))
+        .where(eq(organizationMembers.orgId, org.id));
+      
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
   // User Category routes
   app.get('/api/categories', isAuthenticated, async (req: any, res) => {
     try {

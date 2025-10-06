@@ -22,6 +22,7 @@ import Expenses from "@/pages/expenses";
 import Revenue from "@/pages/revenue";
 import Tax from "@/pages/tax";
 import Reminders from "@/pages/reminders";
+import Categories from "@/pages/categories";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -63,6 +64,7 @@ function Router() {
           <Route path="/revenue" component={Revenue} />
           <Route path="/tax" component={Tax} />
           <Route path="/reminders" component={Reminders} />
+          <Route path="/categories" component={Categories} />
           <Route component={NotFound} />
         </>
       )}
