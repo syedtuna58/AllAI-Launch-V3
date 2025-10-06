@@ -466,7 +466,7 @@ export default function Reminders() {
         <Header title="Reminders" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          {/* Mailla AI Assistant */}
+          {/* Maya AI Assistant */}
           <div className="mb-8">
             <PropertyAssistant
               context="reminders"

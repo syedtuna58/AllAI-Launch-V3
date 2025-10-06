@@ -113,7 +113,7 @@ function EnhancedAIResponse({ content, timestamp, isLatest = false }: EnhancedAI
                 <DialogHeader>
                   <DialogTitle className="flex items-center space-x-2">
                     <Bot className="h-5 w-5 text-purple-600" />
-                    <span>Mailla Analysis - Full View</span>
+                    <span>Maya Analysis - Full View</span>
                   </DialogTitle>
                 </DialogHeader>
                 <ScrollArea className="h-full">
@@ -368,7 +368,7 @@ export default function PropertyAssistant({ context = "dashboard", exampleQuesti
   };
 
   return (
-    <Card id="mailla-assistant" className="mb-8" data-testid="card-ai-assistant">
+    <Card id="maya-assistant" className="mb-8" data-testid="card-ai-assistant">
       <CardHeader>
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
@@ -378,7 +378,7 @@ export default function PropertyAssistant({ context = "dashboard", exampleQuesti
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <CardTitle className="text-lg cursor-help">Mailla</CardTitle>
+                  <CardTitle className="text-lg cursor-help">Maya</CardTitle>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">ask me anything, I will leverage my intimate knowledge of your real estate portfolio and the power of AI to try to help you</p>
@@ -454,7 +454,7 @@ export default function PropertyAssistant({ context = "dashboard", exampleQuesti
                       <Loader2 className="h-4 w-4 animate-spin text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <div className="text-sm font-medium">Mailla is analyzing...</div>
+                      <div className="text-sm font-medium">Maya is analyzing...</div>
                       <div className="text-xs text-muted-foreground">Looking at your property data</div>
                     </div>
                   </div>

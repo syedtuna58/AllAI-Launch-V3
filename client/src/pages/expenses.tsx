@@ -753,7 +753,7 @@ export default function Expenses() {
             </Card>
           </div>
 
-          {/* Mailla AI Assistant */}
+          {/* Maya AI Assistant */}
           <PropertyAssistant 
             context="expenses"
             exampleQuestions={[

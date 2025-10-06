@@ -88,12 +88,12 @@ export default function TenantDashboard() {
   const [selectedAppointment, setSelectedAppointment] = useState<TenantAppointment | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   
-  const [maillaOpen, setMaillaOpen] = useState(false);
+  const [mayaOpen, setMayaOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I'm Mailla 👋 Tell me about your maintenance issue and I'll help you submit a request.",
+      content: "Hi! I'm Maya 👋 Tell me about your maintenance issue and I'll help you submit a request.",
       timestamp: new Date(),
     }
   ]);
@@ -107,10 +107,10 @@ export default function TenantDashboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (maillaOpen) {
+    if (mayaOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, maillaOpen]);
+  }, [messages, mayaOpen]);
 
   const { data: myCases = [], isLoading: casesLoading } = useQuery<TenantCase[]>({
     queryKey: ['/api/tenant/cases'],
@@ -195,7 +195,7 @@ export default function TenantDashboard() {
     }
   };
 
-  const sendMaillaMessage = async (content: string) => {
+  const sendMayaMessage = async (content: string) => {
     if (!content.trim()) return;
 
     const userMessage: Message = {
@@ -261,12 +261,12 @@ export default function TenantDashboard() {
             setMessages(prev => [...prev, successMessage]);
             queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
             setTimeout(() => {
-              setMaillaOpen(false);
+              setMayaOpen(false);
               setConversationState("initial");
               setMessages([{
                 id: "welcome",
                 role: "assistant",
-                content: "Hi! I'm Mailla 👋 Tell me about your maintenance issue and I'll help you submit a request.",
+                content: "Hi! I'm Maya 👋 Tell me about your maintenance issue and I'll help you submit a request.",
                 timestamp: new Date(),
               }]);
             }, 2000);
@@ -274,7 +274,7 @@ export default function TenantDashboard() {
         }
       }
     } catch (error) {
-      console.error("Mailla error:", error);
+      console.error("Maya error:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -338,8 +338,8 @@ export default function TenantDashboard() {
               </Link>
             </div>
 
-            {/* Mailla AI Chat Widget */}
-            <Collapsible open={maillaOpen} onOpenChange={setMaillaOpen}>
+            {/* Maya AI Chat Widget */}
+            <Collapsible open={mayaOpen} onOpenChange={setMayaOpen}>
               <Card className="border-2 border-primary/20">
                 <CollapsibleTrigger className="w-full">
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-3">
@@ -349,11 +349,11 @@ export default function TenantDashboard() {
                           <Bot className="h-6 w-6 text-primary" />
                         </div>
                         <div className="text-left flex-1">
-                          <CardTitle>Mailla AI Assistant</CardTitle>
+                          <CardTitle>Maya AI Assistant</CardTitle>
                           <CardDescription>Quick maintenance request help</CardDescription>
                         </div>
                       </div>
-                      {maillaOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+                      {mayaOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
                     </div>
                   </CardHeader>
                 </CollapsibleTrigger>
@@ -367,16 +367,16 @@ export default function TenantDashboard() {
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
-                          sendMaillaMessage(inputValue);
+                          sendMayaMessage(inputValue);
                         }
                       }}
                       disabled={isProcessing}
                       className="flex-1"
-                      data-testid="input-mailla-message"
-                      onClick={() => !maillaOpen && setMaillaOpen(true)}
+                      data-testid="input-maya-message"
+                      onClick={() => !mayaOpen && setMayaOpen(true)}
                     />
                     <Button
-                      onClick={() => sendMaillaMessage(inputValue)}
+                      onClick={() => sendMayaMessage(inputValue)}
                       disabled={isProcessing || !inputValue.trim()}
                       data-testid="button-send-message"
                     >
@@ -384,7 +384,7 @@ export default function TenantDashboard() {
                     </Button>
                   </div>
 
-                  {!maillaOpen && (
+                  {!mayaOpen && (
                     <div className="flex flex-wrap gap-2">
                       {[
                         "My sink is leaking",
@@ -400,7 +400,7 @@ export default function TenantDashboard() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setInputValue(suggestion);
-                            setMaillaOpen(true);
+                            setMayaOpen(true);
                           }}
                           data-testid={`button-suggestion-${index}`}
                         >

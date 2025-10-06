@@ -646,7 +646,7 @@ export default function Revenue() {
             </Card>
           </div>
 
-          {/* Mailla AI Assistant */}
+          {/* Maya AI Assistant */}
           <PropertyAssistant 
             context="revenue"
             exampleQuestions={[

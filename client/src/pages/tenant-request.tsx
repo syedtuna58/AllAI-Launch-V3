@@ -39,7 +39,7 @@ export default function TenantRequestPage() {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I'm Mailla, your AI maintenance assistant. 👋\n\nTell me what's going on, and I'll help you get it fixed. What maintenance issue are you experiencing?",
+      content: "Hi! I'm Maya, your AI maintenance assistant. 👋\n\nTell me what's going on, and I'll help you get it fixed. What maintenance issue are you experiencing?",
       timestamp: new Date(),
     }
   ]);
@@ -209,7 +209,7 @@ export default function TenantRequestPage() {
     <div data-testid="page-tenant-request" className="min-h-screen bg-background flex">
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <Header title="Mailla AI Assistant" />
+        <Header title="Maya AI Assistant" />
         
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto h-full flex flex-col">
@@ -220,7 +220,7 @@ export default function TenantRequestPage() {
                     <Bot className="h-6 w-6 text-primary" />
                   </div>
                   <div>
-                    <CardTitle>Mailla AI Assistant</CardTitle>
+                    <CardTitle>Maya AI Assistant</CardTitle>
                     <CardDescription>Smart maintenance request triage</CardDescription>
                   </div>
                 </div>

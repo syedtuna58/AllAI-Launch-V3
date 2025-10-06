@@ -108,7 +108,7 @@ export default function Tax() {
     sum + parseFloat(t.amount), 0
   );
 
-  // Prepare context for Mailla AI
+  // Prepare context for Maya AI
   const taxData: TaxData = {
     properties,
     transactions: currentYearExpenses,
@@ -250,7 +250,7 @@ export default function Tax() {
               </Card>
             </div>
 
-            {/* Mailla AI Assistant for Tax Analysis */}
+            {/* Maya AI Assistant for Tax Analysis */}
             <PropertyAssistant 
               context={contextInfo}
               exampleQuestions={[

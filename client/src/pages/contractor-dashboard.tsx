@@ -426,7 +426,7 @@ export default function ContractorDashboard() {
               </Link>
             </div>
 
-            {/* Mailla AI Assistant */}
+            {/* Maya AI Assistant */}
             <PropertyAssistant context="contractor-dashboard" />
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

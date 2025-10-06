@@ -3180,7 +3180,7 @@ EXAMPLE OUTPUT for reminders question "What needs my attention?":
 }`;
       }
 
-      const systemPrompt = `You are Mailla, a friendly property management assistant. Answer user questions in a conversational, helpful way using their actual property data.
+      const systemPrompt = `You are Maya, a friendly property management assistant. Answer user questions in a conversational, helpful way using their actual property data.
 
 COMMUNICATION STYLE:
 - Be warm, conversational, and supportive (like talking to a friend)
@@ -3287,7 +3287,7 @@ Provide helpful analysis based on the actual data. Respond with valid JSON only:
             reminders: (aiData as any).reminders?.slice(0, 5) || []
           };
 
-          const retryPrompt = `You are Mailla, a property management assistant. Answer briefly using actual data.${contextualGuidance}
+          const retryPrompt = `You are Maya, a property management assistant. Answer briefly using actual data.${contextualGuidance}
 
 PROPERTY DATA:
 ${JSON.stringify(simplifiedAiData, null, 2)}
@@ -3952,7 +3952,7 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
-  // Conversational Mailla AI triage chat endpoint
+  // Conversational Maya AI triage chat endpoint
   app.post('/api/triage/chat', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -4056,7 +4056,7 @@ Which property is this for? Select one below:`;
         res.status(400).json({ message: "Invalid step" });
       }
     } catch (error) {
-      console.error("Mailla triage chat error:", error);
+      console.error("Maya triage chat error:", error);
       res.status(500).json({ message: "Failed to process request" });
     }
   });

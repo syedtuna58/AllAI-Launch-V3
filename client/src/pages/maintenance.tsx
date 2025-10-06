@@ -926,7 +926,7 @@ export default function Maintenance() {
             </div>
           </div>
 
-          {/* Mailla AI Assistant */}
+          {/* Maya AI Assistant */}
           <PropertyAssistant 
             context="maintenance"
             exampleQuestions={[
