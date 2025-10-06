@@ -9,7 +9,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import { format } from "date-fns";
 import PropertyAssistant from "@/components/ai/property-assistant";
+import { useRole } from "@/contexts/RoleContext";
 
 // Predefined maintenance categories
 // Error Boundary for Visualization Components
@@ -101,9 +102,18 @@ const createCaseSchema = z.object({
   createReminder: z.boolean().default(false),
 });
 
+const scheduleAppointmentSchema = z.object({
+  date: z.date({
+    required_error: "Please select an appointment date",
+  }),
+  time: z.string().min(1, "Please select a time"),
+  notes: z.string().optional(),
+});
+
 export default function Maintenance() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const { role } = useRole();
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
@@ -117,6 +127,8 @@ export default function Maintenance() {
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
   const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list">("cards");
+  const [acceptingCase, setAcceptingCase] = useState<SmartCase | null>(null);
+  const [showAcceptDialog, setShowAcceptDialog] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -367,6 +379,29 @@ export default function Maintenance() {
       toast({
         title: "Error",
         description: error.message || "Failed to assign contractor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const acceptCaseMutation = useMutation({
+    mutationFn: async ({ caseId, appointmentData }: { caseId: string, appointmentData: any }) => {
+      const response = await apiRequest("POST", `/api/contractor/cases/${caseId}/accept`, appointmentData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      setShowAcceptDialog(false);
+      setAcceptingCase(null);
+      toast({
+        title: "Case Accepted",
+        description: "Appointment has been scheduled. Tenant will be notified for approval.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to accept case",
         variant: "destructive",
       });
     },
@@ -1157,6 +1192,24 @@ export default function Maintenance() {
                         <Bell className="h-3 w-3" />
                       </Button>
                       
+                      {/* Accept Case Button (Contractor Only) */}
+                      {role === 'contractor' && smartCase.status === 'New' && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="h-8 px-3"
+                          onClick={() => {
+                            setAcceptingCase(smartCase);
+                            setShowAcceptDialog(true);
+                          }}
+                          data-testid={`button-accept-case-${index}`}
+                          title="Accept Case"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Accept
+                        </Button>
+                      )}
+                      
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -1778,6 +1831,178 @@ export default function Maintenance() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Accept Case Dialog */}
+      <AcceptCaseDialog
+        isOpen={showAcceptDialog}
+        onClose={() => {
+          setShowAcceptDialog(false);
+          setAcceptingCase(null);
+        }}
+        case_={acceptingCase}
+        onAccept={(appointmentData) => {
+          if (acceptingCase) {
+            acceptCaseMutation.mutate({
+              caseId: acceptingCase.id,
+              appointmentData
+            });
+          }
+        }}
+        isPending={acceptCaseMutation.isPending}
+      />
     </div>
+  );
+}
+
+// Accept Case Dialog Component
+function AcceptCaseDialog({
+  isOpen,
+  onClose,
+  case_,
+  onAccept,
+  isPending
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  case_: SmartCase | null;
+  onAccept: (data: any) => void;
+  isPending: boolean;
+}) {
+  const form = useForm<z.infer<typeof scheduleAppointmentSchema>>({
+    resolver: zodResolver(scheduleAppointmentSchema),
+    defaultValues: {
+      date: undefined,
+      time: "",
+      notes: ""
+    }
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        date: undefined,
+        time: "",
+        notes: ""
+      });
+    }
+  }, [isOpen, form]);
+
+  const onSubmit = (data: z.infer<typeof scheduleAppointmentSchema>) => {
+    onAccept(data);
+  };
+
+  if (!case_) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Accept Case & Schedule Appointment</DialogTitle>
+        </DialogHeader>
+        <div className="mb-4">
+          <h4 className="font-semibold text-sm mb-1">{case_.title}</h4>
+          <p className="text-sm text-muted-foreground">{case_.description}</p>
+        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Appointment Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className="w-full pl-3 text-left font-normal"
+                          data-testid="button-select-date"
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Appointment Time</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="time"
+                      {...field}
+                      data-testid="input-appointment-time"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add any notes about the appointment..."
+                      className="resize-none"
+                      {...field}
+                      data-testid="input-appointment-notes"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isPending}
+                data-testid="button-cancel-accept"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending}
+                data-testid="button-submit-accept"
+              >
+                {isPending ? "Scheduling..." : "Accept & Schedule"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
