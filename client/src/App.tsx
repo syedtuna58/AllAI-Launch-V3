@@ -71,10 +71,12 @@ function Router() {
 }
 
 function App() {
+  const { user } = useAuth();
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RoleProvider defaultRole="admin">
+        <RoleProvider defaultRole="admin" userId={user?.id}>
           <Toaster />
           <Router />
         </RoleProvider>
