@@ -20,6 +20,7 @@ export default function Sidebar() {
     { name: "Entities", href: "/entities", icon: Building2 },
     { name: "Tenants", href: "/tenants", icon: Users },
     { name: "Categories", href: "/categories", icon: Settings },
+    { name: "Messages", href: "/messages", icon: MessageSquare },
     { name: "Maintenance", href: "/maintenance", icon: Wrench },
     { name: "Expenses", href: "/expenses", icon: Receipt },
     { name: "Revenue", href: "/revenue", icon: DollarSign },
