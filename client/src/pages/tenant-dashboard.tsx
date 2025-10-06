@@ -342,7 +342,7 @@ export default function TenantDashboard() {
             <Collapsible open={maillaOpen} onOpenChange={setMaillaOpen}>
               <Card className="border-2 border-primary/20">
                 <CollapsibleTrigger className="w-full">
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -358,8 +358,33 @@ export default function TenantDashboard() {
                   </CardHeader>
                 </CollapsibleTrigger>
 
-                {!maillaOpen && (
-                  <CardContent className="pt-0 pb-4">
+                <CardContent className="pt-0 pb-4 space-y-4">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Describe your maintenance issue..."
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMaillaMessage(inputValue);
+                        }
+                      }}
+                      disabled={isProcessing}
+                      className="flex-1"
+                      data-testid="input-mailla-message"
+                      onClick={() => !maillaOpen && setMaillaOpen(true)}
+                    />
+                    <Button
+                      onClick={() => sendMaillaMessage(inputValue)}
+                      disabled={isProcessing || !inputValue.trim()}
+                      data-testid="button-send-message"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {!maillaOpen && (
                     <div className="flex flex-wrap gap-2">
                       {[
                         "My sink is leaking",
@@ -374,8 +399,8 @@ export default function TenantDashboard() {
                           className="text-xs"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setMaillaOpen(true);
                             setInputValue(suggestion);
+                            setMaillaOpen(true);
                           }}
                           data-testid={`button-suggestion-${index}`}
                         >
@@ -383,11 +408,11 @@ export default function TenantDashboard() {
                         </Button>
                       ))}
                     </div>
-                  </CardContent>
-                )}
+                  )}
+                </CardContent>
                 
                 <CollapsibleContent>
-                  <CardContent className="space-y-4">
+                  <CardContent className="pt-0 pb-4">
                     <div className="max-h-[400px] overflow-auto space-y-4 pb-4">
                       {messages.map((message) => (
                         <div
@@ -447,30 +472,6 @@ export default function TenantDashboard() {
                         </div>
                       ))}
                       <div ref={messagesEndRef} />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Describe your maintenance issue..."
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMaillaMessage(inputValue);
-                          }
-                        }}
-                        disabled={isProcessing}
-                        className="flex-1"
-                        data-testid="input-mailla-message"
-                      />
-                      <Button
-                        onClick={() => sendMaillaMessage(inputValue)}
-                        disabled={isProcessing || !inputValue.trim()}
-                        data-testid="button-send-message"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
                     </div>
                   </CardContent>
                 </CollapsibleContent>
