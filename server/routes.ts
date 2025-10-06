@@ -20,6 +20,10 @@ import {
   insertContractorAvailabilitySchema,
   insertContractorBlackoutSchema,
   insertAppointmentSchema,
+  insertUserCategorySchema,
+  insertUserCategoryMemberSchema,
+  insertMessageThreadSchema,
+  insertChatMessageSchema,
 } from "@shared/schema";
 import OpenAI from "openai";
 
@@ -4354,6 +4358,194 @@ Which property is this for? Select one below:`;
   });
   
   console.log('✅ WebSocket server initialized on /ws');
+  
+  // User Category routes
+  app.get('/api/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      const categories = await storage.getUserCategories(org.id);
+      res.json(categories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+  
+  app.post('/api/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      const validatedData = insertUserCategorySchema.parse({
+        ...req.body,
+        orgId: org.id
+      });
+      
+      const category = await storage.createUserCategory(validatedData);
+      res.json(category);
+    } catch (error) {
+      console.error("Error creating category:", error);
+      res.status(500).json({ message: "Failed to create category" });
+    }
+  });
+  
+  app.patch('/api/categories/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const category = await storage.updateUserCategory(req.params.id, req.body);
+      res.json(category);
+    } catch (error) {
+      console.error("Error updating category:", error);
+      res.status(500).json({ message: "Failed to update category" });
+    }
+  });
+  
+  app.delete('/api/categories/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteUserCategory(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({ message: "Failed to delete category" });
+    }
+  });
+  
+  // Category Member routes
+  app.get('/api/categories/:id/members', isAuthenticated, async (req: any, res) => {
+    try {
+      const members = await storage.getCategoryMembers(req.params.id);
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching category members:", error);
+      res.status(500).json({ message: "Failed to fetch category members" });
+    }
+  });
+  
+  app.post('/api/categories/:id/members', isAuthenticated, async (req: any, res) => {
+    try {
+      const validatedData = insertUserCategoryMemberSchema.parse({
+        ...req.body,
+        categoryId: req.params.id
+      });
+      
+      const member = await storage.addCategoryMember(validatedData);
+      res.json(member);
+    } catch (error) {
+      console.error("Error adding category member:", error);
+      res.status(500).json({ message: "Failed to add category member" });
+    }
+  });
+  
+  app.delete('/api/categories/:categoryId/members/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.removeCategoryMember(req.params.categoryId, req.params.userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing category member:", error);
+      res.status(500).json({ message: "Failed to remove category member" });
+    }
+  });
+  
+  // Get user's category memberships
+  app.get('/api/users/:userId/categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const memberships = await storage.getUserCategoryMemberships(req.params.userId);
+      res.json(memberships);
+    } catch (error) {
+      console.error("Error fetching user categories:", error);
+      res.status(500).json({ message: "Failed to fetch user categories" });
+    }
+  });
+  
+  // Messaging routes
+  app.get('/api/messages/threads', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      const threads = await storage.getMessageThreads(org.id, userId);
+      res.json(threads);
+    } catch (error) {
+      console.error("Error fetching message threads:", error);
+      res.status(500).json({ message: "Failed to fetch message threads" });
+    }
+  });
+  
+  app.post('/api/messages/threads', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      const { participantIds, subject } = req.body;
+      
+      const threadData = insertMessageThreadSchema.parse({
+        orgId: org.id,
+        subject: subject || null,
+        isDirect: participantIds.length === 2
+      });
+      
+      const thread = await storage.createMessageThread(threadData, participantIds);
+      res.json(thread);
+    } catch (error) {
+      console.error("Error creating message thread:", error);
+      res.status(500).json({ message: "Failed to create message thread" });
+    }
+  });
+  
+  app.get('/api/messages/threads/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const messages = await storage.getThreadMessages(req.params.id);
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching thread messages:", error);
+      res.status(500).json({ message: "Failed to fetch thread messages" });
+    }
+  });
+  
+  app.post('/api/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const validatedData = insertChatMessageSchema.parse({
+        ...req.body,
+        senderId: userId
+      });
+      
+      const message = await storage.sendMessage(validatedData);
+      res.json(message);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+  
+  app.patch('/api/messages/threads/:id/read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.markThreadAsRead(req.params.id, userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking thread as read:", error);
+      res.status(500).json({ message: "Failed to mark thread as read" });
+    }
+  });
   
   return httpServer;
 }
