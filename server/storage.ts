@@ -34,6 +34,9 @@ import {
   messageThreads,
   chatMessages,
   threadParticipants,
+  approvalPolicies,
+  appointmentProposals,
+  proposalSlots,
   type User,
   type UpsertUser,
   type Organization,
@@ -84,6 +87,12 @@ import {
   type InsertChatMessage,
   type ThreadParticipant,
   type InsertThreadParticipant,
+  type ApprovalPolicy,
+  type InsertApprovalPolicy,
+  type AppointmentProposal,
+  type InsertAppointmentProposal,
+  type ProposalSlot,
+  type InsertProposalSlot,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
@@ -264,6 +273,25 @@ export interface IStorage {
   getThreadMessages(threadId: string): Promise<ChatMessage[]>;
   sendMessage(message: InsertChatMessage): Promise<ChatMessage>;
   markThreadAsRead(threadId: string, userId: string): Promise<void>;
+  
+  // Approval Policy operations
+  getApprovalPolicies(orgId: string): Promise<ApprovalPolicy[]>;
+  getApprovalPolicy(id: string): Promise<ApprovalPolicy | undefined>;
+  createApprovalPolicy(policy: InsertApprovalPolicy): Promise<ApprovalPolicy>;
+  updateApprovalPolicy(id: string, policy: Partial<InsertApprovalPolicy>): Promise<ApprovalPolicy>;
+  deleteApprovalPolicy(id: string): Promise<void>;
+  
+  // Appointment Proposal operations
+  getAppointmentProposals(caseId: string): Promise<AppointmentProposal[]>;
+  getAppointmentProposal(id: string): Promise<AppointmentProposal | undefined>;
+  createAppointmentProposal(proposal: InsertAppointmentProposal): Promise<AppointmentProposal>;
+  updateAppointmentProposal(id: string, proposal: Partial<InsertAppointmentProposal>): Promise<AppointmentProposal>;
+  deleteAppointmentProposal(id: string): Promise<void>;
+  
+  // Proposal Slot operations
+  getProposalSlots(proposalId: string): Promise<ProposalSlot[]>;
+  createProposalSlot(slot: InsertProposalSlot): Promise<ProposalSlot>;
+  deleteProposalSlot(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2953,6 +2981,96 @@ export class DatabaseStorage implements IStorage {
         eq(threadParticipants.threadId, threadId),
         eq(threadParticipants.userId, userId)
       ));
+  }
+
+  // Approval Policy operations
+  async getApprovalPolicies(orgId: string): Promise<ApprovalPolicy[]> {
+    return db.select().from(approvalPolicies)
+      .where(eq(approvalPolicies.orgId, orgId))
+      .orderBy(desc(approvalPolicies.createdAt));
+  }
+
+  async getApprovalPolicy(id: string): Promise<ApprovalPolicy | undefined> {
+    const [policy] = await db.select().from(approvalPolicies)
+      .where(eq(approvalPolicies.id, id));
+    return policy;
+  }
+
+  async createApprovalPolicy(policy: InsertApprovalPolicy): Promise<ApprovalPolicy> {
+    const [created] = await db.insert(approvalPolicies).values(policy).returning();
+    return created;
+  }
+
+  async updateApprovalPolicy(id: string, policy: Partial<InsertApprovalPolicy>): Promise<ApprovalPolicy> {
+    // Strip immutable fields
+    const { orgId, ...safePolicy } = policy;
+    
+    const [updated] = await db.update(approvalPolicies)
+      .set({ ...safePolicy, updatedAt: new Date() })
+      .where(eq(approvalPolicies.id, id))
+      .returning();
+    
+    if (!updated) {
+      throw new Error("Policy not found");
+    }
+    
+    return updated;
+  }
+
+  async deleteApprovalPolicy(id: string): Promise<void> {
+    const result = await db.delete(approvalPolicies)
+      .where(eq(approvalPolicies.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      throw new Error("Policy not found");
+    }
+  }
+
+  // Appointment Proposal operations
+  async getAppointmentProposals(caseId: string): Promise<AppointmentProposal[]> {
+    return db.select().from(appointmentProposals)
+      .where(eq(appointmentProposals.caseId, caseId))
+      .orderBy(desc(appointmentProposals.createdAt));
+  }
+
+  async getAppointmentProposal(id: string): Promise<AppointmentProposal | undefined> {
+    const [proposal] = await db.select().from(appointmentProposals)
+      .where(eq(appointmentProposals.id, id));
+    return proposal;
+  }
+
+  async createAppointmentProposal(proposal: InsertAppointmentProposal): Promise<AppointmentProposal> {
+    const [created] = await db.insert(appointmentProposals).values(proposal).returning();
+    return created;
+  }
+
+  async updateAppointmentProposal(id: string, proposal: Partial<InsertAppointmentProposal>): Promise<AppointmentProposal> {
+    const [updated] = await db.update(appointmentProposals)
+      .set({ ...proposal, updatedAt: new Date() })
+      .where(eq(appointmentProposals.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAppointmentProposal(id: string): Promise<void> {
+    await db.delete(appointmentProposals).where(eq(appointmentProposals.id, id));
+  }
+
+  // Proposal Slot operations
+  async getProposalSlots(proposalId: string): Promise<ProposalSlot[]> {
+    return db.select().from(proposalSlots)
+      .where(eq(proposalSlots.proposalId, proposalId))
+      .orderBy(asc(proposalSlots.slotNumber));
+  }
+
+  async createProposalSlot(slot: InsertProposalSlot): Promise<ProposalSlot> {
+    const [created] = await db.insert(proposalSlots).values(slot).returning();
+    return created;
+  }
+
+  async deleteProposalSlot(id: string): Promise<void> {
+    await db.delete(proposalSlots).where(eq(proposalSlots.id, id));
   }
 }
 

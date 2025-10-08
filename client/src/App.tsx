@@ -24,6 +24,7 @@ import Tax from "@/pages/tax";
 import Reminders from "@/pages/reminders";
 import Categories from "@/pages/categories";
 import Messages from "@/pages/messages";
+import ApprovalSettings from "@/pages/approval-settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -67,6 +68,7 @@ function Router() {
           <Route path="/reminders" component={Reminders} />
           <Route path="/categories" component={Categories} />
           <Route path="/messages" component={Messages} />
+          <Route path="/approval-settings" component={ApprovalSettings} />
           <Route component={NotFound} />
         </>
       )}

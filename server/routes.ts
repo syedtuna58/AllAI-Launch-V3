@@ -4579,6 +4579,170 @@ Which property is this for? Select one below:`;
       res.status(500).json({ message: "Failed to mark thread as read" });
     }
   });
+
+  // Approval Policy routes
+  app.get('/api/approval-policies', isAuthenticated, async (req: any, res) => {
+    try {
+      const org = await storage.getUserOrganization(req.user.claims.sub);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      const policies = await storage.getApprovalPolicies(org.id);
+      res.json(policies);
+    } catch (error) {
+      console.error("Error fetching approval policies:", error);
+      res.status(500).json({ message: "Failed to fetch approval policies" });
+    }
+  });
+
+  app.post('/api/approval-policies', isAuthenticated, async (req: any, res) => {
+    try {
+      const org = await storage.getUserOrganization(req.user.claims.sub);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const { insertApprovalPolicySchema } = await import("@shared/schema");
+      const validatedData = insertApprovalPolicySchema.parse({
+        ...req.body,
+        orgId: org.id
+      });
+
+      const policy = await storage.createApprovalPolicy(validatedData);
+      res.json(policy);
+    } catch (error) {
+      console.error("Error creating approval policy:", error);
+      res.status(500).json({ message: "Failed to create approval policy" });
+    }
+  });
+
+  app.put('/api/approval-policies/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const org = await storage.getUserOrganization(req.user.claims.sub);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Verify policy belongs to user's organization
+      const existingPolicy = await storage.getApprovalPolicy(req.params.id);
+      if (!existingPolicy) {
+        return res.status(404).json({ message: "Policy not found" });
+      }
+      if (existingPolicy.orgId !== org.id) {
+        return res.status(403).json({ message: "Unauthorized to modify this policy" });
+      }
+
+      const { insertApprovalPolicySchema } = await import("@shared/schema");
+      const validatedData = insertApprovalPolicySchema.partial().parse(req.body);
+      
+      const policy = await storage.updateApprovalPolicy(req.params.id, validatedData);
+      res.json(policy);
+    } catch (error: any) {
+      console.error("Error updating approval policy:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      if (error.message === "Policy not found") {
+        return res.status(404).json({ message: "Policy not found" });
+      }
+      res.status(500).json({ message: "Failed to update approval policy" });
+    }
+  });
+
+  app.delete('/api/approval-policies/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const org = await storage.getUserOrganization(req.user.claims.sub);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      // Verify policy belongs to user's organization
+      const existingPolicy = await storage.getApprovalPolicy(req.params.id);
+      if (!existingPolicy) {
+        return res.status(404).json({ message: "Policy not found" });
+      }
+      if (existingPolicy.orgId !== org.id) {
+        return res.status(403).json({ message: "Unauthorized to delete this policy" });
+      }
+
+      await storage.deleteApprovalPolicy(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting approval policy:", error);
+      if (error.message === "Policy not found") {
+        return res.status(404).json({ message: "Policy not found" });
+      }
+      res.status(500).json({ message: "Failed to delete approval policy" });
+    }
+  });
+
+  // Appointment Proposal routes
+  app.get('/api/cases/:caseId/proposals', isAuthenticated, async (req: any, res) => {
+    try {
+      const proposals = await storage.getAppointmentProposals(req.params.caseId);
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching appointment proposals:", error);
+      res.status(500).json({ message: "Failed to fetch appointment proposals" });
+    }
+  });
+
+  app.post('/api/cases/:caseId/proposals', isAuthenticated, async (req: any, res) => {
+    try {
+      const { insertAppointmentProposalSchema } = await import("@shared/schema");
+      const validatedData = insertAppointmentProposalSchema.parse({
+        ...req.body,
+        caseId: req.params.caseId
+      });
+
+      const proposal = await storage.createAppointmentProposal(validatedData);
+      res.json(proposal);
+    } catch (error) {
+      console.error("Error creating appointment proposal:", error);
+      res.status(500).json({ message: "Failed to create appointment proposal" });
+    }
+  });
+
+  app.put('/api/proposals/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { insertAppointmentProposalSchema } = await import("@shared/schema");
+      const validatedData = insertAppointmentProposalSchema.partial().parse(req.body);
+      
+      const proposal = await storage.updateAppointmentProposal(req.params.id, validatedData);
+      res.json(proposal);
+    } catch (error) {
+      console.error("Error updating appointment proposal:", error);
+      res.status(500).json({ message: "Failed to update appointment proposal" });
+    }
+  });
+
+  // Proposal Slot routes
+  app.get('/api/proposals/:proposalId/slots', isAuthenticated, async (req: any, res) => {
+    try {
+      const slots = await storage.getProposalSlots(req.params.proposalId);
+      res.json(slots);
+    } catch (error) {
+      console.error("Error fetching proposal slots:", error);
+      res.status(500).json({ message: "Failed to fetch proposal slots" });
+    }
+  });
+
+  app.post('/api/proposals/:proposalId/slots', isAuthenticated, async (req: any, res) => {
+    try {
+      const { insertProposalSlotSchema } = await import("@shared/schema");
+      const validatedData = insertProposalSlotSchema.parse({
+        ...req.body,
+        proposalId: req.params.proposalId
+      });
+
+      const slot = await storage.createProposalSlot(validatedData);
+      res.json(slot);
+    } catch (error) {
+      console.error("Error creating proposal slot:", error);
+      res.status(500).json({ message: "Failed to create proposal slot" });
+    }
+  });
   
   return httpServer;
 }
