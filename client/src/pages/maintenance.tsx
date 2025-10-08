@@ -129,6 +129,8 @@ export default function Maintenance() {
   const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list">("cards");
   const [acceptingCase, setAcceptingCase] = useState<SmartCase | null>(null);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+  const [viewingProposalsCase, setViewingProposalsCase] = useState<SmartCase | null>(null);
+  const [showProposalsDialog, setShowProposalsDialog] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -1210,6 +1212,24 @@ export default function Maintenance() {
                         </Button>
                       )}
                       
+                      {/* View Proposals Button (Tenant Only) */}
+                      {role === 'tenant' && (smartCase.status === 'In Review' || smartCase.status === 'Scheduled') && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="h-8 px-3"
+                          onClick={() => {
+                            setViewingProposalsCase(smartCase);
+                            setShowProposalsDialog(true);
+                          }}
+                          data-testid={`button-view-proposals-${index}`}
+                          title="View Proposals"
+                        >
+                          <CalendarDays className="h-3 w-3 mr-1" />
+                          Proposals
+                        </Button>
+                      )}
+                      
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -1832,6 +1852,18 @@ export default function Maintenance() {
         </DialogContent>
       </Dialog>
 
+      {/* Proposals Dialog */}
+      {viewingProposalsCase && (
+        <ProposalsDialog
+          isOpen={showProposalsDialog}
+          onClose={() => {
+            setShowProposalsDialog(false);
+            setViewingProposalsCase(null);
+          }}
+          case_={viewingProposalsCase}
+        />
+      )}
+
       {/* Accept Case Dialog */}
       <AcceptCaseDialog
         isOpen={showAcceptDialog}
@@ -2004,5 +2036,198 @@ function AcceptCaseDialog({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Proposals Dialog Component
+function ProposalsDialog({
+  isOpen,
+  onClose,
+  case_
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  case_: SmartCase;
+}) {
+  const { toast } = useToast();
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+
+  // Fetch proposals for this case
+  const { data: proposals = [], isLoading: proposalsLoading } = useQuery<any[]>({
+    queryKey: ['/api/cases', case_.id, 'proposals'],
+    enabled: isOpen && !!case_.id,
+  });
+
+  // Mutation to select a slot
+  const selectSlotMutation = useMutation({
+    mutationFn: async (slotId: string) => {
+      return await apiRequest("POST", `/api/proposals/slots/${slotId}/select`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Appointment time selected successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to select appointment time",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSelectSlot = () => {
+    if (selectedSlotId) {
+      selectSlotMutation.mutate(selectedSlotId);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-view-proposals">
+        <DialogHeader>
+          <DialogTitle>Contractor Proposals</DialogTitle>
+        </DialogHeader>
+        <div className="mb-4">
+          <h4 className="font-semibold text-sm mb-1">{case_.title}</h4>
+          <p className="text-sm text-muted-foreground">{case_.description}</p>
+        </div>
+
+        {proposalsLoading ? (
+          <div className="space-y-4">
+            <div className="h-24 bg-muted animate-pulse rounded" />
+            <div className="h-24 bg-muted animate-pulse rounded" />
+          </div>
+        ) : proposals.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No proposals yet. Your contractor will send appointment options soon.
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {proposals.map((proposal, proposalIndex) => (
+              <ProposalCard
+                key={proposal.id}
+                proposal={proposal}
+                proposalIndex={proposalIndex}
+                selectedSlotId={selectedSlotId}
+                onSelectSlot={setSelectedSlotId}
+              />
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            data-testid="button-cancel-proposals"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSelectSlot}
+            disabled={!selectedSlotId || selectSlotMutation.isPending}
+            data-testid="button-confirm-slot"
+          >
+            {selectSlotMutation.isPending ? "Confirming..." : "Confirm Selection"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Proposal Card Component
+function ProposalCard({
+  proposal,
+  proposalIndex,
+  selectedSlotId,
+  onSelectSlot
+}: {
+  proposal: any;
+  proposalIndex: number;
+  selectedSlotId: string | null;
+  onSelectSlot: (slotId: string) => void;
+}) {
+  const { data: slots = [], isLoading: slotsLoading } = useQuery<any[]>({
+    queryKey: ['/api/proposals', proposal.id, 'slots'],
+  });
+
+  return (
+    <Card data-testid={`card-proposal-${proposalIndex}`}>
+      <CardHeader>
+        <CardTitle className="text-base">
+          Proposal from Contractor
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-muted-foreground">Estimated Cost:</span>
+            <p className="font-semibold">${Number(proposal.estimatedCost || 0).toFixed(2)}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Duration:</span>
+            <p className="font-semibold">{proposal.estimatedDurationMinutes || 0} minutes</p>
+          </div>
+        </div>
+
+        {proposal.notes && (
+          <div className="text-sm">
+            <span className="text-muted-foreground">Notes:</span>
+            <p className="mt-1">{proposal.notes}</p>
+          </div>
+        )}
+
+        <div className="border-t pt-4">
+          <h4 className="font-semibold text-sm mb-3">Select a Time Slot:</h4>
+          {slotsLoading ? (
+            <div className="space-y-2">
+              <div className="h-16 bg-muted animate-pulse rounded" />
+              <div className="h-16 bg-muted animate-pulse rounded" />
+              <div className="h-16 bg-muted animate-pulse rounded" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {slots.map((slot, slotIndex) => (
+                <button
+                  key={slot.id}
+                  onClick={() => onSelectSlot(slot.id)}
+                  className={`w-full text-left p-3 border rounded-lg transition-all ${
+                    selectedSlotId === slot.id
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  data-testid={`button-slot-${proposalIndex}-${slotIndex}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">
+                        Option {slot.slotNumber}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(slot.startTime).toLocaleDateString()} at{' '}
+                        {new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                      selectedSlotId === slot.id ? 'border-primary' : 'border-border'
+                    }`}>
+                      {selectedSlotId === slot.id && (
+                        <div className="w-3 h-3 rounded-full bg-primary" />
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

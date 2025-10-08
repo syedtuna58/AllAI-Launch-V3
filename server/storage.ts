@@ -290,6 +290,7 @@ export interface IStorage {
   
   // Proposal Slot operations
   getProposalSlots(proposalId: string): Promise<ProposalSlot[]>;
+  getProposalSlot(id: string): Promise<ProposalSlot | undefined>;
   createProposalSlot(slot: InsertProposalSlot): Promise<ProposalSlot>;
   deleteProposalSlot(id: string): Promise<void>;
 }
@@ -3062,6 +3063,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(proposalSlots)
       .where(eq(proposalSlots.proposalId, proposalId))
       .orderBy(asc(proposalSlots.slotNumber));
+  }
+
+  async getProposalSlot(id: string): Promise<ProposalSlot | undefined> {
+    const [slot] = await db.select().from(proposalSlots)
+      .where(eq(proposalSlots.id, id));
+    return slot;
   }
 
   async createProposalSlot(slot: InsertProposalSlot): Promise<ProposalSlot> {

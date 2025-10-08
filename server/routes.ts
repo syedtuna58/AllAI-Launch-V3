@@ -4743,6 +4743,128 @@ Which property is this for? Select one below:`;
       res.status(500).json({ message: "Failed to create proposal slot" });
     }
   });
+
+  // Select a proposal slot (tenant action)
+  app.post('/api/proposals/slots/:slotId/select', isAuthenticated, async (req: any, res) => {
+    try {
+      const slotId = req.params.slotId;
+      const userId = req.user.claims.sub;
+      
+      const slot = await storage.getProposalSlot(slotId);
+      
+      if (!slot) {
+        return res.status(404).json({ message: "Slot not found" });
+      }
+
+      const proposal = await storage.getAppointmentProposal(slot.proposalId);
+      if (!proposal) {
+        return res.status(404).json({ message: "Proposal not found" });
+      }
+
+      const case_ = await storage.getCase(proposal.caseId);
+      if (!case_) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+
+      // Authorization: Get user's org and check it matches the case
+      const userOrg = await storage.getUserOrganization(userId);
+      if (!userOrg || case_.orgId !== userOrg.id) {
+        return res.status(403).json({ message: "Unauthorized to select slot for this case" });
+      }
+
+      // Verify user is the case reporter (tenant) or get their role from org membership
+      const isReporter = case_.reporterUserId === userId;
+      
+      // Check if user has admin/landlord role via organization membership
+      const orgMembers = await storage.getOrganizationMembers(userOrg.id);
+      const userMember = orgMembers.find(m => m.userId === userId);
+      const userRole = userMember?.role || 'tenant';
+      const isAdminOrLandlord = userRole === 'admin' || userRole === 'landlord';
+      
+      if (!isReporter && !isAdminOrLandlord) {
+        return res.status(403).json({ message: "Only the case reporter or administrators can select appointment slots" });
+      }
+
+      // Get approval policies for the org
+      const policies = await storage.getApprovalPolicies(userOrg.id);
+      
+      // Check if auto-approval applies
+      let autoApproved = false;
+      let appointmentId: string | null = null;
+
+      if (policies.length > 0) {
+        const policy = policies[0]; // Use the first/most recent policy
+        
+        // Check auto-approval criteria
+        const costWithinThreshold = !policy.costThreshold || Number(proposal.estimatedCost) <= Number(policy.costThreshold);
+        const slotTime = new Date(slot.startTime);
+        const slotHour = slotTime.getHours();
+        
+        // Check if time is within preferred range
+        let timeWithinPreference = true;
+        if (policy.preferredTimeStart && policy.preferredTimeEnd) {
+          const [startHour] = policy.preferredTimeStart.split(':').map(Number);
+          const [endHour] = policy.preferredTimeEnd.split(':').map(Number);
+          timeWithinPreference = slotHour >= startHour && slotHour <= endHour;
+        }
+
+        // Check if contractor is trusted
+        const trustedContractors = policy.trustedContractors || [];
+        const contractorTrusted = trustedContractors.includes(proposal.contractorId);
+
+        // Check urgency
+        const urgencyCheck = !policy.urgencyLevel || case_.priority === policy.urgencyLevel;
+
+        // Auto-approve if fully automated mode or all criteria met in dial in/out mode
+        if (policy.involvementMode === 'Fully Automated') {
+          autoApproved = true;
+        } else if (policy.involvementMode === 'Dial In/Out' && 
+                   costWithinThreshold && timeWithinPreference && 
+                   (trustedContractors.length === 0 || contractorTrusted) && urgencyCheck) {
+          autoApproved = true;
+        }
+      }
+
+      // Update proposal with selected slot and auto-approval status
+      await storage.updateAppointmentProposal(proposal.id, {
+        selectedSlotId: slotId,
+        autoApproved,
+        autoApprovalReason: autoApproved ? "Auto-approved based on landlord policy" : null,
+        status: autoApproved ? "accepted" : "pending"
+      });
+
+      // Create appointment if auto-approved
+      if (autoApproved) {
+        const appointment = await storage.createAppointment({
+          caseId: case_.id,
+          contractorId: proposal.contractorId,
+          scheduledFor: slot.startTime,
+          status: "Scheduled",
+          notes: proposal.notes,
+          estimatedDuration: proposal.estimatedDurationMinutes,
+        });
+        appointmentId = appointment.id;
+
+        // Update case status
+        await storage.updateCase(case_.id, { status: "Scheduled" });
+      } else {
+        // Update case to indicate it's awaiting landlord review
+        await storage.updateCase(case_.id, { status: "In Review" });
+      }
+
+      res.json({ 
+        success: true, 
+        autoApproved, 
+        appointmentId,
+        message: autoApproved 
+          ? "Appointment automatically approved and scheduled!" 
+          : "Selection received. Awaiting landlord approval."
+      });
+    } catch (error) {
+      console.error("Error selecting proposal slot:", error);
+      res.status(500).json({ message: "Failed to select slot" });
+    }
+  });
   
   return httpServer;
 }
