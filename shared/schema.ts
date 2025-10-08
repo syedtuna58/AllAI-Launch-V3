@@ -974,6 +974,72 @@ export const threadParticipants = pgTable("thread_participants", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Approval Policies - Admin auto-approval rules
+export const approvalPolicies = pgTable("approval_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  name: varchar("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Trusted contractors
+  trustedContractorIds: text("trusted_contractor_ids").array().default([]),
+  
+  // Time preferences
+  autoApproveWeekdays: boolean("auto_approve_weekdays").default(true),
+  autoApproveWeekends: boolean("auto_approve_weekends").default(false),
+  autoApproveEvenings: boolean("auto_approve_evenings").default(false), // After 5pm
+  blockVacationDates: boolean("block_vacation_dates").default(false),
+  vacationStartDate: timestamp("vacation_start_date"),
+  vacationEndDate: timestamp("vacation_end_date"),
+  
+  // Cost thresholds
+  autoApproveCostLimit: decimal("auto_approve_cost_limit", { precision: 10, scale: 2 }), // Auto-approve under this amount
+  requireApprovalOver: decimal("require_approval_over", { precision: 10, scale: 2 }), // Always require approval over this
+  
+  // Urgency override
+  autoApproveEmergencies: boolean("auto_approve_emergencies").default(true),
+  
+  // Involvement mode
+  involvementMode: varchar("involvement_mode").notNull().default("balanced"), // hands-off, balanced, hands-on
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Appointment Proposals - Multi-slot proposals from contractors
+export const appointmentProposals = pgTable("appointment_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => smartCases.id),
+  contractorId: varchar("contractor_id").notNull().references(() => vendors.id),
+  status: varchar("status").notNull().default("pending"), // pending, accepted, declined, countered, expired
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
+  estimatedDurationMinutes: integer("estimated_duration_minutes"),
+  notes: text("notes"),
+  
+  // Selected slot (when tenant picks one)
+  selectedSlotId: varchar("selected_slot_id"),
+  
+  // Auto-approval result
+  autoApproved: boolean("auto_approved").default(false),
+  autoApprovalReason: text("auto_approval_reason"),
+  
+  expiresAt: timestamp("expires_at"), // Proposals expire after 48 hours
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Proposal Slots - Individual time slots within a proposal
+export const proposalSlots = pgTable("proposal_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposalId: varchar("proposal_id").notNull().references(() => appointmentProposals.id),
+  slotNumber: integer("slot_number").notNull(), // 1, 2, or 3
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  isAvailableForTenant: boolean("is_available_for_tenant").default(true), // Checked against tenant calendar
+  conflictReason: text("conflict_reason"), // Why it conflicts with tenant calendar
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations for new tables
 export const userCategoriesRelations = relations(userCategories, ({ one, many }) => ({
   organization: one(organizations, {
@@ -1035,6 +1101,9 @@ export const insertUserCategoryMemberSchema = createInsertSchema(userCategoryMem
 export const insertMessageThreadSchema = createInsertSchema(messageThreads).omit({ id: true, createdAt: true });
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
 export const insertThreadParticipantSchema = createInsertSchema(threadParticipants).omit({ id: true, createdAt: true });
+export const insertApprovalPolicySchema = createInsertSchema(approvalPolicies).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertAppointmentProposalSchema = createInsertSchema(appointmentProposals).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProposalSlotSchema = createInsertSchema(proposalSlots).omit({ id: true, createdAt: true });
 
 // Types for new tables
 export type UserCategory = typeof userCategories.$inferSelect;
@@ -1047,3 +1116,9 @@ export type ChatMessage = typeof chatMessages.$inferSelect;
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ThreadParticipant = typeof threadParticipants.$inferSelect;
 export type InsertThreadParticipant = z.infer<typeof insertThreadParticipantSchema>;
+export type ApprovalPolicy = typeof approvalPolicies.$inferSelect;
+export type InsertApprovalPolicy = z.infer<typeof insertApprovalPolicySchema>;
+export type AppointmentProposal = typeof appointmentProposals.$inferSelect;
+export type InsertAppointmentProposal = z.infer<typeof insertAppointmentProposalSchema>;
+export type ProposalSlot = typeof proposalSlots.$inferSelect;
+export type InsertProposalSlot = z.infer<typeof insertProposalSlotSchema>;
