@@ -75,6 +75,7 @@ const CaseCard = ({
   isFavorite,
   onToggleFavorite,
   onAcceptCase,
+  onProposeTime,
   updateCaseStatus,
   acceptCaseMutation
 }: {
@@ -82,6 +83,7 @@ const CaseCard = ({
   isFavorite: boolean,
   onToggleFavorite: (caseId: string) => void,
   onAcceptCase: (case_: ContractorCase) => void,
+  onProposeTime: (case_: ContractorCase) => void,
   updateCaseStatus: any,
   acceptCaseMutation: any
 }) => {
@@ -166,14 +168,24 @@ const CaseCard = ({
 
           <div className="flex gap-2">
             {case_.status === "New" && (
-              <Button
-                size="sm"
-                onClick={() => onAcceptCase(case_)}
-                disabled={acceptCaseMutation.isPending}
-                data-testid={`button-accept-case-${case_.id}`}
-              >
-                Accept Case
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onProposeTime(case_)}
+                  data-testid={`button-propose-time-${case_.id}`}
+                >
+                  Propose Times
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => onAcceptCase(case_)}
+                  disabled={acceptCaseMutation.isPending}
+                  data-testid={`button-accept-case-${case_.id}`}
+                >
+                  Accept Now
+                </Button>
+              </>
             )}
             {case_.status === "Scheduled" && (
               <Button
@@ -230,6 +242,19 @@ export default function ContractorDashboard() {
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [hideClosedCases, setHideClosedCases] = useState<boolean>(true);
   const [favoriteCases, setFavoriteCases] = useState<Set<string>>(new Set());
+  
+  // Multi-slot proposal state
+  const [proposalDialogOpen, setProposalDialogOpen] = useState(false);
+  const [proposingCase, setProposingCase] = useState<ContractorCase | null>(null);
+  const [proposalCost, setProposalCost] = useState("");
+  const [proposalDuration, setProposalDuration] = useState(120);
+  const [proposalNotes, setProposalNotes] = useState("");
+  const [slot1Date, setSlot1Date] = useState("");
+  const [slot1Time, setSlot1Time] = useState("");
+  const [slot2Date, setSlot2Date] = useState("");
+  const [slot2Time, setSlot2Time] = useState("");
+  const [slot3Date, setSlot3Date] = useState("");
+  const [slot3Time, setSlot3Time] = useState("");
 
   const { data: assignedCases = [], isLoading: casesLoading } = useQuery<ContractorCase[]>({
     queryKey: ['/api/contractor/cases'],
@@ -348,6 +373,116 @@ export default function ContractorDashboard() {
       }
     }
   });
+
+  const createProposalMutation = useMutation({
+    mutationFn: async ({ caseId, cost, duration, notes, slots }: {
+      caseId: string;
+      cost: number;
+      duration: number;
+      notes: string;
+      slots: Array<{ startTime: string; endTime: string; slotNumber: number }>;
+    }) => {
+      // Create the proposal
+      const proposal = await apiRequest("POST", `/api/cases/${caseId}/proposals`, {
+        caseId,
+        contractorId: user?.id,
+        estimatedCost: cost,
+        estimatedDurationMinutes: duration,
+        notes,
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), // 48 hours from now
+      });
+
+      // Create the slots
+      for (const slot of slots) {
+        await apiRequest("POST", `/api/proposals/${proposal.id}/slots`, {
+          proposalId: proposal.id,
+          slotNumber: slot.slotNumber,
+          startTime: slot.startTime,
+          endTime: new Date(new Date(slot.startTime).getTime() + duration * 60000).toISOString(),
+        });
+      }
+
+      return proposal;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      setProposalDialogOpen(false);
+      setProposingCase(null);
+      setProposalCost("");
+      setProposalDuration(120);
+      setProposalNotes("");
+      setSlot1Date("");
+      setSlot1Time("");
+      setSlot2Date("");
+      setSlot2Time("");
+      setSlot3Date("");
+      setSlot3Time("");
+      
+      toast({
+        title: "Proposal Sent!",
+        description: "Your time slot proposal has been sent to the tenant for review."
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Proposal Failed",
+        description: error?.message || "Failed to create proposal. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleProposeTime = (case_: ContractorCase) => {
+    setProposingCase(case_);
+    setProposalDialogOpen(true);
+  };
+
+  const handleConfirmProposal = () => {
+    if (!proposingCase || !proposalCost || !slot1Date || !slot1Time || !slot2Date || !slot2Time || !slot3Date || !slot3Time) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields including cost and all 3 time slots.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const cost = parseFloat(proposalCost);
+    if (isNaN(cost)) {
+      toast({
+        title: "Invalid Cost",
+        description: "Please enter a valid cost amount.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const slots = [
+      {
+        slotNumber: 1,
+        startTime: new Date(`${slot1Date}T${slot1Time}`).toISOString(),
+        endTime: new Date(new Date(`${slot1Date}T${slot1Time}`).getTime() + proposalDuration * 60000).toISOString(),
+      },
+      {
+        slotNumber: 2,
+        startTime: new Date(`${slot2Date}T${slot2Time}`).toISOString(),
+        endTime: new Date(new Date(`${slot2Date}T${slot2Time}`).getTime() + proposalDuration * 60000).toISOString(),
+      },
+      {
+        slotNumber: 3,
+        startTime: new Date(`${slot3Date}T${slot3Time}`).toISOString(),
+        endTime: new Date(new Date(`${slot3Date}T${slot3Time}`).getTime() + proposalDuration * 60000).toISOString(),
+      },
+    ];
+
+    createProposalMutation.mutate({
+      caseId: proposingCase.id,
+      cost,
+      duration: proposalDuration,
+      notes: proposalNotes,
+      slots,
+    });
+  };
 
   const handleAcceptCase = (case_: ContractorCase) => {
     setAcceptingCase(case_);
@@ -551,6 +686,7 @@ export default function ContractorDashboard() {
                       isFavorite={favoriteCases.has(case_.id)}
                       onToggleFavorite={handleToggleFavorite}
                       onAcceptCase={handleAcceptCase}
+                      onProposeTime={handleProposeTime}
                       updateCaseStatus={updateCaseStatus}
                       acceptCaseMutation={acceptCaseMutation}
                     />
@@ -571,6 +707,7 @@ export default function ContractorDashboard() {
                       isFavorite={favoriteCases.has(case_.id)}
                       onToggleFavorite={handleToggleFavorite}
                       onAcceptCase={handleAcceptCase}
+                      onProposeTime={handleProposeTime}
                       updateCaseStatus={updateCaseStatus}
                       acceptCaseMutation={acceptCaseMutation}
                     />
@@ -591,6 +728,7 @@ export default function ContractorDashboard() {
                       isFavorite={favoriteCases.has(case_.id)}
                       onToggleFavorite={handleToggleFavorite}
                       onAcceptCase={handleAcceptCase}
+                      onProposeTime={handleProposeTime}
                       updateCaseStatus={updateCaseStatus}
                       acceptCaseMutation={acceptCaseMutation}
                     />
@@ -611,6 +749,7 @@ export default function ContractorDashboard() {
                       isFavorite={favoriteCases.has(case_.id)}
                       onToggleFavorite={handleToggleFavorite}
                       onAcceptCase={handleAcceptCase}
+                      onProposeTime={handleProposeTime}
                       updateCaseStatus={updateCaseStatus}
                       acceptCaseMutation={acceptCaseMutation}
                     />
@@ -621,6 +760,149 @@ export default function ContractorDashboard() {
           </div>
         </main>
       </div>
+
+      <Dialog open={proposalDialogOpen} onOpenChange={setProposalDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" data-testid="dialog-propose-times">
+          <DialogHeader>
+            <DialogTitle>Propose Time Slots</DialogTitle>
+            <DialogDescription>
+              {proposingCase?.title} - Offer 3 time options for the tenant to choose from
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="proposal-cost">Estimated Cost ($)</Label>
+                <Input
+                  id="proposal-cost"
+                  type="number"
+                  placeholder="150.00"
+                  value={proposalCost}
+                  onChange={(e) => setProposalCost(e.target.value)}
+                  data-testid="input-proposal-cost"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="proposal-duration">Duration (minutes)</Label>
+                <Input
+                  id="proposal-duration"
+                  type="number"
+                  value={proposalDuration}
+                  onChange={(e) => setProposalDuration(Number(e.target.value))}
+                  min={15}
+                  step={15}
+                  data-testid="input-proposal-duration"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 border rounded-lg p-4">
+              <h3 className="font-semibold">Option 1</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="slot1-date">Date</Label>
+                  <Input
+                    id="slot1-date"
+                    type="date"
+                    value={slot1Date}
+                    onChange={(e) => setSlot1Date(e.target.value)}
+                    data-testid="input-slot1-date"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="slot1-time">Time</Label>
+                  <Input
+                    id="slot1-time"
+                    type="time"
+                    value={slot1Time}
+                    onChange={(e) => setSlot1Time(e.target.value)}
+                    data-testid="input-slot1-time"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 border rounded-lg p-4">
+              <h3 className="font-semibold">Option 2</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="slot2-date">Date</Label>
+                  <Input
+                    id="slot2-date"
+                    type="date"
+                    value={slot2Date}
+                    onChange={(e) => setSlot2Date(e.target.value)}
+                    data-testid="input-slot2-date"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="slot2-time">Time</Label>
+                  <Input
+                    id="slot2-time"
+                    type="time"
+                    value={slot2Time}
+                    onChange={(e) => setSlot2Time(e.target.value)}
+                    data-testid="input-slot2-time"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 border rounded-lg p-4">
+              <h3 className="font-semibold">Option 3</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="slot3-date">Date</Label>
+                  <Input
+                    id="slot3-date"
+                    type="date"
+                    value={slot3Date}
+                    onChange={(e) => setSlot3Date(e.target.value)}
+                    data-testid="input-slot3-date"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="slot3-time">Time</Label>
+                  <Input
+                    id="slot3-time"
+                    type="time"
+                    value={slot3Time}
+                    onChange={(e) => setSlot3Time(e.target.value)}
+                    data-testid="input-slot3-time"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="proposal-notes">Notes (optional)</Label>
+              <Textarea
+                id="proposal-notes"
+                value={proposalNotes}
+                onChange={(e) => setProposalNotes(e.target.value)}
+                placeholder="Add any notes about the proposed times or requirements..."
+                data-testid="textarea-proposal-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setProposalDialogOpen(false)}
+              data-testid="button-cancel-proposal"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmProposal}
+              disabled={createProposalMutation.isPending}
+              data-testid="button-confirm-proposal"
+            >
+              {createProposalMutation.isPending ? "Sending..." : "Send Proposal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
         <DialogContent className="sm:max-w-[500px]" data-testid="dialog-accept-case">
