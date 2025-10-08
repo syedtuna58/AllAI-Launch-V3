@@ -2069,6 +2069,7 @@ function ProposalsDialog({
         description: "Appointment time selected successfully!",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/cases/${case_.id}/proposals`] });
       onClose();
     },
     onError: () => {
