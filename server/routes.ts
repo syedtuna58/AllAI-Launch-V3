@@ -4865,6 +4865,55 @@ Which property is this for? Select one below:`;
       res.status(500).json({ message: "Failed to select slot" });
     }
   });
+
+  // Get available time slots from Google Calendar
+  app.get('/api/availability/slots', isAuthenticated, async (req: any, res) => {
+    try {
+      const { startDate, endDate, durationMinutes } = req.query;
+      
+      if (!startDate || !endDate || !durationMinutes) {
+        return res.status(400).json({ 
+          message: "Missing required parameters: startDate, endDate, durationMinutes" 
+        });
+      }
+
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+      const duration = parseInt(durationMinutes as string);
+
+      const { findAvailableSlots } = await import('./googleCalendar');
+      const slots = await findAvailableSlots(start, end, duration);
+
+      res.json(slots);
+    } catch (error) {
+      console.error("Error finding available slots:", error);
+      res.status(500).json({ message: "Failed to find available slots" });
+    }
+  });
+
+  // Check if specific time is available
+  app.post('/api/availability/check', isAuthenticated, async (req: any, res) => {
+    try {
+      const { startTime, endTime } = req.body;
+      
+      if (!startTime || !endTime) {
+        return res.status(400).json({ 
+          message: "Missing required parameters: startTime, endTime" 
+        });
+      }
+
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+
+      const { checkAvailability } = await import('./googleCalendar');
+      const result = await checkAvailability(start, end);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking availability:", error);
+      res.status(500).json({ message: "Failed to check availability" });
+    }
+  });
   
   return httpServer;
 }

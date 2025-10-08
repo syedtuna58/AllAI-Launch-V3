@@ -21,6 +21,7 @@ import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import { Link } from "wouter";
 import PropertyAssistant from "@/components/ai/property-assistant";
+import { LiveSchedulingWidget } from "@/components/LiveSchedulingWidget";
 
 interface ContractorCase {
   id: string;
@@ -249,12 +250,7 @@ export default function ContractorDashboard() {
   const [proposalCost, setProposalCost] = useState("");
   const [proposalDuration, setProposalDuration] = useState(120);
   const [proposalNotes, setProposalNotes] = useState("");
-  const [slot1Date, setSlot1Date] = useState("");
-  const [slot1Time, setSlot1Time] = useState("");
-  const [slot2Date, setSlot2Date] = useState("");
-  const [slot2Time, setSlot2Time] = useState("");
-  const [slot3Date, setSlot3Date] = useState("");
-  const [slot3Time, setSlot3Time] = useState("");
+  const [selectedTimeSlots, setSelectedTimeSlots] = useState<{start: Date; end: Date}[]>([]);
 
   const { data: assignedCases = [], isLoading: casesLoading } = useQuery<ContractorCase[]>({
     queryKey: ['/api/contractor/cases'],
@@ -411,12 +407,7 @@ export default function ContractorDashboard() {
       setProposalCost("");
       setProposalDuration(120);
       setProposalNotes("");
-      setSlot1Date("");
-      setSlot1Time("");
-      setSlot2Date("");
-      setSlot2Time("");
-      setSlot3Date("");
-      setSlot3Time("");
+      setSelectedTimeSlots([]);
       
       toast({
         title: "Proposal Sent!",
@@ -438,10 +429,10 @@ export default function ContractorDashboard() {
   };
 
   const handleConfirmProposal = () => {
-    if (!proposingCase || !proposalCost || !slot1Date || !slot1Time || !slot2Date || !slot2Time || !slot3Date || !slot3Time) {
+    if (!proposingCase || !proposalCost || selectedTimeSlots.length !== 3) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields including cost and all 3 time slots.",
+        description: "Please fill in cost and select exactly 3 time slots.",
         variant: "destructive"
       });
       return;
@@ -457,23 +448,11 @@ export default function ContractorDashboard() {
       return;
     }
 
-    const slots = [
-      {
-        slotNumber: 1,
-        startTime: new Date(`${slot1Date}T${slot1Time}`).toISOString(),
-        endTime: new Date(new Date(`${slot1Date}T${slot1Time}`).getTime() + proposalDuration * 60000).toISOString(),
-      },
-      {
-        slotNumber: 2,
-        startTime: new Date(`${slot2Date}T${slot2Time}`).toISOString(),
-        endTime: new Date(new Date(`${slot2Date}T${slot2Time}`).getTime() + proposalDuration * 60000).toISOString(),
-      },
-      {
-        slotNumber: 3,
-        startTime: new Date(`${slot3Date}T${slot3Time}`).toISOString(),
-        endTime: new Date(new Date(`${slot3Date}T${slot3Time}`).getTime() + proposalDuration * 60000).toISOString(),
-      },
-    ];
+    const slots = selectedTimeSlots.map((slot, index) => ({
+      slotNumber: index + 1,
+      startTime: slot.start.toISOString(),
+      endTime: slot.end.toISOString(),
+    }));
 
     createProposalMutation.mutate({
       caseId: proposingCase.id,
@@ -796,83 +775,28 @@ export default function ContractorDashboard() {
               </div>
             </div>
 
-            <div className="space-y-4 border rounded-lg p-4">
-              <h3 className="font-semibold">Option 1</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="slot1-date">Date</Label>
-                  <Input
-                    id="slot1-date"
-                    type="date"
-                    value={slot1Date}
-                    onChange={(e) => setSlot1Date(e.target.value)}
-                    data-testid="input-slot1-date"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="slot1-time">Time</Label>
-                  <Input
-                    id="slot1-time"
-                    type="time"
-                    value={slot1Time}
-                    onChange={(e) => setSlot1Time(e.target.value)}
-                    data-testid="input-slot1-time"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 border rounded-lg p-4">
-              <h3 className="font-semibold">Option 2</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="slot2-date">Date</Label>
-                  <Input
-                    id="slot2-date"
-                    type="date"
-                    value={slot2Date}
-                    onChange={(e) => setSlot2Date(e.target.value)}
-                    data-testid="input-slot2-date"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="slot2-time">Time</Label>
-                  <Input
-                    id="slot2-time"
-                    type="time"
-                    value={slot2Time}
-                    onChange={(e) => setSlot2Time(e.target.value)}
-                    data-testid="input-slot2-time"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 border rounded-lg p-4">
-              <h3 className="font-semibold">Option 3</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="slot3-date">Date</Label>
-                  <Input
-                    id="slot3-date"
-                    type="date"
-                    value={slot3Date}
-                    onChange={(e) => setSlot3Date(e.target.value)}
-                    data-testid="input-slot3-date"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="slot3-time">Time</Label>
-                  <Input
-                    id="slot3-time"
-                    type="time"
-                    value={slot3Time}
-                    onChange={(e) => setSlot3Time(e.target.value)}
-                    data-testid="input-slot3-time"
-                  />
-                </div>
-              </div>
-            </div>
+            <LiveSchedulingWidget
+              durationMinutes={proposalDuration}
+              onSlotSelect={(slot) => {
+                // Check if slot is already selected (for deselection)
+                const isAlreadySelected = selectedTimeSlots.some(
+                  s => new Date(s.start).getTime() === new Date(slot.start).getTime()
+                );
+                
+                if (isAlreadySelected) {
+                  // Remove the slot
+                  setSelectedTimeSlots(selectedTimeSlots.filter(
+                    s => new Date(s.start).getTime() !== new Date(slot.start).getTime()
+                  ));
+                } else if (selectedTimeSlots.length < 3) {
+                  // Add the slot
+                  setSelectedTimeSlots([...selectedTimeSlots, slot]);
+                }
+              }}
+              selectedSlots={selectedTimeSlots}
+              maxSlots={3}
+              title="Select 3 Available Time Slots"
+            />
 
             <div className="grid gap-2">
               <Label htmlFor="proposal-notes">Notes (optional)</Label>
