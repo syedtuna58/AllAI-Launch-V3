@@ -2054,7 +2054,7 @@ function ProposalsDialog({
 
   // Fetch proposals for this case
   const { data: proposals = [], isLoading: proposalsLoading } = useQuery<any[]>({
-    queryKey: ['/api/cases', case_.id, 'proposals'],
+    queryKey: [`/api/cases/${case_.id}/proposals`],
     enabled: isOpen && !!case_.id,
   });
 
@@ -2154,7 +2154,7 @@ function ProposalCard({
   onSelectSlot: (slotId: string) => void;
 }) {
   const { data: slots = [], isLoading: slotsLoading } = useQuery<any[]>({
-    queryKey: ['/api/proposals', proposal.id, 'slots'],
+    queryKey: [`/api/proposals/${proposal.id}/slots`],
   });
 
   return (
