@@ -6,7 +6,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserProfileForm from "@/components/forms/user-profile-form";
-import { Building, Home, Users, Wrench, Receipt, DollarSign, Bell, Settings, Building2, User, LogOut, ChevronDown, Calculator, ClipboardList, MessageSquare } from "lucide-react";
+import { Building, Home, Users, Wrench, Receipt, DollarSign, Bell, Settings, Building2, User, LogOut, ChevronDown, Calculator, ClipboardList, MessageSquare, ShieldCheck } from "lucide-react";
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -22,6 +22,7 @@ export default function Sidebar() {
     { name: "Categories", href: "/categories", icon: Settings },
     { name: "Messages", href: "/messages", icon: MessageSquare },
     { name: "Maintenance", href: "/maintenance", icon: Wrench },
+    { name: "Approval Settings", href: "/approval-settings", icon: ShieldCheck },
     { name: "Expenses", href: "/expenses", icon: Receipt },
     { name: "Revenue", href: "/revenue", icon: DollarSign },
     { name: "Tax", href: "/tax", icon: Calculator },
