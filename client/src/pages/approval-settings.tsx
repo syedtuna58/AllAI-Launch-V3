@@ -67,8 +67,8 @@ export default function ApprovalSettings() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: FormData) =>
-      apiRequest("/api/approval-policies", "POST", {
+    mutationFn: async (data: FormData) => {
+      const payload = {
         ...data,
         orgId: user?.orgId,
         trustedContractorIds: data.trustedContractorIds || [],
@@ -76,14 +76,21 @@ export default function ApprovalSettings() {
         requireApprovalOver: data.requireApprovalOver ? parseFloat(data.requireApprovalOver) : null,
         vacationStartDate: data.vacationStartDate || null,
         vacationEndDate: data.vacationEndDate || null,
-      }),
+      };
+      console.log("Creating policy with payload:", payload);
+      const response = await apiRequest("/api/approval-policies", "POST", payload);
+      console.log("Policy creation response:", response);
+      return response;
+    },
     onSuccess: () => {
+      console.log("Policy created successfully!");
       queryClient.invalidateQueries({ queryKey: ["/api/approval-policies"] });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({ title: "Policy created successfully" });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Failed to create policy:", error);
       toast({ title: "Failed to create policy", variant: "destructive" });
     },
   });
