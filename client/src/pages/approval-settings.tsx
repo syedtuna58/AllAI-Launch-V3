@@ -133,9 +133,13 @@ export default function ApprovalSettings() {
     console.log("Form submitted with data:", data);
     console.log("Form errors:", form.formState.errors);
     if (editingPolicy) {
+      console.log("Calling updateMutation with id:", editingPolicy.id);
       updateMutation.mutate({ id: editingPolicy.id, data });
     } else {
+      console.log("Calling createMutation.mutate with data...");
+      console.log("createMutation object:", createMutation);
       createMutation.mutate(data);
+      console.log("createMutation.mutate called!");
     }
   };
 
