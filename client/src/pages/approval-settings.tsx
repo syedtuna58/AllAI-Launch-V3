@@ -119,6 +119,8 @@ export default function ApprovalSettings() {
   });
 
   const onSubmit = (data: FormData) => {
+    console.log("Form submitted with data:", data);
+    console.log("Form errors:", form.formState.errors);
     if (editingPolicy) {
       updateMutation.mutate({ id: editingPolicy.id, data });
     } else {
@@ -353,7 +355,7 @@ export default function ApprovalSettings() {
                       <FormItem>
                         <FormLabel>Auto-approve under</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="500" {...field} data-testid="input-auto-approve-cost" />
+                          <Input type="number" placeholder="500" {...field} value={field.value || ""} data-testid="input-auto-approve-cost" />
                         </FormControl>
                         <FormDescription className="text-xs">
                           Automatically approve under this amount
@@ -369,7 +371,7 @@ export default function ApprovalSettings() {
                       <FormItem>
                         <FormLabel>Always require approval over</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="1000" {...field} data-testid="input-require-approval-cost" />
+                          <Input type="number" placeholder="1000" {...field} value={field.value || ""} data-testid="input-require-approval-cost" />
                         </FormControl>
                         <FormDescription className="text-xs">
                           Always review over this amount
@@ -497,16 +499,16 @@ export default function ApprovalSettings() {
               </div>
 
               <div className="space-y-4 border rounded-lg p-4">
-                <h3 className="font-semibold">Vacation Mode</h3>
+                <h3 className="font-semibold">Vacation Mode - Full Auto-Approval</h3>
                 <FormField
                   control={form.control}
                   name="blockVacationDates"
                   render={({ field }) => (
                     <FormItem className="flex items-center justify-between">
                       <div>
-                        <FormLabel>Require manual approval during vacation</FormLabel>
+                        <FormLabel>Enable "relax mode" during vacation</FormLabel>
                         <FormDescription className="text-xs">
-                          When enabled, all appointments need your review during vacation dates (work won't be scheduled without your approval)
+                          When enabled, ALL appointments auto-approve during vacation dates - no involvement needed. You can truly relax! 🌴
                         </FormDescription>
                       </div>
                       <FormControl>
@@ -516,15 +518,15 @@ export default function ApprovalSettings() {
                   )}
                 />
                 {form.watch("blockVacationDates") && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 mt-4">
                     <FormField
                       control={form.control}
                       name="vacationStartDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Start Date</FormLabel>
+                          <FormLabel>Vacation Start Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} data-testid="input-vacation-start" />
+                            <Input type="date" {...field} value={field.value || ""} data-testid="input-vacation-start" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -535,9 +537,9 @@ export default function ApprovalSettings() {
                       name="vacationEndDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>End Date</FormLabel>
+                          <FormLabel>Vacation End Date</FormLabel>
                           <FormControl>
-                            <Input type="date" {...field} data-testid="input-vacation-end" />
+                            <Input type="date" {...field} value={field.value || ""} data-testid="input-vacation-end" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
