@@ -17,7 +17,7 @@ import { insertApprovalPolicySchema, type ApprovalPolicy, type Vendor } from "@s
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 
-const formSchema = insertApprovalPolicySchema.extend({
+const formSchema = insertApprovalPolicySchema.omit({ orgId: true }).extend({
   autoApproveCostLimit: z.string().optional().refine(
     (val) => !val || !isNaN(parseFloat(val)),
     { message: "Must be a valid number" }
