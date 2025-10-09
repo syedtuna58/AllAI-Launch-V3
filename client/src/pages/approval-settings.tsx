@@ -57,6 +57,10 @@ export default function ApprovalSettings() {
       blockVacationDates: false,
       autoApproveEmergencies: true,
       involvementMode: "balanced",
+      autoApproveCostLimit: "",
+      requireApprovalOver: "",
+      vacationStartDate: "",
+      vacationEndDate: "",
     },
   });
 
@@ -493,16 +497,16 @@ export default function ApprovalSettings() {
               </div>
 
               <div className="space-y-4 border rounded-lg p-4">
-                <h3 className="font-semibold">Vacation Blocking</h3>
+                <h3 className="font-semibold">Vacation Mode</h3>
                 <FormField
                   control={form.control}
                   name="blockVacationDates"
                   render={({ field }) => (
                     <FormItem className="flex items-center justify-between">
                       <div>
-                        <FormLabel>Block vacation dates</FormLabel>
+                        <FormLabel>Require manual approval during vacation</FormLabel>
                         <FormDescription className="text-xs">
-                          Prevent auto-approval during your vacation
+                          When enabled, all appointments need your review during vacation dates (work won't be scheduled without your approval)
                         </FormDescription>
                       </div>
                       <FormControl>
