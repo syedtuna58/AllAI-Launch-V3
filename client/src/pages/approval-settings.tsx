@@ -78,7 +78,7 @@ export default function ApprovalSettings() {
         vacationEndDate: data.vacationEndDate || null,
       };
       console.log("Creating policy with payload:", payload);
-      const response = await apiRequest("/api/approval-policies", "POST", payload);
+      const response = await apiRequest("POST", "/api/approval-policies", payload);
       console.log("Policy creation response:", response);
       return response;
     },
@@ -97,7 +97,7 @@ export default function ApprovalSettings() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: FormData }) =>
-      apiRequest(`/api/approval-policies/${id}`, "PUT", {
+      apiRequest("PUT", `/api/approval-policies/${id}`, {
         ...data,
         orgId: user?.orgId,
         trustedContractorIds: data.trustedContractorIds || [],
@@ -118,7 +118,7 @@ export default function ApprovalSettings() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/approval-policies/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/approval-policies/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/approval-policies"] });
       setDeletingId(null);
