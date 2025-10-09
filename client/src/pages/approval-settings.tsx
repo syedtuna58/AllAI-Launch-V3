@@ -15,6 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertApprovalPolicySchema, type ApprovalPolicy, type Vendor } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 
 const formSchema = insertApprovalPolicySchema.extend({
   autoApproveCostLimit: z.string().optional().refine(
@@ -33,6 +34,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export default function ApprovalSettings() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<ApprovalPolicy | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -68,6 +70,7 @@ export default function ApprovalSettings() {
     mutationFn: (data: FormData) =>
       apiRequest("/api/approval-policies", "POST", {
         ...data,
+        orgId: user?.orgId,
         trustedContractorIds: data.trustedContractorIds || [],
         autoApproveCostLimit: data.autoApproveCostLimit ? parseFloat(data.autoApproveCostLimit) : null,
         requireApprovalOver: data.requireApprovalOver ? parseFloat(data.requireApprovalOver) : null,
@@ -89,6 +92,7 @@ export default function ApprovalSettings() {
     mutationFn: ({ id, data }: { id: string; data: FormData }) =>
       apiRequest(`/api/approval-policies/${id}`, "PUT", {
         ...data,
+        orgId: user?.orgId,
         trustedContractorIds: data.trustedContractorIds || [],
         autoApproveCostLimit: data.autoApproveCostLimit ? parseFloat(data.autoApproveCostLimit) : null,
         requireApprovalOver: data.requireApprovalOver ? parseFloat(data.requireApprovalOver) : null,
