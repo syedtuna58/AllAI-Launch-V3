@@ -602,6 +602,12 @@ export default function ApprovalSettings() {
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
                   data-testid="button-save-policy"
+                  onClick={(e) => {
+                    console.log("Button clicked!");
+                    console.log("Form state:", form.formState);
+                    console.log("Form errors:", form.formState.errors);
+                    console.log("Form values:", form.getValues());
+                  }}
                 >
                   {editingPolicy ? "Update Policy" : "Create Policy"}
                 </Button>
