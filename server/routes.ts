@@ -1914,6 +1914,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertSmartCaseSchema.parse(cleanedData);
       
       const smartCase = await storage.createSmartCase(validatedData);
+      
+      // Trigger AI triage and contractor assignment in the background
+      (async () => {
+        try {
+          console.log(`🤖 Starting AI triage for case ${smartCase.id}...`);
+          
+          // Step 1: AI Triage Analysis
+          const { aiTriageService } = await import('./aiTriage');
+          const triageResult = await aiTriageService.analyzeMaintenanceRequest({
+            title: smartCase.title,
+            description: smartCase.description || '',
+            category: smartCase.category || undefined,
+            priority: smartCase.priority || undefined,
+            propertyId: smartCase.propertyId || undefined,
+            unitId: smartCase.unitId || undefined,
+            orgId: smartCase.orgId
+          });
+          
+          console.log(`🤖 Triage complete: ${triageResult.urgency} urgency, ${triageResult.category} category`);
+          
+          // Step 2: Find optimal contractor
+          const { aiCoordinatorService } = await import('./aiCoordinator');
+          const vendors = await storage.getVendors(org.id);
+          
+          const availableContractors = vendors
+            .filter(v => v.isActiveContractor)
+            .map(v => ({
+              id: v.id,
+              name: v.name,
+              category: v.category || undefined,
+              specializations: v.specializations || [],
+              availabilityPattern: v.availabilityPattern || 'weekdays_9to5',
+              responseTimeHours: v.responseTimeHours || 24,
+              estimatedHourlyRate: v.estimatedHourlyRate || undefined,
+              rating: v.rating || undefined,
+              maxJobsPerDay: v.maxJobsPerDay || 3,
+              currentWorkload: 0,
+              emergencyAvailable: v.emergencyAvailable || false,
+              isActiveContractor: true
+            }));
+          
+          const recommendations = await aiCoordinatorService.findOptimalContractor({
+            caseData: {
+              id: smartCase.id,
+              category: triageResult.category,
+              priority: triageResult.urgency,
+              description: smartCase.description || smartCase.title,
+              urgency: triageResult.urgency,
+              estimatedDuration: triageResult.estimatedDuration,
+              safetyRisk: triageResult.safetyRisk,
+              contractorType: triageResult.contractorType
+            },
+            availableContractors
+          });
+          
+          if (recommendations.length > 0) {
+            const bestContractor = recommendations[0];
+            console.log(`🎯 Assigned to contractor: ${bestContractor.contractorName} (${bestContractor.matchScore}% match)`);
+            
+            // Step 3: Update case with triage and assignment
+            await storage.updateSmartCase(smartCase.id, {
+              assignedTo: bestContractor.contractorId,
+              aiTriageResult: triageResult,
+              status: 'Assigned',
+              priority: triageResult.urgency
+            });
+            
+            // Step 4: Notify contractor
+            const { notificationService } = await import('./notificationService');
+            await notificationService.notify({
+              message: `New ${triageResult.urgency} priority maintenance request assigned to you: ${smartCase.title}`,
+              type: 'case_assigned',
+              title: 'New Case Assigned',
+              caseId: smartCase.id,
+              orgId: smartCase.orgId
+            }, bestContractor.contractorId, smartCase.orgId);
+            
+            console.log(`✅ Case ${smartCase.id} fully processed and assigned`);
+          } else {
+            console.log(`⚠️ No contractors available for case ${smartCase.id}`);
+            await storage.updateSmartCase(smartCase.id, {
+              aiTriageResult: triageResult,
+              status: 'In Review',
+              priority: triageResult.urgency
+            });
+          }
+        } catch (error) {
+          console.error('Error in AI triage pipeline:', error);
+          // Don't fail the request - case is still created
+        }
+      })();
+      
       res.json(smartCase);
     } catch (error) {
       console.error("Error creating case:", error);
