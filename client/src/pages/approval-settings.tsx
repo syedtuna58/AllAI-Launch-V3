@@ -146,11 +146,12 @@ export default function ApprovalSettings() {
       id: policy.id,
       data: { 
         name: policy.name,
+        orgId: policy.orgId,
         isActive: !policy.isActive,
         trustedContractorIds: policy.trustedContractorIds || [],
         autoApproveWeekdays: policy.autoApproveWeekdays ?? true,
-        autoApproveWeekends: policy.autoApproveWeekends ?? false,
-        autoApproveEvenings: policy.autoApproveEvenings ?? false,
+        autoApproveWeekends: policy.autoApproveWeekends ?? true,
+        autoApproveEvenings: policy.autoApproveEvenings ?? true,
         blockVacationDates: policy.blockVacationDates ?? false,
         autoApproveEmergencies: policy.autoApproveEmergencies ?? true,
         involvementMode: policy.involvementMode ?? "balanced",
@@ -391,7 +392,7 @@ export default function ApprovalSettings() {
                           </FormDescription>
                         </div>
                         <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-weekdays" />
+                          <Switch checked={field.value ?? true} onCheckedChange={field.onChange} data-testid="switch-weekdays" />
                         </FormControl>
                       </FormItem>
                     )}
@@ -408,7 +409,7 @@ export default function ApprovalSettings() {
                           </FormDescription>
                         </div>
                         <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-weekends" />
+                          <Switch checked={field.value ?? true} onCheckedChange={field.onChange} data-testid="switch-weekends" />
                         </FormControl>
                       </FormItem>
                     )}
@@ -425,12 +426,121 @@ export default function ApprovalSettings() {
                           </FormDescription>
                         </div>
                         <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-evenings" />
+                          <Switch checked={field.value ?? true} onCheckedChange={field.onChange} data-testid="switch-evenings" />
                         </FormControl>
                       </FormItem>
                     )}
                   />
                 </div>
+              </div>
+
+              <div className="space-y-4 border rounded-lg p-4">
+                <h3 className="font-semibold">Trusted Contractors</h3>
+                <FormField
+                  control={form.control}
+                  name="trustedContractorIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Select Trusted Contractors</FormLabel>
+                      <Select 
+                        onValueChange={(value) => {
+                          const current = field.value || [];
+                          if (!current.includes(value)) {
+                            field.onChange([...current, value]);
+                          }
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger data-testid="select-contractor">
+                            <SelectValue placeholder="Add contractor..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {vendors.map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id}>
+                              {vendor.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription className="text-xs">
+                        Contractors you trust for automatic approval
+                      </FormDescription>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {(field.value || []).map((contractorId) => {
+                          const vendor = vendors.find(v => v.id === contractorId);
+                          return vendor ? (
+                            <Badge key={contractorId} variant="secondary" className="gap-1">
+                              {vendor.name}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  field.onChange((field.value || []).filter(id => id !== contractorId));
+                                }}
+                                className="ml-1 hover:text-destructive"
+                                data-testid={`remove-contractor-${contractorId}`}
+                              >
+                                ×
+                              </button>
+                            </Badge>
+                          ) : null;
+                        })}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="space-y-4 border rounded-lg p-4">
+                <h3 className="font-semibold">Vacation Blocking</h3>
+                <FormField
+                  control={form.control}
+                  name="blockVacationDates"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <div>
+                        <FormLabel>Block vacation dates</FormLabel>
+                        <FormDescription className="text-xs">
+                          Prevent auto-approval during your vacation
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch checked={field.value ?? false} onCheckedChange={field.onChange} data-testid="switch-vacation" />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {form.watch("blockVacationDates") && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="vacationStartDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-vacation-start" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="vacationEndDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>End Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} data-testid="input-vacation-end" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
               </div>
 
               <FormField
@@ -445,7 +555,7 @@ export default function ApprovalSettings() {
                       </FormDescription>
                     </div>
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="switch-emergencies" />
+                      <Switch checked={field.value ?? true} onCheckedChange={field.onChange} data-testid="switch-emergencies" />
                     </FormControl>
                   </FormItem>
                 )}
