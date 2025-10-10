@@ -26,17 +26,32 @@ export function RoleProvider({ children, defaultRole, userId }: RoleProviderProp
   const getInitialRole = (): UserRole => {
     try {
       const saved = localStorage.getItem('selectedRole');
+      console.log('🔍 RoleContext init - localStorage value:', JSON.stringify(saved));
+      
       // Only use saved value if it's a valid role
       if (saved === 'admin' || saved === 'contractor' || saved === 'tenant') {
+        console.log('✅ Using valid saved role:', saved);
         return saved as UserRole;
       }
-      // Clear invalid value from localStorage
-      if (saved) {
+      
+      // Clear any invalid or empty value from localStorage
+      if (saved !== null) {
+        console.log('⚠️ Clearing invalid localStorage value:', JSON.stringify(saved));
         localStorage.removeItem('selectedRole');
       }
+    } catch (e) {
+      console.error('❌ localStorage error:', e);
+    }
+    
+    const finalRole = defaultRole || 'admin';
+    console.log('📝 Using default role:', finalRole);
+    
+    // Set the default in localStorage for next time
+    try {
+      localStorage.setItem('selectedRole', finalRole);
     } catch (e) {}
     
-    return defaultRole || 'admin';
+    return finalRole;
   };
 
   const [currentRole, setCurrentRole] = useState<UserRole>(getInitialRole);
