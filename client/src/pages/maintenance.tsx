@@ -2158,6 +2158,10 @@ function ProposalCard({
     queryKey: [`/api/proposals/${proposal.id}/slots`],
   });
 
+  const durationMinutes = slots.length > 0 && slots[0].startTime && slots[0].endTime
+    ? Math.round((new Date(slots[0].endTime).getTime() - new Date(slots[0].startTime).getTime()) / (1000 * 60))
+    : (proposal.estimatedDurationMinutes || 0);
+
   return (
     <Card data-testid={`card-proposal-${proposalIndex}`}>
       <CardHeader>
@@ -2173,7 +2177,7 @@ function ProposalCard({
           </div>
           <div>
             <span className="text-muted-foreground">Duration:</span>
-            <p className="font-semibold">{proposal.estimatedDurationMinutes || 0} minutes</p>
+            <p className="font-semibold">{durationMinutes} minutes</p>
           </div>
         </div>
 

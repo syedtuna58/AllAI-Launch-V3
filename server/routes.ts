@@ -4853,7 +4853,7 @@ Which property is this for? Select one below:`;
         return res.status(404).json({ message: "Proposal not found" });
       }
 
-      const case_ = await storage.getCase(proposal.caseId);
+      const case_ = await storage.getSmartCase(proposal.caseId);
       if (!case_) {
         return res.status(404).json({ message: "Case not found" });
       }
