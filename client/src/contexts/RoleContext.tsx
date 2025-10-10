@@ -141,5 +141,9 @@ export function useRole(): RoleContextType {
   if (!context) {
     throw new Error('useRole must be used within a RoleProvider');
   }
+  
+  // Debug: log the role value
+  console.log('👤 useRole() called - returning role:', context.currentRole);
+  
   return context;
 }
