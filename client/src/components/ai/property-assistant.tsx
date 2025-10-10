@@ -14,11 +14,26 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useRole } from "@/contexts/RoleContext";
 
+type AIAction = {
+  label: string;
+  due?: string;
+  id?: string;
+  type?: string;
+  caseData?: {
+    title: string;
+    description: string;
+    property: string;
+    unit: string;
+    priority: string;
+    category: string;
+  };
+};
+
 type AIResponse = {
   answer: {
     tldr: string;
     bullets: string[];
-    actions: { label: string; due?: string; id?: string }[];
+    actions: AIAction[];
     caveats?: string;
   } | string; // fallback for plain text responses
   sources?: string[];
@@ -30,15 +45,16 @@ type EnhancedAIResponseProps = {
   content: {
     tldr: string;
     bullets: string[];
-    actions: { label: string; due?: string; id?: string }[];
+    actions: AIAction[];
     caveats?: string;
     highlights?: { label: string; value: string; trend?: "up" | "down" | "neutral" }[];
   };
   timestamp: Date;
   isLatest?: boolean;
+  onCreateCase?: (caseData: any) => void;
 };
 
-function EnhancedAIResponse({ content, timestamp, isLatest = false }: EnhancedAIResponseProps) {
+function EnhancedAIResponse({ content, timestamp, isLatest = false, onCreateCase }: EnhancedAIResponseProps) {
   const [activeTab, setActiveTab] = useState("summary");
   
   // Extract potential KPI highlights with context-aware labels
@@ -223,14 +239,26 @@ function EnhancedAIResponse({ content, timestamp, isLatest = false }: EnhancedAI
                           </Badge>
                         )}
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        data-testid={`button-action-${index}`}
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
+                      {action.type === 'create_case' && action.caseData && onCreateCase ? (
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          className="ml-2"
+                          onClick={() => onCreateCase(action.caseData)}
+                          data-testid={`button-create-case-${index}`}
+                        >
+                          Create Request
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          data-testid={`button-action-${index}`}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -280,9 +308,10 @@ const CONTRACTOR_EXAMPLE_QUESTIONS = [
 type PropertyAssistantProps = {
   context?: string;
   exampleQuestions?: string[];
+  onCreateCase?: (caseData: any) => void;
 };
 
-export default function PropertyAssistant({ context = "dashboard", exampleQuestions: customQuestions }: PropertyAssistantProps) {
+export default function PropertyAssistant({ context = "dashboard", exampleQuestions: customQuestions, onCreateCase }: PropertyAssistantProps) {
   const { currentRole } = useRole();
   const [question, setQuestion] = useState("");
   const [conversation, setConversation] = useState<Array<{
@@ -335,7 +364,11 @@ export default function PropertyAssistant({ context = "dashboard", exampleQuesti
     try {
       const response = await apiRequest("POST", "/api/ai/ask", {
         question: userQuestion,
-        context: context
+        context: context,
+        conversationHistory: conversation.map(msg => ({
+          role: msg.type === 'user' ? 'user' : 'assistant',
+          content: typeof msg.content === 'string' ? msg.content : msg.content.tldr
+        }))
       });
       
       const data = await response.json() as AIResponse;
@@ -437,6 +470,7 @@ export default function PropertyAssistant({ context = "dashboard", exampleQuesti
                           content={message.content}
                           timestamp={message.timestamp}
                           isLatest={isLatest}
+                          onCreateCase={onCreateCase}
                         />
                       )}
                     </div>

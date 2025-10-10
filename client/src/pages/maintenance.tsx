@@ -972,6 +972,91 @@ export default function Maintenance() {
               "Any recurring maintenance patterns I should address?",
               "What repairs are costing me the most?"
             ]}
+            onCreateCase={(caseData) => {
+              // Validate case data
+              if (!caseData?.property || !caseData?.unit) {
+                toast({
+                  title: "Incomplete Information",
+                  description: "Maya needs property and unit information to create the case. Please provide these details.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Convert property/unit names to IDs using strict matching
+              // Normalize and try exact match first
+              const normalizedPropertyName = caseData.property?.toLowerCase().trim() || '';
+              const property = allProperties.find(p => 
+                p.name?.toLowerCase().trim() === normalizedPropertyName
+              );
+              
+              // If no property found, can't proceed
+              if (!property) {
+                toast({
+                  title: "Could Not Find Property",
+                  description: `Could not match "${caseData.property}" to your properties. Please create the case manually.`,
+                  variant: "destructive",
+                });
+                
+                // Pre-fill the form and open it for manual entry
+                form.reset({
+                  title: caseData.title || "",
+                  description: caseData.description || "",
+                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                  category: caseData.category || "",
+                  createReminder: false
+                });
+                setShowCaseForm(true);
+                return;
+              }
+
+              // Find unit that belongs to the matched property using strict matching
+              const normalizedUnitName = caseData.unit?.toLowerCase().trim() || '';
+              const unit = allUnits.find(u => 
+                u.propertyId === property.id && (
+                  u.label?.toLowerCase().trim() === normalizedUnitName ||
+                  u.name?.toLowerCase().trim() === normalizedUnitName
+                )
+              );
+
+              // Validate we found matching unit in the property
+              if (!unit) {
+                toast({
+                  title: "Could Not Find Property/Unit",
+                  description: `Could not match "${caseData.property}" and "${caseData.unit}" to your properties. Please create the case manually.`,
+                  variant: "destructive",
+                });
+                
+                // Pre-fill the form and open it for manual entry
+                form.reset({
+                  title: caseData.title || "",
+                  description: caseData.description || "",
+                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                  category: caseData.category || "",
+                  createReminder: false
+                });
+                setShowCaseForm(true);
+                return;
+              }
+
+              // Create the case with validated IDs
+              const newCaseData = {
+                title: caseData.title || "Maintenance Request",
+                description: caseData.description || "",
+                propertyId: property.id,
+                unitId: unit.id,
+                priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                category: caseData.category || "",
+                createReminder: false
+              };
+
+              createCaseMutation.mutate(newCaseData);
+              
+              toast({
+                title: "Creating Case",
+                description: `Creating maintenance request for ${property.name}, ${unit.label || unit.name}...`,
+              });
+            }}
           />
 
           {/* Summary Bar and View Toggle */}

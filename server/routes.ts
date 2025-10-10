@@ -3037,7 +3037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Property Assistant endpoint
   app.post('/api/ai/ask', isAuthenticated, async (req: any, res) => {
     try {
-      const { question, context } = req.body;
+      const { question, context, conversationHistory = [] } = req.body;
       const userId = req.user.claims.sub;
       
       // Get user's organization (same pattern as other routes)
@@ -3217,7 +3217,14 @@ EXAMPLE OUTPUT for dashboard question "How are my properties performing?":
       } else if (context === "maintenance") {
         contextualGuidance = `
 
-MAINTENANCE FOCUS: Prioritize urgent/overdue repairs, preventive maintenance schedules, contractor management, and cost optimization.`;
+MAINTENANCE FOCUS: Prioritize urgent/overdue repairs, preventive maintenance schedules, contractor management, and cost optimization.
+
+IMPORTANT FOR MAINTENANCE REQUESTS:
+- If the user describes a maintenance issue (broken, leaking, not working, etc.), treat it as a maintenance request
+- Check conversation history to see if property/unit info has been provided
+- If property/unit info is MISSING, ask which property and unit the issue is at
+- If property/unit info is PROVIDED (in current or previous messages), include a special action with type "create_case" that contains the case details
+- Extract issue details: title (concise summary), description (full details), category (from standard categories), priority (Low/Medium/High/Urgent)`;
         
         fewShotExample = `
 
@@ -3233,6 +3240,47 @@ EXAMPLE OUTPUT for maintenance question "What maintenance needs attention?":
     {"label": "Call HVAC contractor for emergency Unit A repair", "due": "Today"},
     {"label": "Schedule plumber for Property 2 basement leak", "due": "Tomorrow"},
     {"label": "Book annual inspection for Property 1", "due": "This week"}
+  ]
+}
+
+EXAMPLE for user reporting issue WITHOUT property/unit:
+User: "My water heater is broken"
+{
+  "tldr": "I'll help you create a maintenance request for the water heater issue. First, I need to know which property and unit you're in.",
+  "bullets": [
+    "Water heater issues are typically urgent - no hot water affects daily living",
+    "Common causes: pilot light out, breaker tripped, heating element failure, or tank failure",
+    "Repair costs typically range from $150-600, replacement $1,200-3,000"
+  ],
+  "actions": [
+    {"label": "Which property and unit are you in?", "due": "Now", "type": "ask_property_unit"}
+  ]
+}
+
+EXAMPLE for user reporting issue WITH property/unit:
+User: "Property 1, Unit A"
+Previous context: water heater broken
+{
+  "tldr": "Got it! Creating an urgent maintenance request for the water heater in Property 1, Unit A.",
+  "bullets": [
+    "Issue: Water heater not producing hot water",
+    "Priority: HIGH (habitability issue)",
+    "Category: Plumbing (Water, Drains, Sewer)"
+  ],
+  "actions": [
+    {
+      "label": "Create Maintenance Request",
+      "due": "Now",
+      "type": "create_case",
+      "caseData": {
+        "title": "Water heater not producing hot water",
+        "description": "Tenant reports water heater is broken and not producing hot water. This is a habitability issue requiring urgent attention.",
+        "property": "Property 1",
+        "unit": "Unit A",
+        "priority": "High",
+        "category": "Plumbing (Water, Drains, Sewer)"
+      }
+    }
   ]
 }`;
       } else if (context === "expenses") {
@@ -3322,13 +3370,28 @@ ${JSON.stringify(aiData, null, 2)}
 
 Provide helpful analysis based on the actual data. Respond with valid JSON only:`;
 
+      // Build conversation messages including history
+      const messages: Array<{role: string, content: string}> = [
+        { role: 'system', content: systemPrompt }
+      ];
+      
+      // Add conversation history if provided
+      if (conversationHistory && conversationHistory.length > 0) {
+        conversationHistory.forEach((msg: any) => {
+          messages.push({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          });
+        });
+      }
+      
+      // Add current question
+      messages.push({ role: 'user', content: question });
+
       // Call OpenAI Responses API (GPT-5) with optimized token budget and reasoning
       const response = await openai.responses.create({
         model: "gpt-5",
-        input: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: question }
-        ],
+        input: messages,
         text: {
           format: { type: "json_object" }
         },
