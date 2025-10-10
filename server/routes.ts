@@ -3801,6 +3801,42 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // Get appointments for a case
+  app.get('/api/cases/:caseId/appointments', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const smartCase = await storage.getSmartCase(req.params.caseId);
+      if (!smartCase) return res.status(404).json({ message: "Case not found" });
+      if (smartCase.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const appointments = await storage.getCaseAppointments(req.params.caseId);
+      
+      // Enrich with contractor info
+      const enrichedAppointments = await Promise.all(
+        appointments.map(async (apt) => {
+          const contractor = await storage.getContractor(apt.contractorId);
+          return {
+            ...apt,
+            contractor: contractor ? {
+              id: contractor.id,
+              name: contractor.name,
+              phone: contractor.phone,
+              email: contractor.email,
+            } : null,
+          };
+        })
+      );
+
+      res.json(enrichedAppointments);
+    } catch (error) {
+      console.error("Error fetching case appointments:", error);
+      res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
   // Create appointment
   app.post('/api/appointments', isAuthenticated, async (req: any, res) => {
     try {
