@@ -3219,12 +3219,24 @@ EXAMPLE OUTPUT for dashboard question "How are my properties performing?":
 
 MAINTENANCE FOCUS: Prioritize urgent/overdue repairs, preventive maintenance schedules, contractor management, and cost optimization.
 
-IMPORTANT FOR MAINTENANCE REQUESTS:
-- If the user describes a maintenance issue (broken, leaking, not working, etc.), treat it as a maintenance request
-- Check conversation history to see if property/unit info has been provided
-- If property/unit info is MISSING, ask which property and unit the issue is at
-- If property/unit info is PROVIDED (in current or previous messages), include a special action with type "create_case" that contains the case details
-- Extract issue details: title (concise summary), description (full details), category (from standard categories), priority (Low/Medium/High/Urgent)`;
+CRITICAL CASE CREATION LOGIC:
+1. **When to create a case**: If the user reports ANY maintenance issue (broken, leaking, not working, damaged, needs repair, etc.)
+2. **Property/Unit matching - USE FUZZY LOGIC**:
+   - Try to match user's property/unit names to actual data (case-insensitive, ignore extra spaces/punctuation)
+   - If user says "Property 1" and you see "Property 1 " (with space) - MATCH IT
+   - If user says "Unit 1" and you see "Unit 1" or "1" - MATCH IT
+   - Look at conversation history to see if property/unit was mentioned earlier
+3. **Always include create_case action when**:
+   - User describes a problem AND provides property/unit info (current or previous message)
+   - Use the CLOSEST MATCHING property/unit names from the data
+   - Set priority based on urgency: no water/heat/safety = Urgent/High, cosmetic = Low/Medium
+4. **Category matching**: Match to these categories: HVAC, Plumbing (Water, Drains, Sewer), Electrical, Appliances, Structural, Exterior, Interior, Landscaping, Pest Control, Other
+
+PROPERTY/UNIT FUZZY MATCHING EXAMPLES:
+- User: "property 1" → Match to "Property 1 " ✓
+- User: "unit 1" → Match to "Unit 1" or "1" ✓  
+- User: "the condo on main st" → Match to property with "Main" in address ✓
+- User: "apartment 2B" → Match to "Unit 2B" or "2B" ✓`;
         
         fewShotExample = `
 
@@ -3244,28 +3256,31 @@ EXAMPLE OUTPUT for maintenance question "What maintenance needs attention?":
 }
 
 EXAMPLE for user reporting issue WITHOUT property/unit:
-User: "My water heater is broken"
+User: "My bathroom sink is leaking"
 {
-  "tldr": "I'll help you create a maintenance request for the water heater issue. First, I need to know which property and unit you're in.",
+  "tldr": "I'll help you create a maintenance request for the sink leak. Which property and unit are you in?",
   "bullets": [
-    "Water heater issues are typically urgent - no hot water affects daily living",
-    "Common causes: pilot light out, breaker tripped, heating element failure, or tank failure",
-    "Repair costs typically range from $150-600, replacement $1,200-3,000"
+    "Bathroom sink leaks usually come from loose connections, worn washers, or cracked pipes",
+    "Place a bucket under the leak and turn off the water valves under the sink if possible",
+    "Most plumbers can fix this same-day for $150-300"
   ],
   "actions": [
-    {"label": "Which property and unit are you in?", "due": "Now", "type": "ask_property_unit"}
+    {"label": "Reply with your property name and unit number so I can create the request", "due": "Now"}
   ]
 }
 
-EXAMPLE for user reporting issue WITH property/unit:
-User: "Property 1, Unit A"
-Previous context: water heater broken
+EXAMPLE for user providing property/unit WITH fuzzy matching:
+User: "property 1, unit 1"
+Previous context: bathroom sink leaking
+Available properties: ["Property 1 ", "Property 2", "Property Bldg 3"]
+Available units for Property 1: ["Unit 1", "Unit 2"]
 {
-  "tldr": "Got it! Creating an urgent maintenance request for the water heater in Property 1, Unit A.",
+  "tldr": "Creating a maintenance request for the bathroom sink leak at Property 1, Unit 1. A plumber will be assigned automatically.",
   "bullets": [
-    "Issue: Water heater not producing hot water",
-    "Priority: HIGH (habitability issue)",
-    "Category: Plumbing (Water, Drains, Sewer)"
+    "Issue: Bathroom sink leaking - likely loose connection or worn washer",
+    "Priority: MEDIUM (not an emergency but needs prompt attention)",
+    "Category: Plumbing - our system will auto-assign the best available plumber",
+    "Typical repair time: 1-2 hours, cost $150-300"
   ],
   "actions": [
     {
@@ -3273,11 +3288,11 @@ Previous context: water heater broken
       "due": "Now",
       "type": "create_case",
       "caseData": {
-        "title": "Water heater not producing hot water",
-        "description": "Tenant reports water heater is broken and not producing hot water. This is a habitability issue requiring urgent attention.",
-        "property": "Property 1",
-        "unit": "Unit A",
-        "priority": "High",
+        "title": "Bathroom sink leaking",
+        "description": "Tenant reports bathroom sink is leaking. Likely loose connection or worn washer. Tenant should turn off water valves under sink if leak is active.",
+        "property": "Property 1 ",
+        "unit": "Unit 1",
+        "priority": "Medium",
         "category": "Plumbing (Water, Drains, Sewer)"
       }
     }

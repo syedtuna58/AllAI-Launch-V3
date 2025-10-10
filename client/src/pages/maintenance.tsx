@@ -983,15 +983,51 @@ export default function Maintenance() {
                 return;
               }
 
-              // Convert property/unit names to IDs using strict matching
-              // Normalize and try exact match first
-              const normalizedPropertyName = caseData.property?.toLowerCase().trim() || '';
-              const property = properties?.find(p => 
-                p.name?.toLowerCase().trim() === normalizedPropertyName
-              );
+              // Fuzzy matching helper function
+              const fuzzyMatch = (search: string, target: string): number => {
+                const searchLower = search.toLowerCase().trim();
+                const targetLower = target.toLowerCase().trim();
+                
+                // Empty search string = no match (prevents accidental matches)
+                if (!searchLower || searchLower.length === 0) return 0;
+                if (!targetLower || targetLower.length === 0) return 0;
+                
+                // Exact match = 100%
+                if (searchLower === targetLower) return 100;
+                
+                // Contains match = 80%
+                if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
+                
+                // Word overlap
+                const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+                const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
+                const overlap = searchWords.filter(w => targetWords.includes(w)).length;
+                if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
+                
+                return 0;
+              };
+
+              // Require non-empty property/unit names before matching
+              const normalizedPropertyName = caseData.property?.trim() || '';
+              if (!normalizedPropertyName) {
+                toast({
+                  title: "Missing Property",
+                  description: "Please specify which property this maintenance issue is for.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Find best property match using fuzzy matching
+              const propertyMatches = (properties || []).map(p => ({
+                property: p,
+                score: fuzzyMatch(normalizedPropertyName, p.name || '')
+              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
               
-              // If no property found, can't proceed
-              if (!property) {
+              const bestPropertyMatch = propertyMatches[0];
+              
+              // If no good property match found, can't proceed
+              if (!bestPropertyMatch || bestPropertyMatch.score < 60) {
                 toast({
                   title: "Could Not Find Property",
                   description: `Could not match "${caseData.property}" to your properties. Please create the case manually.`,
@@ -1010,20 +1046,33 @@ export default function Maintenance() {
                 return;
               }
 
-              // Find unit that belongs to the matched property using strict matching
-              const normalizedUnitName = caseData.unit?.toLowerCase().trim() || '';
-              const unit = units?.find(u => 
-                u.propertyId === property.id && (
-                  u.label?.toLowerCase().trim() === normalizedUnitName ||
-                  u.name?.toLowerCase().trim() === normalizedUnitName
-                )
-              );
+              const property = bestPropertyMatch.property;
+
+              // Require non-empty unit name before matching
+              const normalizedUnitName = caseData.unit?.trim() || '';
+              if (!normalizedUnitName) {
+                toast({
+                  title: "Missing Unit",
+                  description: "Please specify which unit this maintenance issue is for.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Find best unit match using fuzzy matching within the property
+              const propertyUnits = (units || []).filter(u => u.propertyId === property.id);
+              const unitMatches = propertyUnits.map(u => ({
+                unit: u,
+                score: fuzzyMatch(normalizedUnitName, u.label || u.name || '')
+              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
+
+              const bestUnitMatch = unitMatches[0];
 
               // Validate we found matching unit in the property
-              if (!unit) {
+              if (!bestUnitMatch || bestUnitMatch.score < 60) {
                 toast({
-                  title: "Could Not Find Property/Unit",
-                  description: `Could not match "${caseData.property}" and "${caseData.unit}" to your properties. Please create the case manually.`,
+                  title: "Could Not Find Unit",
+                  description: `Could not match "${caseData.unit}" to units in ${property.name}. Please create the case manually.`,
                   variant: "destructive",
                 });
                 
@@ -1039,6 +1088,8 @@ export default function Maintenance() {
                 return;
               }
 
+              const unit = bestUnitMatch.unit;
+
               // Create the case with validated IDs
               const newCaseData = {
                 title: caseData.title || "Maintenance Request",
@@ -1052,9 +1103,15 @@ export default function Maintenance() {
 
               createCaseMutation.mutate(newCaseData);
               
+              // Show match confidence if not 100%
+              const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
+              const matchMessage = isExactMatch 
+                ? `Creating maintenance request for ${property.name}, ${unit.label || unit.name}...`
+                : `Matched to ${property.name}, ${unit.label || unit.name}. Creating request...`;
+              
               toast({
                 title: "Creating Case",
-                description: `Creating maintenance request for ${property.name}, ${unit.label || unit.name}...`,
+                description: matchMessage,
               });
             }}
           />
