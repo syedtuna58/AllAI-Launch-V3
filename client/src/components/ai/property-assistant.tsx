@@ -268,6 +268,38 @@ function EnhancedAIResponse({ content, timestamp, isLatest = false, onCreateCase
         </TabsContent>
       </Tabs>
 
+      {/* Prominent Action Buttons - Always Visible */}
+      {content.actions.some(action => action.type === 'create_case') && (
+        <div className="p-4 border-t bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+          {content.actions
+            .filter(action => action.type === 'create_case')
+            .map((action, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <div className="font-semibold text-sm text-blue-900 dark:text-blue-100">
+                    {action.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Click to create your maintenance request with AI-generated details
+                  </div>
+                </div>
+                {action.caseData && onCreateCase && (
+                  <Button 
+                    variant="default" 
+                    size="lg" 
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-6 shadow-lg hover:shadow-xl transition-all"
+                    onClick={() => onCreateCase(action.caseData)}
+                    data-testid={`button-create-case-prominent-${index}`}
+                  >
+                    <CalendarDays className="h-5 w-5 mr-2" />
+                    Create Maintenance Request
+                  </Button>
+                )}
+              </div>
+            ))}
+        </div>
+      )}
+
     </div>
   );
 }
