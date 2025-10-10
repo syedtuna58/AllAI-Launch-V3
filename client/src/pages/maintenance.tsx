@@ -2073,11 +2073,31 @@ function ProposalsDialog({
 }) {
   const { toast } = useToast();
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [showReschedule, setShowReschedule] = useState(false);
+
+  // Reset reschedule state when dialog opens/closes or case changes
+  useEffect(() => {
+    if (!isOpen) {
+      setShowReschedule(false);
+      setSelectedSlotId(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setShowReschedule(false);
+    setSelectedSlotId(null);
+  }, [case_.id]);
 
   // Fetch proposals for this case
   const { data: proposals = [], isLoading: proposalsLoading } = useQuery<any[]>({
     queryKey: [`/api/cases/${case_.id}/proposals`],
     enabled: isOpen && !!case_.id,
+  });
+
+  // Fetch appointments for scheduled cases
+  const { data: appointments = [], isLoading: appointmentsLoading } = useQuery<any[]>({
+    queryKey: [`/api/cases/${case_.id}/appointments`],
+    enabled: isOpen && case_.status === 'Scheduled',
   });
 
   // Mutation to select a slot
@@ -2092,6 +2112,7 @@ function ProposalsDialog({
       });
       queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
       queryClient.invalidateQueries({ queryKey: [`/api/cases/${case_.id}/proposals`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/cases/${case_.id}/appointments`] });
       onClose();
     },
     onError: () => {
@@ -2109,6 +2130,160 @@ function ProposalsDialog({
     }
   };
 
+  // Show appointment details if case is scheduled
+  if (case_.status === 'Scheduled') {
+    const appointment = appointments[0];
+    
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-view-appointment">
+          <DialogHeader>
+            <DialogTitle>Appointment Details</DialogTitle>
+          </DialogHeader>
+          <div className="mb-4">
+            <h4 className="font-semibold text-sm mb-1">{case_.title}</h4>
+            <p className="text-sm text-muted-foreground">{case_.description}</p>
+          </div>
+
+          {appointmentsLoading ? (
+            <div className="h-32 bg-muted animate-pulse rounded" />
+          ) : appointment ? (
+            <>
+              {!showReschedule ? (
+                <div className="space-y-4">
+                  <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                    <CardContent className="pt-6">
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-2">
+                            <CalendarDays className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            <div>
+                              <p className="font-semibold text-green-900 dark:text-green-100">
+                                {new Date(appointment.scheduledStartAt).toLocaleDateString('en-US', { 
+                                  weekday: 'long', 
+                                  month: 'long', 
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </p>
+                              <p className="text-sm text-green-700 dark:text-green-300">
+                                {new Date(appointment.scheduledStartAt).toLocaleTimeString('en-US', { 
+                                  hour: 'numeric', 
+                                  minute: '2-digit' 
+                                })} - {new Date(appointment.scheduledEndAt).toLocaleTimeString('en-US', { 
+                                  hour: 'numeric', 
+                                  minute: '2-digit' 
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="bg-green-600 text-white">Confirmed</Badge>
+                        </div>
+                        
+                        {appointment.contractor && (
+                          <div className="pt-3 border-t border-green-200 dark:border-green-800">
+                            <p className="text-sm font-medium text-green-900 dark:text-green-100">Contractor</p>
+                            <p className="text-sm text-green-700 dark:text-green-300">{appointment.contractor.name}</p>
+                            {appointment.contractor.phone && (
+                              <p className="text-xs text-green-600 dark:text-green-400">{appointment.contractor.phone}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {appointment.notes && (
+                          <div className="pt-3 border-t border-green-200 dark:border-green-800">
+                            <p className="text-sm font-medium text-green-900 dark:text-green-100">Notes</p>
+                            <p className="text-sm text-green-700 dark:text-green-300">{appointment.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => setShowReschedule(true)}
+                    data-testid="button-request-reschedule"
+                  >
+                    Request Change
+                  </Button>
+                </div>
+              ) : (
+                // Show reschedule options (proposals)
+                <>
+                  <div className="mb-4">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setShowReschedule(false)}
+                      data-testid="button-back-to-appointment"
+                    >
+                      ← Back to Appointment
+                    </Button>
+                  </div>
+                  {proposalsLoading ? (
+                    <div className="space-y-4">
+                      <div className="h-24 bg-muted animate-pulse rounded" />
+                      <div className="h-24 bg-muted animate-pulse rounded" />
+                    </div>
+                  ) : proposals.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No alternative time slots available. Please contact your contractor directly.
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {proposals.map((proposal, proposalIndex) => (
+                        <ProposalCard
+                          key={proposal.id}
+                          proposal={proposal}
+                          proposalIndex={proposalIndex}
+                          selectedSlotId={selectedSlotId}
+                          onSelectSlot={setSelectedSlotId}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              No appointment details found.
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (showReschedule) {
+                  setShowReschedule(false);
+                  setSelectedSlotId(null);
+                } else {
+                  onClose();
+                }
+              }}
+              data-testid={showReschedule ? "button-back-to-appointment-footer" : "button-close-appointment"}
+            >
+              {showReschedule ? "Back to Appointment" : "Close"}
+            </Button>
+            {showReschedule && (
+              <Button
+                onClick={handleSelectSlot}
+                disabled={!selectedSlotId || selectSlotMutation.isPending}
+                data-testid="button-confirm-reschedule"
+              >
+                {selectSlotMutation.isPending ? "Rescheduling..." : "Confirm New Time"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Show proposals dialog for non-scheduled cases
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-view-proposals">
