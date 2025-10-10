@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Bot, Send, Lightbulb, CheckCircle, Calendar, AlertCircle, TrendingUp, PiggyBank, Maximize2, Copy, Grid3x3 } from "lucide-react";
+import { Loader2, Bot, Send, Lightbulb, CheckCircle, Calendar, CalendarDays, AlertCircle, TrendingUp, PiggyBank, Maximize2, Copy, Grid3x3 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
