@@ -4933,10 +4933,10 @@ Which property is this for? Select one below:`;
         appointmentId = appointment.id;
 
         // Update case status
-        await storage.updateCase(case_.id, { status: "Scheduled" });
+        await storage.updateSmartCase(case_.id, { status: "Scheduled" });
       } else {
         // Update case to indicate it's awaiting landlord review
-        await storage.updateCase(case_.id, { status: "In Review" });
+        await storage.updateSmartCase(case_.id, { status: "In Review" });
       }
 
       res.json({ 
