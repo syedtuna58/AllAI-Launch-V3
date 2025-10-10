@@ -4902,14 +4902,18 @@ Which property is this for? Select one below:`;
         // Check urgency
         const urgencyCheck = !policy.urgencyLevel || case_.priority === policy.urgencyLevel;
 
-        // Auto-approve if fully automated mode or all criteria met in dial in/out mode
-        if (policy.involvementMode === 'Fully Automated') {
+        // Auto-approve based on involvement mode
+        if (policy.involvementMode === 'hands-off') {
+          // Fully automated - always approve
           autoApproved = true;
-        } else if (policy.involvementMode === 'Dial In/Out' && 
-                   costWithinThreshold && timeWithinPreference && 
-                   (trustedContractors.length === 0 || contractorTrusted) && urgencyCheck) {
-          autoApproved = true;
+        } else if (policy.involvementMode === 'balanced') {
+          // Balanced - approve if all criteria met
+          if (costWithinThreshold && timeWithinPreference && 
+              (trustedContractors.length === 0 || contractorTrusted) && urgencyCheck) {
+            autoApproved = true;
+          }
         }
+        // hands-on mode requires manual approval
       }
 
       // Update proposal with selected slot and auto-approval status
@@ -4926,7 +4930,7 @@ Which property is this for? Select one below:`;
           caseId: case_.id,
           contractorId: proposal.contractorId,
           scheduledFor: slot.startTime,
-          status: "Scheduled",
+          status: "Confirmed",
           notes: proposal.notes,
           estimatedDuration: proposal.estimatedDurationMinutes,
         });
