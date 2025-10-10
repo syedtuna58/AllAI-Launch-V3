@@ -26,8 +26,13 @@ export function RoleProvider({ children, defaultRole, userId }: RoleProviderProp
   const getInitialRole = (): UserRole => {
     try {
       const saved = localStorage.getItem('selectedRole');
-      if (saved && (saved === 'admin' || saved === 'contractor' || saved === 'tenant')) {
+      // Only use saved value if it's a valid role
+      if (saved === 'admin' || saved === 'contractor' || saved === 'tenant') {
         return saved as UserRole;
+      }
+      // Clear invalid value from localStorage
+      if (saved) {
+        localStorage.removeItem('selectedRole');
       }
     } catch (e) {}
     
