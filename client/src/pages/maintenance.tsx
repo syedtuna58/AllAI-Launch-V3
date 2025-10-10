@@ -26,6 +26,7 @@ import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema"
 import { format } from "date-fns";
 import PropertyAssistant from "@/components/ai/property-assistant";
 import { useRole } from "@/contexts/RoleContext";
+import { TimePicker15Min } from "@/components/ui/time-picker-15min";
 
 // Predefined maintenance categories
 // Error Boundary for Visualization Components
@@ -102,11 +103,19 @@ const createCaseSchema = z.object({
   createReminder: z.boolean().default(false),
 });
 
-const scheduleAppointmentSchema = z.object({
-  date: z.date({
-    required_error: "Please select an appointment date",
+const proposeThreeSlotsSchema = z.object({
+  slot1Date: z.date({
+    required_error: "Please select a date for option 1",
   }),
-  time: z.string().min(1, "Please select a time"),
+  slot1Time: z.string().min(1, "Please select a time for option 1"),
+  slot2Date: z.date({
+    required_error: "Please select a date for option 2",
+  }),
+  slot2Time: z.string().min(1, "Please select a time for option 2"),
+  slot3Date: z.date({
+    required_error: "Please select a date for option 3",
+  }),
+  slot3Time: z.string().min(1, "Please select a time for option 3"),
   notes: z.string().optional(),
 });
 
@@ -2055,7 +2064,7 @@ export default function Maintenance() {
   );
 }
 
-// Accept Case Dialog Component
+// Accept Case Dialog Component - Propose 3 Time Slots
 function AcceptCaseDialog({
   isOpen,
   onClose,
@@ -2069,26 +2078,69 @@ function AcceptCaseDialog({
   onAccept: (data: any) => void;
   isPending: boolean;
 }) {
-  const form = useForm<z.infer<typeof scheduleAppointmentSchema>>({
-    resolver: zodResolver(scheduleAppointmentSchema),
+  const form = useForm<z.infer<typeof proposeThreeSlotsSchema>>({
+    resolver: zodResolver(proposeThreeSlotsSchema),
     defaultValues: {
-      date: undefined,
-      time: "",
+      slot1Date: undefined,
+      slot1Time: "",
+      slot2Date: undefined,
+      slot2Time: "",
+      slot3Date: undefined,
+      slot3Time: "",
       notes: ""
     }
   });
 
+  // Pre-fill form with Maya's AI-suggested time when dialog opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && case_) {
+      // Start with AI suggested time or default to tomorrow 10am
+      let baseDate: Date;
+      let slot1Time: string;
+      
+      if (case_.aiSuggestedTime) {
+        baseDate = new Date(case_.aiSuggestedTime);
+        slot1Time = `${baseDate.getHours().toString().padStart(2, '0')}:${baseDate.getMinutes().toString().padStart(2, '0')}`;
+      } else {
+        baseDate = new Date();
+        baseDate.setDate(baseDate.getDate() + 1);
+        baseDate.setHours(10, 0, 0, 0);
+        slot1Time = "10:00";
+      }
+      
+      // Slot 2: Later same day if morning/early afternoon, otherwise next day
+      const slot2Date = new Date(baseDate);
+      let slot2Time = "14:00"; // Default 2pm
+      
+      if (baseDate.getHours() >= 14) {
+        // If base time is afternoon/evening, move slot 2 to next day morning
+        slot2Date.setDate(slot2Date.getDate() + 1);
+        slot2Date.setHours(10, 0, 0, 0);
+        slot2Time = "10:00";
+      } else {
+        // Same day, later time (afternoon)
+        slot2Date.setHours(14, 0, 0, 0);
+      }
+      
+      // Slot 3: Next day from slot 2
+      const slot3Date = new Date(slot2Date);
+      slot3Date.setDate(slot3Date.getDate() + 1);
+      slot3Date.setHours(10, 0, 0, 0);
+      const slot3Time = "10:00";
+
       form.reset({
-        date: undefined,
-        time: "",
-        notes: ""
+        slot1Date: baseDate,
+        slot1Time: slot1Time,
+        slot2Date: slot2Date,
+        slot2Time: slot2Time,
+        slot3Date: slot3Date,
+        slot3Time: slot3Time,
+        notes: case_.aiReasoningNotes || ""
       });
     }
-  }, [isOpen, form]);
+  }, [isOpen, case_, form]);
 
-  const onSubmit = (data: z.infer<typeof scheduleAppointmentSchema>) => {
+  const onSubmit = (data: z.infer<typeof proposeThreeSlotsSchema>) => {
     onAccept(data);
   };
 
@@ -2096,83 +2148,173 @@ function AcceptCaseDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Accept Case & Schedule Appointment</DialogTitle>
+          <DialogTitle>Accept Case & Propose 3 Time Options</DialogTitle>
+          <p className="text-sm text-muted-foreground mt-2">
+            Propose 3 different time slots for the tenant to choose from. They'll select their preferred option.
+          </p>
         </DialogHeader>
-        <div className="mb-4">
+        
+        <div className="mb-4 p-3 bg-muted/50 rounded-lg">
           <h4 className="font-semibold text-sm mb-1">{case_.title}</h4>
           <p className="text-sm text-muted-foreground">{case_.description}</p>
+          {case_.aiSuggestedDurationMinutes && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ⏱️ Estimated duration: {case_.aiSuggestedDurationMinutes} minutes
+            </p>
+          )}
         </div>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Appointment Date</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className="w-full pl-3 text-left font-normal"
-                          data-testid="button-select-date"
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        disabled={(date) =>
-                          date < new Date(new Date().setHours(0, 0, 0, 0))
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
-            <FormField
-              control={form.control}
-              name="time"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Appointment Time</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="time"
-                      {...field}
-                      data-testid="input-appointment-time"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Time Slot 1 */}
+            <div className="space-y-3 p-4 border rounded-lg bg-primary/5">
+              <h5 className="font-semibold text-sm flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs">1</span>
+                Option 1 {case_.aiSuggestedTime && <span className="text-xs text-muted-foreground">(AI Suggested)</span>}
+              </h5>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="slot1Date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button variant="outline" className="w-full pl-3 text-left font-normal" data-testid="button-slot1-date">
+                              {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                              <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="slot1Time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <TimePicker15Min value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Time Slot 2 */}
+            <div className="space-y-3 p-4 border rounded-lg">
+              <h5 className="font-semibold text-sm flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-secondary text-secondary-foreground text-xs">2</span>
+                Option 2
+              </h5>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="slot2Date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button variant="outline" className="w-full pl-3 text-left font-normal" data-testid="button-slot2-date">
+                              {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                              <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="slot2Time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <TimePicker15Min value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Time Slot 3 */}
+            <div className="space-y-3 p-4 border rounded-lg">
+              <h5 className="font-semibold text-sm flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-secondary text-secondary-foreground text-xs">3</span>
+                Option 3
+              </h5>
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="slot3Date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button variant="outline" className="w-full pl-3 text-left font-normal" data-testid="button-slot3-date">
+                              {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                              <CalendarDays className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))} initialFocus />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="slot3Time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <TimePicker15Min value={field.value} onChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
             <FormField
               control={form.control}
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
+                  <FormLabel>Additional Notes (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Add any notes about the appointment..."
+                      placeholder="Add any notes about the appointment or special instructions..."
                       className="resize-none"
                       {...field}
                       data-testid="input-appointment-notes"
@@ -2184,21 +2326,11 @@ function AcceptCaseDialog({
             />
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={isPending}
-                data-testid="button-cancel-accept"
-              >
+              <Button type="button" variant="outline" onClick={onClose} disabled={isPending} data-testid="button-cancel-accept">
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isPending}
-                data-testid="button-submit-accept"
-              >
-                {isPending ? "Scheduling..." : "Accept & Schedule"}
+              <Button type="submit" disabled={isPending} data-testid="button-submit-accept">
+                {isPending ? "Proposing..." : "Accept & Propose Times"}
               </Button>
             </DialogFooter>
           </form>
