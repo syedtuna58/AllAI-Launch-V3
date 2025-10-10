@@ -1115,6 +1115,11 @@ export default function Maintenance() {
                   </CardHeader>
                   
                   <CardContent className="pt-0">
+                    {/* Appointment Details - Show when status is Scheduled */}
+                    {smartCase.status === 'Scheduled' && (
+                      <AppointmentInfo caseId={smartCase.id} />
+                    )}
+                    
                     {/* Description with progressive disclosure */}
                     {smartCase.description && (
                       <div className="mb-3">
@@ -1212,8 +1217,8 @@ export default function Maintenance() {
                         </Button>
                       )}
                       
-                      {/* View Proposals Button - Show when status indicates proposals may exist */}
-                      {(smartCase.status === 'In Review' || smartCase.status === 'Scheduled') && role !== 'contractor' && (
+                      {/* View Proposals/Appointment Button - Show when status indicates proposals or scheduled */}
+                      {smartCase.status === 'In Review' && role !== 'contractor' && (
                         <Button 
                           variant="default" 
                           size="sm"
@@ -1227,6 +1232,23 @@ export default function Maintenance() {
                         >
                           <CalendarDays className="h-3 w-3 mr-1" />
                           Proposals
+                        </Button>
+                      )}
+                      
+                      {smartCase.status === 'Scheduled' && role !== 'contractor' && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="h-8 px-3"
+                          onClick={() => {
+                            setViewingProposalsCase(smartCase);
+                            setShowProposalsDialog(true);
+                          }}
+                          data-testid={`button-view-appointment-${index}`}
+                          title="View Appointment"
+                        >
+                          <CalendarDays className="h-3 w-3 mr-1" />
+                          View Appointment
                         </Button>
                       )}
                       
@@ -2234,5 +2256,54 @@ function ProposalCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// Appointment Info Component
+function AppointmentInfo({ caseId }: { caseId: string }) {
+  const { data: appointments = [], isLoading } = useQuery<any[]>({
+    queryKey: [`/api/cases/${caseId}/appointments`],
+  });
+
+  if (isLoading) {
+    return (
+      <div className="mb-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+        <div className="h-12 bg-muted animate-pulse rounded" />
+      </div>
+    );
+  }
+
+  const appointment = appointments[0];
+  if (!appointment) return null;
+
+  return (
+    <div className="mb-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg" data-testid="appointment-info">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 mb-1">
+            <CalendarDays className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-semibold text-green-800 dark:text-green-200">Scheduled Appointment</span>
+          </div>
+          <div className="text-sm text-green-700 dark:text-green-300">
+            <p className="font-medium" data-testid="appointment-datetime">
+              {new Date(appointment.scheduledStartAt).toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric' 
+              })} at {new Date(appointment.scheduledStartAt).toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit' 
+              })}
+            </p>
+            {appointment.contractor && (
+              <p className="text-xs mt-1" data-testid="appointment-contractor">
+                with {appointment.contractor.name}
+              </p>
+            )}
+          </div>
+        </div>
+        <Badge className="bg-green-600 text-white text-xs">Confirmed</Badge>
+      </div>
+    </div>
   );
 }
