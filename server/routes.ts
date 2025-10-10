@@ -1974,10 +1974,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`🎯 Assigned to contractor: ${bestContractor.contractorName} (${bestContractor.matchScore}% match)`);
             
             // Step 3: Update case with triage and assignment
+            // Keep status as 'New' so contractor can accept it
             await storage.updateSmartCase(smartCase.id, {
               assignedTo: bestContractor.contractorId,
               aiTriageResult: triageResult,
-              status: 'In Review',
               priority: triageResult.urgency
             });
             
