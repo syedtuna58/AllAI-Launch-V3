@@ -5013,17 +5013,21 @@ Which property is this for? Select one below:`;
         return res.status(404).json({ message: "Case not found" });
       }
 
-      // Get contractor from user
+      // Get contractor - first try to match by userId, then use the assigned contractor
       const contractors = await storage.getContractors(smartCase.orgId);
-      const contractor = contractors.find((c: any) => c.userId === userId);
+      let contractor = contractors.find((c: any) => c.userId === userId);
+      
+      // If no contractor found by userId (role simulation mode), use the assigned contractor
+      if (!contractor && smartCase.assignedTo) {
+        contractor = contractors.find((c: any) => c.id === smartCase.assignedTo);
+        if (!contractor) {
+          return res.status(404).json({ message: "Assigned contractor not found" });
+        }
+        console.log(`👷 Role simulation: User ${userId} accepting case as contractor ${contractor.name}`);
+      }
       
       if (!contractor) {
         return res.status(403).json({ message: "You are not registered as a contractor" });
-      }
-
-      // Verify contractor is assigned to this case
-      if (smartCase.assignedTo !== contractor.id) {
-        return res.status(403).json({ message: "You are not assigned to this case" });
       }
 
       // Parse and create Date objects for all 3 slots with proper timezone handling
