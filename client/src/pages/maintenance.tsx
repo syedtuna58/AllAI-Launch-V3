@@ -986,7 +986,7 @@ export default function Maintenance() {
               // Convert property/unit names to IDs using strict matching
               // Normalize and try exact match first
               const normalizedPropertyName = caseData.property?.toLowerCase().trim() || '';
-              const property = allProperties.find(p => 
+              const property = properties?.find(p => 
                 p.name?.toLowerCase().trim() === normalizedPropertyName
               );
               
@@ -1012,7 +1012,7 @@ export default function Maintenance() {
 
               // Find unit that belongs to the matched property using strict matching
               const normalizedUnitName = caseData.unit?.toLowerCase().trim() || '';
-              const unit = allUnits.find(u => 
+              const unit = units?.find(u => 
                 u.propertyId === property.id && (
                   u.label?.toLowerCase().trim() === normalizedUnitName ||
                   u.name?.toLowerCase().trim() === normalizedUnitName
