@@ -168,7 +168,7 @@ const CaseCard = ({
           </div>
 
           <div className="flex gap-2">
-            {case_.status === "New" && (
+            {(case_.status === "New" || case_.status === "In Review") && (
               <>
                 <Button
                   size="sm"
