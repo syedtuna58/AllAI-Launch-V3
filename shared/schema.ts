@@ -473,6 +473,30 @@ export const proposedAppointmentSlots = pgTable("proposed_appointment_slots", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Reschedule Requests (for rescheduling existing appointments)
+export const rescheduleRequestStatusEnum = pgEnum("reschedule_request_status", ["Pending", "Accepted", "Declined", "Cancelled"]);
+
+export const rescheduleRequests = pgTable("reschedule_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appointmentId: varchar("appointment_id").notNull().references(() => appointments.id),
+  requestedBy: varchar("requested_by").notNull().references(() => users.id), // Who initiated the reschedule
+  reason: text("reason"),
+  status: rescheduleRequestStatusEnum("status").default("Pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+  respondedAt: timestamp("responded_at"),
+});
+
+// Reschedule Proposed Slots (3 time options for the reschedule)
+export const rescheduleProposedSlots = pgTable("reschedule_proposed_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  rescheduleRequestId: varchar("reschedule_request_id").notNull().references(() => rescheduleRequests.id),
+  proposedStartAt: timestamp("proposed_start_at").notNull(),
+  proposedEndAt: timestamp("proposed_end_at").notNull(),
+  slotNumber: integer("slot_number").notNull(), // 1, 2, or 3
+  isSelected: boolean("is_selected").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Triage Conversations (AI chat sessions)
 export const triageConversations = pgTable("triage_conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -860,6 +884,8 @@ export const insertContractorAvailabilitySchema = createInsertSchema(contractorA
 export const insertContractorBlackoutSchema = createInsertSchema(contractorBlackouts).omit({ id: true, createdAt: true });
 export const insertAppointmentSchema = createInsertSchema(appointments).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProposedAppointmentSlotSchema = createInsertSchema(proposedAppointmentSlots).omit({ id: true, createdAt: true });
+export const insertRescheduleRequestSchema = createInsertSchema(rescheduleRequests).omit({ id: true, createdAt: true });
+export const insertRescheduleProposedSlotSchema = createInsertSchema(rescheduleProposedSlots).omit({ id: true, createdAt: true });
 export const insertTriageConversationSchema = createInsertSchema(triageConversations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTriageMessageSchema = createInsertSchema(triageMessages).omit({ id: true, createdAt: true });
 export const insertDurationLearningLogSchema = createInsertSchema(durationLearningLogs).omit({ id: true, createdAt: true });
@@ -918,6 +944,10 @@ export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type ProposedAppointmentSlot = typeof proposedAppointmentSlots.$inferSelect;
 export type InsertProposedAppointmentSlot = z.infer<typeof insertProposedAppointmentSlotSchema>;
+export type RescheduleRequest = typeof rescheduleRequests.$inferSelect;
+export type InsertRescheduleRequest = z.infer<typeof insertRescheduleRequestSchema>;
+export type RescheduleProposedSlot = typeof rescheduleProposedSlots.$inferSelect;
+export type InsertRescheduleProposedSlot = z.infer<typeof insertRescheduleProposedSlotSchema>;
 export type TriageConversation = typeof triageConversations.$inferSelect;
 export type InsertTriageConversation = z.infer<typeof insertTriageConversationSchema>;
 export type TriageMessage = typeof triageMessages.$inferSelect;
