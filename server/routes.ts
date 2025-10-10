@@ -3767,6 +3767,45 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // Update contractor availability
+  app.patch('/api/contractors/:contractorId/availability/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.contractorId);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      const validatedData = insertContractorAvailabilitySchema.partial().parse(req.body);
+      const updated = await storage.updateContractorAvailability(req.params.id, validatedData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating contractor availability:", error);
+      res.status(500).json({ message: "Failed to update availability", error: (error as Error).message });
+    }
+  });
+
+  // Delete contractor availability
+  app.delete('/api/contractors/:contractorId/availability/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const contractor = await storage.getContractor(req.params.contractorId);
+      if (!contractor) return res.status(404).json({ message: "Contractor not found" });
+      if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
+
+      await storage.deleteContractorAvailability(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting contractor availability:", error);
+      res.status(500).json({ message: "Failed to delete availability" });
+    }
+  });
+
   // Get contractor blackouts
   app.get('/api/contractors/:id/blackouts', isAuthenticated, async (req: any, res) => {
     try {

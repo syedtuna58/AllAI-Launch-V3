@@ -20,13 +20,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon } from "lucide-react";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import { format } from "date-fns";
 import PropertyAssistant from "@/components/ai/property-assistant";
 import { useRole } from "@/contexts/RoleContext";
 import { TimePicker15Min } from "@/components/ui/time-picker-15min";
+import AvailabilityCalendar from "@/components/contractor/availability-calendar";
 
 // Predefined maintenance categories
 // Error Boundary for Visualization Components
@@ -138,6 +139,7 @@ export default function Maintenance() {
   const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list">("cards");
   const [acceptingCase, setAcceptingCase] = useState<SmartCase | null>(null);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
+  const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [viewingProposalsCase, setViewingProposalsCase] = useState<SmartCase | null>(null);
   const [showProposalsDialog, setShowProposalsDialog] = useState(false);
 
@@ -177,6 +179,13 @@ export default function Maintenance() {
 
   const { data: contractors = [] } = useQuery<any[]>({
     queryKey: ["/api/contractors"],
+    retry: false,
+  });
+
+  // Fetch contractor's own profile if they're a contractor
+  const { data: contractorProfile } = useQuery<any>({
+    queryKey: ["/api/contractors/me"],
+    enabled: role === "contractor",
     retry: false,
   });
 
@@ -629,6 +638,20 @@ export default function Maintenance() {
             </div>
             
             <div className="flex items-center space-x-3">
+              {/* Contractor Availability Button */}
+              {role === "contractor" && contractorProfile && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAvailabilityCalendar(true)}
+                  className="flex items-center gap-2"
+                  data-testid="button-open-availability"
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  My Availability
+                </Button>
+              )}
+              
               {/* Entity Filter */}
               <Select value={entityFilter} onValueChange={(value) => {
                 setEntityFilter(value);
@@ -2055,6 +2078,18 @@ export default function Maintenance() {
         }}
         isPending={acceptCaseMutation.isPending}
       />
+
+      {/* Contractor Availability Calendar Dialog */}
+      {role === "contractor" && contractorProfile && (
+        <Dialog open={showAvailabilityCalendar} onOpenChange={setShowAvailabilityCalendar}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-availability-calendar">
+            <DialogHeader>
+              <DialogTitle>Manage My Availability</DialogTitle>
+            </DialogHeader>
+            <AvailabilityCalendar contractorId={contractorProfile.id} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
