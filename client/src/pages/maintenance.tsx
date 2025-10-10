@@ -622,11 +622,6 @@ export default function Maintenance() {
         <Header title="Maintenance" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          {/* DEBUG: Show current role */}
-          <div className="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 p-3 rounded mb-4 text-sm font-mono">
-            🐛 DEBUG: Current role from useRole() = "<span className="font-bold text-red-600">{role}</span>"
-          </div>
-          
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Smart Cases</h1>
