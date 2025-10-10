@@ -5078,6 +5078,7 @@ Which property is this for? Select one below:`;
       try {
         const slot1Data = insertProposalSlotSchema.parse({
           proposalId: proposal.id,
+          slotNumber: 1,
           startTime: slot1Start,
           endTime: slot1End,
           status: 'pending'
@@ -5087,6 +5088,7 @@ Which property is this for? Select one below:`;
         
         const slot2Data = insertProposalSlotSchema.parse({
           proposalId: proposal.id,
+          slotNumber: 2,
           startTime: slot2Start,
           endTime: slot2End,
           status: 'pending'
@@ -5096,6 +5098,7 @@ Which property is this for? Select one below:`;
         
         const slot3Data = insertProposalSlotSchema.parse({
           proposalId: proposal.id,
+          slotNumber: 3,
           startTime: slot3Start,
           endTime: slot3End,
           status: 'pending'
