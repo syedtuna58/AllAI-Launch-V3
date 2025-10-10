@@ -1977,7 +1977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateSmartCase(smartCase.id, {
               assignedTo: bestContractor.contractorId,
               aiTriageResult: triageResult,
-              status: 'Assigned',
+              status: 'In Review',
               priority: triageResult.urgency
             });
             
