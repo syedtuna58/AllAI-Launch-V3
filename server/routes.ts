@@ -4206,11 +4206,61 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
 
       const priority = triageResult.urgency === 'Critical' ? 'Urgent' : triageResult.urgency;
       
+      // Calculate AI suggested appointment time based on time window
+      let aiSuggestedTime: Date | undefined;
+      if (triageResult.suggestedTimeWindow) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const currentHour = now.getHours();
+        
+        switch (triageResult.suggestedTimeWindow) {
+          case 'same_day':
+            // Schedule 2 hours from now, rounded to next hour during business hours (8am-6pm)
+            const soonestTime = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+            const roundedHour = Math.ceil(soonestTime.getHours());
+            
+            // If after business hours, schedule for tomorrow morning
+            if (roundedHour >= 18 || roundedHour < 8) {
+              aiSuggestedTime = new Date(today.getTime() + 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000); // Tomorrow at 9 AM
+            } else {
+              aiSuggestedTime = new Date(today.getTime() + roundedHour * 60 * 60 * 1000);
+            }
+            break;
+          case 'next_business_day':
+            // Skip to next weekday if weekend
+            let daysAhead = 1;
+            const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+            const dayOfWeek = tomorrow.getDay();
+            if (dayOfWeek === 0) daysAhead = 2; // Sunday → Tuesday
+            else if (dayOfWeek === 6) daysAhead = 3; // Saturday → Monday
+            aiSuggestedTime = new Date(today.getTime() + daysAhead * 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000); // 9 AM
+            break;
+          case 'morning':
+            aiSuggestedTime = new Date(today.getTime() + 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000); // Tomorrow at 10 AM
+            break;
+          case 'afternoon':
+            aiSuggestedTime = new Date(today.getTime() + 24 * 60 * 60 * 1000 + 14 * 60 * 60 * 1000); // Tomorrow at 2 PM
+            break;
+          case 'evening':
+            aiSuggestedTime = new Date(today.getTime() + 24 * 60 * 60 * 1000 + 17 * 60 * 60 * 1000); // Tomorrow at 5 PM
+            break;
+          case 'flexible':
+          default:
+            aiSuggestedTime = new Date(today.getTime() + 24 * 60 * 60 * 1000 + 10 * 60 * 60 * 1000); // Tomorrow at 10 AM (default)
+            break;
+        }
+      }
+      
       await storage.updateSmartCase(req.params.id, {
         aiTriageJson: triageResult as any,
         category: triageResult.category,
         priority: priority,
-        estimatedDuration: triageResult.estimatedDuration
+        estimatedDuration: triageResult.estimatedDuration,
+        // Store AI time suggestions
+        aiSuggestedTime: aiSuggestedTime?.toISOString(),
+        aiSuggestedDurationMinutes: triageResult.estimatedDurationMinutes,
+        aiTimeConfidence: triageResult.timeConfidence?.toString(),
+        aiReasoningNotes: triageResult.timeReasoningNotes
       });
 
       res.json({ triageResult });

@@ -15,6 +15,11 @@ export interface TriageResult {
   specialEquipment: string[];
   safetyRisk: "None" | "Low" | "Medium" | "High";
   reasoning: string;
+  // AI appointment scheduling suggestions
+  suggestedTimeWindow?: string; // e.g., "morning", "afternoon", "evening", "next_business_day"
+  estimatedDurationMinutes?: number; // Estimated job duration in minutes
+  timeConfidence?: number; // 0-1 confidence score for time suggestion
+  timeReasoningNotes?: string; // Why Maya suggested this time window
   analysisCompletedAt?: string;
   version?: string;
 }
@@ -105,7 +110,11 @@ Please analyze and respond with JSON in this exact format:
   "contractorType": "Primary contractor type needed (Plumber, Electrician, HVAC, General Maintenance, Appliance Repair, etc.)",
   "specialEquipment": ["List any special tools/equipment that may be needed"],
   "safetyRisk": "None|Low|Medium|High (High=immediate danger, Medium=potential hazard, Low=minor safety concern, None=no safety issues)",
-  "reasoning": "Brief explanation of urgency and complexity assessment"
+  "reasoning": "Brief explanation of urgency and complexity assessment",
+  "suggestedTimeWindow": "Best time window for this repair: 'same_day' (urgent), 'next_business_day', 'morning' (8am-12pm), 'afternoon' (12pm-5pm), 'evening' (5pm-8pm), or 'flexible'",
+  "estimatedDurationMinutes": "Estimated job duration in minutes (e.g., 30, 60, 120, 180, 240)",
+  "timeConfidence": "Confidence in time estimate as decimal 0.0-1.0 (e.g., 0.9 for high confidence, 0.6 for moderate, 0.3 for low)",
+  "timeReasoningNotes": "Brief explanation of why this time window is recommended (consider urgency, typical repair patterns, tenant convenience, contractor efficiency)"
 }`;
   }
 
@@ -186,6 +195,10 @@ Please analyze and respond with JSON in this exact format:
       specialEquipment: [],
       safetyRisk: "None",
       reasoning: "AI analysis unavailable - using default triage values",
+      suggestedTimeWindow: "flexible",
+      estimatedDurationMinutes: 120,
+      timeConfidence: 0.5,
+      timeReasoningNotes: "Default estimate - AI analysis unavailable",
       analysisCompletedAt: new Date().toISOString(),
       version: "1.0-fallback"
     };
