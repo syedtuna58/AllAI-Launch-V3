@@ -113,7 +113,7 @@ const scheduleAppointmentSchema = z.object({
 export default function Maintenance() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
-  const { role } = useRole();
+  const { currentRole: role } = useRole();
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
