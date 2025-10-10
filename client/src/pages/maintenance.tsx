@@ -1212,8 +1212,8 @@ export default function Maintenance() {
                         </Button>
                       )}
                       
-                      {/* View Proposals Button (Tenant Only) */}
-                      {role === 'tenant' && (smartCase.status === 'In Review' || smartCase.status === 'Scheduled') && (
+                      {/* View Proposals Button (Tenant/Landlord) */}
+                      {(role === 'tenant' || role === 'landlord') && (smartCase.status === 'In Review' || smartCase.status === 'Scheduled') && (
                         <Button 
                           variant="default" 
                           size="sm"
