@@ -4929,10 +4929,12 @@ Which property is this for? Select one below:`;
         const appointment = await storage.createAppointment({
           caseId: case_.id,
           contractorId: proposal.contractorId,
-          scheduledFor: slot.startTime,
+          orgId: case_.orgId,
+          title: case_.title,
+          scheduledStartAt: slot.startTime,
+          scheduledEndAt: slot.endTime,
           status: "Confirmed",
-          notes: proposal.notes,
-          estimatedDuration: proposal.estimatedDurationMinutes,
+          notes: proposal.notes || null,
         });
         appointmentId = appointment.id;
 
