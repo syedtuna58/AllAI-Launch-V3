@@ -4864,17 +4864,12 @@ Which property is this for? Select one below:`;
         return res.status(403).json({ message: "Unauthorized to select slot for this case" });
       }
 
-      // Verify user is the case reporter (tenant) or get their role from org membership
+      // Verify user is the case reporter (tenant) or org owner
       const isReporter = case_.reporterUserId === userId;
+      const isOrgOwner = userOrg.ownerId === userId;
       
-      // Check if user has admin/landlord role via organization membership
-      const orgMembers = await storage.getOrganizationMembers(userOrg.id);
-      const userMember = orgMembers.find(m => m.userId === userId);
-      const userRole = userMember?.role || 'tenant';
-      const isAdminOrLandlord = userRole === 'admin' || userRole === 'landlord';
-      
-      if (!isReporter && !isAdminOrLandlord) {
-        return res.status(403).json({ message: "Only the case reporter or administrators can select appointment slots" });
+      if (!isReporter && !isOrgOwner) {
+        return res.status(403).json({ message: "Only the case reporter or organization owner can select appointment slots" });
       }
 
       // Get approval policies for the org
