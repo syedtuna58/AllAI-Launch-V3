@@ -5000,6 +5000,150 @@ Which property is this for? Select one below:`;
     }
   });
 
+  // Contractor accepts case and proposes 3 time slots
+  app.post('/api/contractor/cases/:caseId/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const caseId = req.params.caseId;
+      const { slot1Date, slot1Time, slot2Date, slot2Time, slot3Date, slot3Time, notes } = req.body;
+
+      // Get the case
+      const smartCase = await storage.getSmartCase(caseId);
+      if (!smartCase) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+
+      // Get contractor from user
+      const contractors = await storage.getContractors(smartCase.orgId);
+      const contractor = contractors.find((c: any) => c.userId === userId);
+      
+      if (!contractor) {
+        return res.status(403).json({ message: "You are not registered as a contractor" });
+      }
+
+      // Verify contractor is assigned to this case
+      if (smartCase.assignedTo !== contractor.id) {
+        return res.status(403).json({ message: "You are not assigned to this case" });
+      }
+
+      // Parse and create Date objects for all 3 slots with proper timezone handling
+      const parseSlotDateTime = (dateStr: string, timeStr: string): Date => {
+        // Extract date components to avoid timezone shifts
+        const dateObj = new Date(dateStr);
+        const year = dateObj.getFullYear();
+        const month = dateObj.getMonth();
+        const day = dateObj.getDate();
+        
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        
+        // Create date in local timezone with explicit components
+        return new Date(year, month, day, hours, minutes, 0, 0);
+      };
+
+      const slot1Start = parseSlotDateTime(slot1Date, slot1Time);
+      const slot2Start = parseSlotDateTime(slot2Date, slot2Time);
+      const slot3Start = parseSlotDateTime(slot3Date, slot3Time);
+
+      // Calculate end times (use AI suggested duration or default to 60 minutes)
+      const durationMinutes = smartCase.aiSuggestedDurationMinutes || 60;
+      
+      const slot1End = new Date(slot1Start);
+      slot1End.setMinutes(slot1End.getMinutes() + durationMinutes);
+      
+      const slot2End = new Date(slot2Start);
+      slot2End.setMinutes(slot2End.getMinutes() + durationMinutes);
+      
+      const slot3End = new Date(slot3Start);
+      slot3End.setMinutes(slot3End.getMinutes() + durationMinutes);
+
+      // Create the proposal
+      const { insertAppointmentProposalSchema } = await import("@shared/schema");
+      const proposalData = insertAppointmentProposalSchema.parse({
+        caseId: caseId,
+        contractorId: contractor.id,
+        notes: notes || null,
+        status: 'pending'
+      });
+
+      const proposal = await storage.createAppointmentProposal(proposalData);
+
+      // Create the 3 time slots sequentially with error handling
+      const { insertProposalSlotSchema } = await import("@shared/schema");
+      const createdSlots = [];
+      
+      try {
+        const slot1Data = insertProposalSlotSchema.parse({
+          proposalId: proposal.id,
+          startTime: slot1Start,
+          endTime: slot1End,
+          status: 'pending'
+        });
+        const slot1 = await storage.createProposalSlot(slot1Data);
+        createdSlots.push(slot1);
+        
+        const slot2Data = insertProposalSlotSchema.parse({
+          proposalId: proposal.id,
+          startTime: slot2Start,
+          endTime: slot2End,
+          status: 'pending'
+        });
+        const slot2 = await storage.createProposalSlot(slot2Data);
+        createdSlots.push(slot2);
+        
+        const slot3Data = insertProposalSlotSchema.parse({
+          proposalId: proposal.id,
+          startTime: slot3Start,
+          endTime: slot3End,
+          status: 'pending'
+        });
+        const slot3 = await storage.createProposalSlot(slot3Data);
+        createdSlots.push(slot3);
+      } catch (slotError) {
+        // Rollback: delete any created slots and the proposal
+        console.error("Error creating slots, rolling back:", slotError);
+        for (const slot of createdSlots) {
+          try {
+            await storage.deleteProposalSlot(slot.id);
+          } catch (deleteError) {
+            console.error("Error deleting slot during rollback:", deleteError);
+          }
+        }
+        await storage.deleteAppointmentProposal(proposal.id);
+        throw new Error("Failed to create all 3 time slots. Please try again.");
+      }
+
+      // Update case status to "In Review" (tenant needs to select a slot)
+      await storage.updateSmartCase(caseId, {
+        status: 'In Review'
+      });
+
+      // Notify tenant that proposals are ready
+      const { notificationService } = await import('./notificationService');
+      if (smartCase.reporterUserId) {
+        await notificationService.notify({
+          message: `Contractor ${contractor.name} has proposed 3 time slots for your maintenance request: ${smartCase.title}`,
+          type: 'proposal_submitted',
+          title: 'New Appointment Options',
+          caseId: smartCase.id,
+          orgId: smartCase.orgId
+        }, smartCase.reporterUserId, smartCase.orgId);
+      }
+
+      res.json({
+        success: true,
+        proposal,
+        slots: createdSlots,
+        message: "Case accepted and appointment options proposed"
+      });
+    } catch (error) {
+      console.error("Error accepting case:", error);
+      res.status(500).json({ 
+        message: "Failed to accept case", 
+        error: (error as Error).message 
+      });
+    }
+  });
+
   // Select a proposal slot (tenant action)
   app.post('/api/proposals/slots/:slotId/select', isAuthenticated, async (req: any, res) => {
     try {
