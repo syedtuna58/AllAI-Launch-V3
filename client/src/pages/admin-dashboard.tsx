@@ -24,6 +24,7 @@ interface SmartCase {
   updatedAt: string;
   assignedContractorId?: string;
   reportedBy: string;
+  estimatedCost?: string;
 }
 
 const PRIORITY_COLORS = {
@@ -185,6 +186,7 @@ export default function AdminDashboard() {
                           </div>
                           <CardDescription className="text-sm text-muted-foreground">
                             {case_.category} • Created {new Date(case_.createdAt).toLocaleDateString()}
+                            {case_.estimatedCost && ` • Est. Cost: $${parseFloat(case_.estimatedCost).toFixed(0)}`}
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
@@ -250,6 +252,11 @@ export default function AdminDashboard() {
                         </CardHeader>
                         <CardContent>
                           <p className="text-sm mb-3">{case_.description}</p>
+                          {case_.estimatedCost && (
+                            <p className="text-sm text-muted-foreground mb-3">
+                              Estimated Cost: <span className="font-semibold text-foreground">${parseFloat(case_.estimatedCost).toFixed(0)}</span>
+                            </p>
+                          )}
                           <div className="flex items-center justify-between">
                             <Badge className={`${PRIORITY_COLORS[case_.priority as keyof typeof PRIORITY_COLORS]} border`}>
                               {case_.priority} Priority
@@ -290,10 +297,17 @@ export default function AdminDashboard() {
                         </CardHeader>
                         <CardContent>
                           <p className="text-sm mb-3">{case_.description}</p>
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between mb-3">
                             <div className="text-sm text-muted-foreground">
                               Created: {new Date(case_.createdAt).toLocaleDateString()}
                             </div>
+                            {case_.estimatedCost && (
+                              <div className="text-sm font-semibold">
+                                Est. Cost: ${parseFloat(case_.estimatedCost).toFixed(0)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-end">
                             <Button size="sm" className="bg-red-600 hover:bg-red-700">
                               Priority Action Required
                             </Button>

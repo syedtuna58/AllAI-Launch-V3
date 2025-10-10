@@ -3836,7 +3836,16 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
       if (!contractor) return res.status(404).json({ message: "Contractor not found" });
       if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
 
-      const validatedData = insertContractorBlackoutSchema.parse({ ...req.body, contractorId: req.params.id });
+      // Convert date strings to Date objects
+      const bodyData = { ...req.body, contractorId: req.params.id };
+      if (bodyData.startDate && typeof bodyData.startDate === 'string') {
+        bodyData.startDate = new Date(bodyData.startDate);
+      }
+      if (bodyData.endDate && typeof bodyData.endDate === 'string') {
+        bodyData.endDate = new Date(bodyData.endDate);
+      }
+
+      const validatedData = insertContractorBlackoutSchema.parse(bodyData);
       const created = await storage.createContractorBlackout(validatedData);
       res.json(created);
     } catch (error) {
@@ -3856,7 +3865,16 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
       if (!contractor) return res.status(404).json({ message: "Contractor not found" });
       if (contractor.orgId !== org.id) return res.status(403).json({ message: "Access denied" });
 
-      const validatedData = insertContractorBlackoutSchema.partial().parse(req.body);
+      // Convert date strings to Date objects
+      const bodyData = { ...req.body };
+      if (bodyData.startDate && typeof bodyData.startDate === 'string') {
+        bodyData.startDate = new Date(bodyData.startDate);
+      }
+      if (bodyData.endDate && typeof bodyData.endDate === 'string') {
+        bodyData.endDate = new Date(bodyData.endDate);
+      }
+
+      const validatedData = insertContractorBlackoutSchema.partial().parse(bodyData);
       const updated = await storage.updateContractorBlackout(req.params.id, validatedData);
       res.json(updated);
     } catch (error) {
