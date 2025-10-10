@@ -339,6 +339,11 @@ export const smartCases = pgTable("smart_cases", {
   scheduledStartAt: timestamp("scheduled_start_at"),
   scheduledEndAt: timestamp("scheduled_end_at"),
   estimatedDuration: varchar("estimated_duration"),
+  // AI time suggestion fields
+  aiSuggestedTime: timestamp("ai_suggested_time"),
+  aiSuggestedDurationMinutes: integer("ai_suggested_duration_minutes"),
+  aiTimeConfidence: decimal("ai_time_confidence", { precision: 3, scale: 2 }), // 0-1 confidence score
+  aiReasoningNotes: text("ai_reasoning_notes"), // Why Maya suggested this time
   triageConversationId: varchar("triage_conversation_id"),
   reporterUserId: varchar("reporter_user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -448,6 +453,24 @@ export const appointments = pgTable("appointments", {
   googleCalendarEventId: varchar("google_calendar_event_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Proposed Appointment Slots (contractor proposes 3 time options for tenant to choose)
+export const proposedSlotStatusEnum = pgEnum("proposed_slot_status", ["Pending", "Selected", "Declined"]);
+
+export const proposedAppointmentSlots = pgTable("proposed_appointment_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => smartCases.id),
+  contractorId: varchar("contractor_id").notNull().references(() => vendors.id),
+  proposedStartAt: timestamp("proposed_start_at").notNull(),
+  proposedEndAt: timestamp("proposed_end_at").notNull(),
+  status: proposedSlotStatusEnum("status").default("Pending"),
+  notes: text("notes"),
+  slotOrder: integer("slot_order").default(1), // 1, 2, or 3 (which of the 3 slots)
+  declineReason: text("decline_reason"), // If tenant declined, why?
+  selectedAt: timestamp("selected_at"), // When tenant chose this slot
+  createdAppointmentId: varchar("created_appointment_id").references(() => appointments.id),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Triage Conversations (AI chat sessions)
@@ -836,6 +859,7 @@ export const insertExpenseSchema = insertTransactionSchema.extend({
 export const insertContractorAvailabilitySchema = createInsertSchema(contractorAvailability).omit({ id: true, createdAt: true });
 export const insertContractorBlackoutSchema = createInsertSchema(contractorBlackouts).omit({ id: true, createdAt: true });
 export const insertAppointmentSchema = createInsertSchema(appointments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertProposedAppointmentSlotSchema = createInsertSchema(proposedAppointmentSlots).omit({ id: true, createdAt: true });
 export const insertTriageConversationSchema = createInsertSchema(triageConversations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertTriageMessageSchema = createInsertSchema(triageMessages).omit({ id: true, createdAt: true });
 export const insertDurationLearningLogSchema = createInsertSchema(durationLearningLogs).omit({ id: true, createdAt: true });
@@ -892,6 +916,8 @@ export type ContractorBlackout = typeof contractorBlackouts.$inferSelect;
 export type InsertContractorBlackout = z.infer<typeof insertContractorBlackoutSchema>;
 export type Appointment = typeof appointments.$inferSelect;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+export type ProposedAppointmentSlot = typeof proposedAppointmentSlots.$inferSelect;
+export type InsertProposedAppointmentSlot = z.infer<typeof insertProposedAppointmentSlotSchema>;
 export type TriageConversation = typeof triageConversations.$inferSelect;
 export type InsertTriageConversation = z.infer<typeof insertTriageConversationSchema>;
 export type TriageMessage = typeof triageMessages.$inferSelect;
