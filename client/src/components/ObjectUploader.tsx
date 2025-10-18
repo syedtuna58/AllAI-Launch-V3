@@ -20,6 +20,8 @@ interface ObjectUploaderProps {
   ) => void;
   buttonClassName?: string;
   children: ReactNode;
+  note?: string;
+  allowedFileTypes?: string[];
 }
 
 /**
@@ -57,6 +59,8 @@ export function ObjectUploader({
   onComplete,
   buttonClassName,
   children,
+  note,
+  allowedFileTypes,
 }: ObjectUploaderProps) {
   const [showModal, setShowModal] = useState(false);
   const [uppy] = useState(() =>
@@ -64,6 +68,7 @@ export function ObjectUploader({
       restrictions: {
         maxNumberOfFiles,
         maxFileSize,
+        allowedFileTypes: allowedFileTypes,
       },
       autoProceed: false,
     })
@@ -93,6 +98,7 @@ export function ObjectUploader({
         open={showModal}
         onRequestClose={() => setShowModal(false)}
         proudlyDisplayPoweredByUppy={false}
+        note={note}
       />
     </div>
   );
