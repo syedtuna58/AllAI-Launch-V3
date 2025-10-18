@@ -239,6 +239,9 @@ export default function ContractorDashboard() {
   const [scheduledTime, setScheduledTime] = useState("");
   const [acceptNotes, setAcceptNotes] = useState("");
   const [estimatedDuration, setEstimatedDuration] = useState(120);
+  const [acceptCost, setAcceptCost] = useState("");
+  const [acceptAiGuidance, setAcceptAiGuidance] = useState<any>(null);
+  const [acceptLoadingGuidance, setAcceptLoadingGuidance] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [hideClosedCases, setHideClosedCases] = useState<boolean>(true);
@@ -488,9 +491,43 @@ export default function ContractorDashboard() {
     });
   };
 
-  const handleAcceptCase = (case_: ContractorCase) => {
+  const handleAcceptCase = async (case_: ContractorCase) => {
+    // Reset all state first to avoid stale data
+    setAcceptAiGuidance(null);
+    setAcceptCost("");
+    setEstimatedDuration(120);
+    setScheduledDate("");
+    setScheduledTime("");
+    setAcceptNotes("");
+    
     setAcceptingCase(case_);
     setAcceptDialogOpen(true);
+    
+    // Fetch AI guidance
+    setAcceptLoadingGuidance(true);
+    try {
+      const res = await fetch(`/api/cases/${case_.id}/ai-guidance`, {
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const guidance = await res.json();
+        setAcceptAiGuidance(guidance);
+        
+        // Pre-fill with AI suggestions
+        setEstimatedDuration(guidance.duration.estimatedMinutes);
+        if (guidance.cost.estimatedCostAverage) {
+          setAcceptCost(guidance.cost.estimatedCostAverage.toString());
+        }
+      } else {
+        // Clear guidance on error
+        setAcceptAiGuidance(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch AI guidance:", error);
+      setAcceptAiGuidance(null);
+    } finally {
+      setAcceptLoadingGuidance(false);
+    }
   };
 
   const handleConfirmAccept = () => {
@@ -890,8 +927,20 @@ export default function ContractorDashboard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={acceptDialogOpen} onOpenChange={setAcceptDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-accept-case">
+      <Dialog open={acceptDialogOpen} onOpenChange={(open) => {
+        setAcceptDialogOpen(open);
+        if (!open) {
+          // Reset state when closing
+          setAcceptAiGuidance(null);
+          setAcceptCost("");
+          setEstimatedDuration(120);
+          setScheduledDate("");
+          setScheduledTime("");
+          setAcceptNotes("");
+          setAcceptingCase(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" data-testid="dialog-accept-case">
           <DialogHeader>
             <DialogTitle>Accept Case & Schedule Appointment</DialogTitle>
             <DialogDescription>
@@ -899,6 +948,68 @@ export default function ContractorDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {acceptLoadingGuidance ? (
+              <div className="bg-muted/50 p-4 rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span className="text-sm text-muted-foreground">Getting AI guidance...</span>
+                </div>
+              </div>
+            ) : acceptAiGuidance ? (
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-2 mb-3">
+                  <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-white text-sm font-semibold">AI</span>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-sm mb-1">AI Recommendations (Editable)</h4>
+                    <p className="text-xs text-muted-foreground mb-3">Based on job analysis and market data</p>
+                    
+                    <div className="space-y-2">
+                      <div>
+                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Duration</div>
+                        <div className="text-sm">{acceptAiGuidance.duration.estimatedMinutes} minutes</div>
+                        <div className="text-xs text-muted-foreground italic mt-0.5">{acceptAiGuidance.duration.reasoning}</div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Estimated Cost</div>
+                        <div className="text-sm">
+                          ${acceptAiGuidance.cost.estimatedCostLow} - ${acceptAiGuidance.cost.estimatedCostHigh} 
+                          <span className="text-muted-foreground ml-2">(avg: ${acceptAiGuidance.cost.estimatedCostAverage})</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground italic mt-0.5">{acceptAiGuidance.cost.reasoning}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="accept-cost">Estimated Cost ($)</Label>
+                <Input
+                  id="accept-cost"
+                  type="number"
+                  placeholder="150.00"
+                  value={acceptCost}
+                  onChange={(e) => setAcceptCost(e.target.value)}
+                  data-testid="input-accept-cost"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="estimated-duration">Duration (minutes)</Label>
+                <Input
+                  id="estimated-duration"
+                  type="number"
+                  value={estimatedDuration}
+                  onChange={(e) => setEstimatedDuration(Number(e.target.value))}
+                  min={15}
+                  step={15}
+                  data-testid="input-estimated-duration"
+                />
+              </div>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="scheduled-date">Appointment Date</Label>
               <Input
@@ -917,18 +1028,6 @@ export default function ContractorDashboard() {
                 value={scheduledTime}
                 onChange={(e) => setScheduledTime(e.target.value)}
                 data-testid="input-scheduled-time"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="estimated-duration">Estimated Duration (minutes)</Label>
-              <Input
-                id="estimated-duration"
-                type="number"
-                value={estimatedDuration}
-                onChange={(e) => setEstimatedDuration(Number(e.target.value))}
-                min={15}
-                step={15}
-                data-testid="input-estimated-duration"
               />
             </div>
             <div className="grid gap-2">
