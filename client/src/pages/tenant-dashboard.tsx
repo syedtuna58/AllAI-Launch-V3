@@ -456,7 +456,7 @@ export default function TenantDashboard() {
                       maxNumberOfFiles={5}
                       maxFileSize={10485760}
                       allowedFileTypes={['image/*', 'video/*']}
-                      note="📸 Upload photos or videos (optional) - Helps contractors better understand the issue"
+                      note="📸 Upload photos or videos (optional) - Helps us better understand the issue"
                       onGetUploadParameters={async () => {
                         const res = await apiRequest('POST', '/api/object-storage/url', {});
                         const data = await res.json();

@@ -71,6 +71,12 @@ export function ObjectUploader({
         allowedFileTypes: allowedFileTypes,
       },
       autoProceed: false,
+      locale: {
+        strings: {
+          dropPasteFiles: note || 'Drop files here or %{browse}',
+          browse: 'select files',
+        }
+      }
     })
       .use(AwsS3, {
         shouldUseMultipart: false,
@@ -98,7 +104,6 @@ export function ObjectUploader({
         open={showModal}
         onRequestClose={() => setShowModal(false)}
         proudlyDisplayPoweredByUppy={false}
-        note={note}
       />
     </div>
   );
