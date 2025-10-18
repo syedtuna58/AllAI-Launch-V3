@@ -4434,16 +4434,20 @@ Use natural, conversational language. Be warm and supportive. Keep it concise. D
 
         let mayaResponse = '';
         try {
+          console.log("🤖 Generating conversational response with GPT-4o...");
           const conversationalRes = await openai.chat.completions.create({
             model: "gpt-4o",
             messages: [
               { role: "system", content: "You are Maya, a warm, empathetic AI assistant who helps tenants with maintenance issues. You speak naturally like a supportive friend who genuinely cares about their comfort and safety." },
               { role: "user", content: conversationalPrompt }
-            ]
+            ],
+            temperature: 0.7
           });
           mayaResponse = conversationalRes.choices[0].message.content || '';
+          console.log("✅ Conversational response generated:", mayaResponse.substring(0, 100) + "...");
         } catch (error) {
-          console.error("Conversational response error:", error);
+          console.error("❌ Conversational response error:", error);
+          mayaResponse = ''; // Ensure fallback
         }
 
         const response = mayaResponse || `I understand! It sounds like you're experiencing a **${triageResult.category}** issue${triageResult.urgency === 'Critical' || triageResult.urgency === 'High' ? ` that needs ${triageResult.urgency.toLowerCase()} attention` : ''}.

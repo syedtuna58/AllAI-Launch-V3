@@ -110,7 +110,7 @@ export default function TenantDashboard() {
     if (mayaOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, mayaOpen]);
+  }, [messages, mayaOpen, isProcessing]);
 
   const { data: myCases = [], isLoading: casesLoading } = useQuery<TenantCase[]>({
     queryKey: ['/api/tenant/cases'],
@@ -244,7 +244,7 @@ export default function TenantDashboard() {
             description: issueDescription,
             status: "New",
             type: "maintenance",
-            priority: triageData?.urgency?.toLowerCase() || "medium",
+            priority: triageData?.urgency || "Medium",
             category: triageData?.category || "general",
             propertyId: selectedProperty?.id,
             unitId: selectedProperty?.unitId,
@@ -358,33 +358,8 @@ export default function TenantDashboard() {
                   </CardHeader>
                 </CollapsibleTrigger>
 
-                <CardContent className="pt-0 pb-4 space-y-4">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Describe your maintenance issue..."
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMayaMessage(inputValue);
-                        }
-                      }}
-                      disabled={isProcessing}
-                      className="flex-1"
-                      data-testid="input-maya-message"
-                      onClick={() => !mayaOpen && setMayaOpen(true)}
-                    />
-                    <Button
-                      onClick={() => sendMayaMessage(inputValue)}
-                      disabled={isProcessing || !inputValue.trim()}
-                      data-testid="button-send-message"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {!mayaOpen && (
+                {!mayaOpen && (
+                  <CardContent className="pt-0 pb-4 space-y-4">
                     <div className="flex flex-wrap gap-2">
                       {[
                         "My sink is leaking",
@@ -408,12 +383,12 @@ export default function TenantDashboard() {
                         </Button>
                       ))}
                     </div>
-                  )}
-                </CardContent>
+                  </CardContent>
+                )}
                 
                 <CollapsibleContent>
-                  <CardContent className="pt-0 pb-4">
-                    <div className="max-h-[400px] overflow-auto space-y-4 pb-4">
+                  <CardContent className="pt-4 pb-0">
+                    <div className="max-h-[400px] overflow-auto space-y-4 mb-4">
                       {messages.map((message) => (
                         <div
                           key={message.id}
@@ -471,7 +446,45 @@ export default function TenantDashboard() {
                           </div>
                         </div>
                       ))}
+                      
+                      {isProcessing && (
+                        <div className="flex gap-3" data-testid="indicator-processing">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-primary/10">
+                              <Bot className="h-4 w-4 text-primary" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="bg-muted rounded-lg px-4 py-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          </div>
+                        </div>
+                      )}
+                      
                       <div ref={messagesEndRef} />
+                    </div>
+
+                    <div className="border-t pt-4 flex gap-2">
+                      <Input
+                        placeholder="Describe your maintenance issue..."
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMayaMessage(inputValue);
+                          }
+                        }}
+                        disabled={isProcessing}
+                        className="flex-1"
+                        data-testid="input-maya-message"
+                      />
+                      <Button
+                        onClick={() => sendMayaMessage(inputValue)}
+                        disabled={isProcessing || !inputValue.trim()}
+                        data-testid="button-send-message"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
                     </div>
                   </CardContent>
                 </CollapsibleContent>
