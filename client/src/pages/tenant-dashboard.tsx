@@ -89,7 +89,6 @@ export default function TenantDashboard() {
   const [selectedAppointment, setSelectedAppointment] = useState<TenantAppointment | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   
-  const [mayaOpen, setMayaOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -109,10 +108,8 @@ export default function TenantDashboard() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (mayaOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages, mayaOpen, isProcessing]);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isProcessing]);
 
   const { data: myCases = [], isLoading: casesLoading } = useQuery<TenantCase[]>({
     queryKey: ['/api/tenant/cases'],
@@ -343,187 +340,152 @@ export default function TenantDashboard() {
             </div>
 
             {/* Maya AI Chat Widget */}
-            <Collapsible open={mayaOpen} onOpenChange={setMayaOpen}>
-              <Card className="border-2 border-primary/20">
-                <CollapsibleTrigger className="w-full">
-                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Bot className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="text-left flex-1">
-                          <CardTitle>Maya AI Assistant</CardTitle>
-                          <CardDescription>Quick maintenance request help</CardDescription>
-                        </div>
-                      </div>
-                      {mayaOpen ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
-                    </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
+            <Card className="border-2 border-primary/20">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Bot className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle>Maya AI Assistant</CardTitle>
+                    <CardDescription>Describe your maintenance issue - feel free to add photos/videos to help clarify</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
 
-                {!mayaOpen && (
-                  <CardContent className="pt-0 pb-4 space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        "My sink is leaking",
-                        "Report a maintenance issue",
-                        "Check status of my request",
-                        "The heater isn't working"
-                      ].map((suggestion, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setInputValue(suggestion);
-                            setMayaOpen(true);
-                          }}
-                          data-testid={`button-suggestion-${index}`}
-                        >
-                          {suggestion}
-                        </Button>
-                      ))}
-                    </div>
-                  </CardContent>
-                )}
-                
-                <CollapsibleContent>
-                  <CardContent className="pt-4 pb-0">
-                    <div className="max-h-[400px] overflow-auto space-y-4 mb-4">
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-                        >
-                          {message.role === "assistant" && (
-                            <Avatar className="h-8 w-8 mt-1">
-                              <AvatarFallback className="bg-primary/10">
-                                <Bot className="h-4 w-4 text-primary" />
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
-                          
-                          <div className={`flex flex-col gap-2 max-w-[80%] ${message.role === "user" ? "items-end" : "items-start"}`}>
-                            <div
-                              className={`rounded-lg px-4 py-2 ${
-                                message.role === "user"
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted"
-                              }`}
-                            >
-                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                            </div>
-                            
-                            {message.data?.properties && message.data.properties.length > 0 && (
-                              <div className="w-full space-y-2 mt-2">
-                                {message.data.properties.map((property: PropertyMatch) => (
-                                  <Button
-                                    key={property.id}
-                                    variant="outline"
-                                    className="w-full justify-start text-left h-auto py-3"
-                                    onClick={() => handlePropertySelect(property)}
-                                    disabled={isProcessing}
-                                  >
-                                    <div className="flex items-start gap-3 w-full">
-                                      <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                        {property.unitNumber ? (
-                                          <Home className="h-5 w-5 text-primary" />
-                                        ) : (
-                                          <Building className="h-5 w-5 text-primary" />
-                                        )}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-sm">
-                                          {property.name}
-                                          {property.unitNumber && <span className="ml-2 text-muted-foreground">Unit {property.unitNumber}</span>}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground mt-1">{property.matchReason}</div>
-                                      </div>
-                                    </div>
-                                  </Button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {isProcessing && (
-                        <div className="flex gap-3" data-testid="indicator-processing">
-                          <Avatar className="h-8 w-8">
+              <CardContent className="space-y-4">
+                {messages.length > 1 && (
+                  <div className="max-h-[300px] overflow-auto space-y-4 pb-4 border-b">
+                    {messages.slice(1).map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                      >
+                        {message.role === "assistant" && (
+                          <Avatar className="h-8 w-8 mt-1">
                             <AvatarFallback className="bg-primary/10">
                               <Bot className="h-4 w-4 text-primary" />
                             </AvatarFallback>
                           </Avatar>
-                          <div className="bg-muted rounded-lg px-4 py-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
+                        
+                        <div className={`flex flex-col gap-2 max-w-[80%] ${message.role === "user" ? "items-end" : "items-start"}`}>
+                          <div
+                            className={`rounded-lg px-4 py-2 ${
+                              message.role === "user"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted"
+                            }`}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                           </div>
+                          
+                          {message.data?.properties && message.data.properties.length > 0 && (
+                            <div className="w-full space-y-2 mt-2">
+                              {message.data.properties.map((property: PropertyMatch) => (
+                                <Button
+                                  key={property.id}
+                                  variant="outline"
+                                  className="w-full justify-start text-left h-auto py-3"
+                                  onClick={() => handlePropertySelect(property)}
+                                  disabled={isProcessing}
+                                >
+                                  <div className="flex items-start gap-3 w-full">
+                                    <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                      {property.unitNumber ? (
+                                        <Home className="h-5 w-5 text-primary" />
+                                      ) : (
+                                        <Building className="h-5 w-5 text-primary" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-semibold text-sm">
+                                        {property.name}
+                                        {property.unitNumber && <span className="ml-2 text-muted-foreground">Unit {property.unitNumber}</span>}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground mt-1">{property.matchReason}</div>
+                                    </div>
+                                  </div>
+                                </Button>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    <div className="border-t pt-4 space-y-2">
-                      {uploadedMedia.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          📎 {uploadedMedia.length} photo{uploadedMedia.length > 1 ? 's' : ''} attached
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Describe your maintenance issue..."
-                          value={inputValue}
-                          onChange={(e) => setInputValue(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              sendMayaMessage(inputValue);
-                            }
-                          }}
-                          disabled={isProcessing}
-                          className="flex-1"
-                          data-testid="input-maya-message"
-                        />
-                        <ObjectUploader
-                          maxNumberOfFiles={5}
-                          maxFileSize={10485760}
-                          onGetUploadParameters={async () => {
-                            const res = await apiRequest('POST', '/api/object-storage/url', {});
-                            const data = await res.json();
-                            return {
-                              method: "PUT" as const,
-                              url: data.url,
-                            };
-                          }}
-                          onComplete={(result) => {
-                            const urls = result.successful.map((file: any) => file.uploadURL.split('?')[0]);
-                            setUploadedMedia(prev => [...prev, ...urls]);
-                            toast({
-                              title: "Photos uploaded",
-                              description: `${urls.length} photo(s) attached to your request`,
-                            });
-                          }}
-                          buttonClassName="h-10 w-10 p-0"
-                        >
-                          <Camera className="h-4 w-4" />
-                        </ObjectUploader>
-                        <Button
-                          onClick={() => sendMayaMessage(inputValue)}
-                          disabled={isProcessing || !inputValue.trim()}
-                          data-testid="button-send-message"
-                        >
-                          <Send className="h-4 w-4" />
-                        </Button>
                       </div>
+                    ))}
+                    
+                    {isProcessing && (
+                      <div className="flex gap-3" data-testid="indicator-processing">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-primary/10">
+                            <Bot className="h-4 w-4 text-primary" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="bg-muted rounded-lg px-4 py-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {uploadedMedia.length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      📎 {uploadedMedia.length} photo{uploadedMedia.length > 1 ? 's' : ''} attached (optional)
                     </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Describe your maintenance issue..."
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMayaMessage(inputValue);
+                        }
+                      }}
+                      disabled={isProcessing}
+                      className="flex-1"
+                      data-testid="input-maya-message"
+                    />
+                    <ObjectUploader
+                      maxNumberOfFiles={5}
+                      maxFileSize={10485760}
+                      onGetUploadParameters={async () => {
+                        const res = await apiRequest('POST', '/api/object-storage/url', {});
+                        const data = await res.json();
+                        return {
+                          method: "PUT" as const,
+                          url: data.url,
+                        };
+                      }}
+                      onComplete={(result) => {
+                        const urls = result.successful.map((file: any) => file.uploadURL.split('?')[0]);
+                        setUploadedMedia(prev => [...prev, ...urls]);
+                        toast({
+                          title: "Photos uploaded",
+                          description: `${urls.length} photo(s) attached - completely optional but helpful!`,
+                        });
+                      }}
+                      buttonClassName="shrink-0"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </ObjectUploader>
+                    <Button
+                      onClick={() => sendMayaMessage(inputValue)}
+                      disabled={isProcessing || !inputValue.trim()}
+                      data-testid="button-send-message"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <Card>
