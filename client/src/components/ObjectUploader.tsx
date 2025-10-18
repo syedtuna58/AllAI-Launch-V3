@@ -73,8 +73,12 @@ export function ObjectUploader({
       autoProceed: false,
       locale: {
         strings: {
-          dropPasteFiles: note || 'Drop files here or %{browse}',
-          browse: 'select files',
+          dropPasteFiles: note || '%{browse}',
+          dropPasteImport: note || '%{browse}',
+          dropPasteBoth: note || '%{browse}',
+          dropHint: '',
+          browse: 'Select files',
+          closeModal: 'Close',
         }
       }
     })
