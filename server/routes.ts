@@ -2013,7 +2013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Step 4: Notify contractor
             const { notificationService } = await import('./notificationService');
-            await notificationService.notify({
+            await notificationService.notifyContractor({
               message: `New ${triageResult.urgency} priority maintenance request assigned to you: ${smartCase.title}`,
               type: 'case_assigned',
               title: 'New Case Assigned',
