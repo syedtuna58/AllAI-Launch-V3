@@ -1,10 +1,10 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import { RoleProvider } from "@/contexts/RoleContext";
+import { RoleProvider, useRole } from "@/contexts/RoleContext";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Properties from "@/pages/properties";
@@ -26,6 +26,20 @@ import Categories from "@/pages/categories";
 import Messages from "@/pages/messages";
 import ApprovalSettings from "@/pages/approval-settings";
 import NotFound from "@/pages/not-found";
+
+function RoleBasedHome() {
+  const { currentRole } = useRole();
+  
+  if (currentRole === 'tenant') {
+    return <Redirect to="/tenant-dashboard" />;
+  } else if (currentRole === 'contractor') {
+    return <Redirect to="/contractor-dashboard" />;
+  } else if (currentRole === 'admin') {
+    return <Redirect to="/admin-dashboard" />;
+  }
+  
+  return <Dashboard />;
+}
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,7 +64,7 @@ function Router() {
         </>
       ) : (
         <>
-          <Route path="/" component={Dashboard} />
+          <Route path="/" component={RoleBasedHome} />
           <Route path="/properties" component={Properties} />
           <Route path="/properties/:id/performance" component={PropertyPerformance} />
           <Route path="/entities" component={Entities} />
