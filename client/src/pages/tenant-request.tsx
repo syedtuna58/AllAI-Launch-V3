@@ -113,7 +113,7 @@ export default function TenantRequestPage() {
             description: issueDescription,
             status: "New",
             type: "maintenance",
-            priority: triageData?.urgency?.toLowerCase() || "medium",
+            priority: triageData?.urgency || "Medium",
             category: triageData?.category || "general",
             propertyId: selectedProperty?.id,
             unitId: selectedProperty?.unitId,
