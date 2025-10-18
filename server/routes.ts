@@ -1901,6 +1901,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const org = await storage.getUserOrganization(userId);
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
+      // Normalize priority to match schema enum (Low, Medium, High, Urgent)
+      const priorityMap: Record<string, string> = {
+        'low': 'Low',
+        'medium': 'Medium',
+        'high': 'High',
+        'urgent': 'Urgent',
+        'critical': 'Urgent'
+      };
+      const normalizedPriority = req.body.priority 
+        ? priorityMap[req.body.priority.toLowerCase()] || req.body.priority 
+        : req.body.priority;
+
       // Clean the data: convert empty strings to null for optional fields
       const cleanedData = {
         ...req.body,
@@ -1909,6 +1921,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         propertyId: req.body.propertyId === "" ? null : req.body.propertyId,
         description: req.body.description === "" ? null : req.body.description,
         category: req.body.category === "" ? null : req.body.category,
+        priority: normalizedPriority,
       };
       
       const validatedData = insertSmartCaseSchema.parse(cleanedData);
