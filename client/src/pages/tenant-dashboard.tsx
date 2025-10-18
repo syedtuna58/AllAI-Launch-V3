@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, Clock, AlertTriangle, CheckCircle, MapPin, Wrench, ThumbsUp, ThumbsDown, Bot, Send, ChevronDown, ChevronUp, Home, Building } from "lucide-react";
+import { Calendar, Clock, AlertTriangle, CheckCircle, MapPin, Wrench, ThumbsUp, ThumbsDown, Bot, Send, ChevronDown, ChevronUp, Home, Building, Camera, Loader2 } from "lucide-react";
 import { LiveNotification } from "@/components/ui/live-notification";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -17,6 +17,7 @@ import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
+import { ObjectUploader } from "@/components/ObjectUploader";
 
 interface TenantCase {
   id: string;
@@ -104,6 +105,7 @@ export default function TenantDashboard() {
   const [selectedProperty, setSelectedProperty] = useState<PropertyMatch | null>(null);
   const [issueDescription, setIssueDescription] = useState("");
   const [triageData, setTriageData] = useState<any>(null);
+  const [uploadedMedia, setUploadedMedia] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -249,13 +251,14 @@ export default function TenantDashboard() {
             propertyId: selectedProperty?.id,
             unitId: selectedProperty?.unitId,
             aiTriageJson: triageData,
+            mediaUrls: uploadedMedia,
           });
 
           if (caseRes.ok) {
             const successMessage: Message = {
               id: (Date.now() + 2).toString(),
               role: "assistant",
-              content: "✅ Your maintenance request has been submitted successfully! Check the \"Cases\" tab below to track its progress.",
+              content: `✅ Your maintenance request has been submitted successfully${uploadedMedia.length > 0 ? ` with ${uploadedMedia.length} photo(s)` : ''}! Check the "Cases" tab below to track its progress.`,
               timestamp: new Date(),
             };
             setMessages(prev => [...prev, successMessage]);
@@ -263,6 +266,7 @@ export default function TenantDashboard() {
             setTimeout(() => {
               setMayaOpen(false);
               setConversationState("initial");
+              setUploadedMedia([]);
               setMessages([{
                 id: "welcome",
                 role: "assistant",
@@ -463,28 +467,58 @@ export default function TenantDashboard() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="border-t pt-4 flex gap-2">
-                      <Input
-                        placeholder="Describe your maintenance issue..."
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMayaMessage(inputValue);
-                          }
-                        }}
-                        disabled={isProcessing}
-                        className="flex-1"
-                        data-testid="input-maya-message"
-                      />
-                      <Button
-                        onClick={() => sendMayaMessage(inputValue)}
-                        disabled={isProcessing || !inputValue.trim()}
-                        data-testid="button-send-message"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
+                    <div className="border-t pt-4 space-y-2">
+                      {uploadedMedia.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          📎 {uploadedMedia.length} photo{uploadedMedia.length > 1 ? 's' : ''} attached
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Describe your maintenance issue..."
+                          value={inputValue}
+                          onChange={(e) => setInputValue(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              sendMayaMessage(inputValue);
+                            }
+                          }}
+                          disabled={isProcessing}
+                          className="flex-1"
+                          data-testid="input-maya-message"
+                        />
+                        <ObjectUploader
+                          maxNumberOfFiles={5}
+                          maxFileSize={10485760}
+                          onGetUploadParameters={async () => {
+                            const res = await apiRequest('POST', '/api/object-storage/url', {});
+                            const data = await res.json();
+                            return {
+                              method: "PUT" as const,
+                              url: data.url,
+                            };
+                          }}
+                          onComplete={(result) => {
+                            const urls = result.successful.map((file: any) => file.uploadURL.split('?')[0]);
+                            setUploadedMedia(prev => [...prev, ...urls]);
+                            toast({
+                              title: "Photos uploaded",
+                              description: `${urls.length} photo(s) attached to your request`,
+                            });
+                          }}
+                          buttonClassName="h-10 w-10 p-0"
+                        >
+                          <Camera className="h-4 w-4" />
+                        </ObjectUploader>
+                        <Button
+                          onClick={() => sendMayaMessage(inputValue)}
+                          disabled={isProcessing || !inputValue.trim()}
+                          data-testid="button-send-message"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </CollapsibleContent>

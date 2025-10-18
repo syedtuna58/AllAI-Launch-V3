@@ -1928,6 +1928,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const smartCase = await storage.createSmartCase(validatedData);
       
+      // Create media records if photos/videos were uploaded
+      const mediaUrls = req.body.mediaUrls || [];
+      if (mediaUrls.length > 0) {
+        for (const url of mediaUrls) {
+          try {
+            await storage.db.insert(storage.schema.caseMedia).values({
+              caseId: smartCase.id,
+              url,
+              type: url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'image' : 'video'
+            });
+          } catch (error) {
+            console.error('Error creating case media:', error);
+          }
+        }
+        console.log(`📎 Attached ${mediaUrls.length} media file(s) to case ${smartCase.id}`);
+      }
+      
       // Trigger AI triage and contractor assignment in the background
       (async () => {
         try {
@@ -4389,7 +4406,7 @@ Response format:
         let propertyMatches = [];
         try {
           const matchResponse = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4.5-turbo",
             messages: [
               { role: "system", content: "You are an AI assistant helping match maintenance requests to properties." },
               { role: "user", content: matchPrompt }
@@ -4427,16 +4444,16 @@ Write a warm, supportive response (2-3 short paragraphs) that:
 1. Acknowledges their issue empathetically
 2. ${triageResult.safetyRisk !== 'None' ? 'IMMEDIATELY provides safety warnings and damage mitigation tips (e.g., for leaks: turn off water, use towels, place bucket)' : 'Provides helpful immediate damage mitigation tips if relevant'}
 3. ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? 'Emphasizes urgency and reassures them help is coming fast' : 'Reassures them we will get it fixed'}
-4. Asks if they can upload photos or videos to help the contractor better understand the job
+4. Mentions photos/videos are optional but helpful - say something like "If you can snap a quick photo or video, that's helpful but totally optional"
 5. Ends by asking which property this is for
 
 Use natural, conversational language. Be warm and supportive. Keep it concise. Don't use ** markdown for emphasis.`;
 
         let mayaResponse = '';
         try {
-          console.log("🤖 Generating conversational response with GPT-4o...");
+          console.log("🤖 Generating conversational response with GPT-4.5-turbo...");
           const conversationalRes = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4.5-turbo",
             messages: [
               { role: "system", content: "You are Maya, a warm, empathetic AI assistant who helps tenants with maintenance issues. You speak naturally like a supportive friend who genuinely cares about their comfort and safety." },
               { role: "user", content: conversationalPrompt }
