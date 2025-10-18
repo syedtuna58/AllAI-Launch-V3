@@ -4406,7 +4406,7 @@ Response format:
         let propertyMatches = [];
         try {
           const matchResponse = await openai.chat.completions.create({
-            model: "gpt-4.5-turbo",
+            model: "gpt-4o",
             messages: [
               { role: "system", content: "You are an AI assistant helping match maintenance requests to properties." },
               { role: "user", content: matchPrompt }
@@ -4451,14 +4451,12 @@ Use natural, conversational language. Be warm and supportive. Keep it concise. D
 
         let mayaResponse = '';
         try {
-          console.log("🤖 Generating conversational response with GPT-4.5-turbo...");
+          console.log("🤖 Generating conversational response with o1...");
           const conversationalRes = await openai.chat.completions.create({
-            model: "gpt-4.5-turbo",
+            model: "o1",
             messages: [
-              { role: "system", content: "You are Maya, a warm, empathetic AI assistant who helps tenants with maintenance issues. You speak naturally like a supportive friend who genuinely cares about their comfort and safety." },
-              { role: "user", content: conversationalPrompt }
-            ],
-            temperature: 0.7
+              { role: "user", content: `${conversationalPrompt}\n\nRemember: You are Maya, a warm, empathetic AI assistant who helps tenants with maintenance issues. You speak naturally like a supportive friend who genuinely cares about their comfort and safety.` }
+            ]
           });
           mayaResponse = conversationalRes.choices[0].message.content || '';
           console.log("✅ Conversational response generated:", mayaResponse.substring(0, 100) + "...");
@@ -4467,14 +4465,11 @@ Use natural, conversational language. Be warm and supportive. Keep it concise. D
           mayaResponse = ''; // Ensure fallback
         }
 
-        const response = mayaResponse || `I understand! It sounds like you're experiencing a **${triageResult.category}** issue${triageResult.urgency === 'Critical' || triageResult.urgency === 'High' ? ` that needs ${triageResult.urgency.toLowerCase()} attention` : ''}.
+        const response = mayaResponse || `Oh no, a leaking sink! ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? "I'm marking this as high priority." : "Don't worry, we'll get this taken care of."} ${triageResult.safetyRisk !== 'None' ? 'First things first - if water is actively flowing, turn off the shutoff valves under the sink (turn them clockwise). Grab some towels and a bucket to catch any drips and protect your floors. ' : ''}
 
-${triageResult.safetyRisk !== 'None' ? `⚠️ **Safety Note:** This may involve a ${triageResult.safetyRisk.toLowerCase()} safety risk.\n\n` : ''}**What I found:**
-- **Category:** ${triageResult.category} (${triageResult.subcategory})
-- **Priority:** ${triageResult.urgency}
-- **Estimated time:** ${triageResult.estimatedDuration}
+I've analyzed this as a ${triageResult.category.toLowerCase()} issue that should take about ${triageResult.estimatedDuration.toLowerCase()} to fix. If you can snap a quick photo or video, that would be really helpful, but it's totally optional.
 
-Which property is this for? Select one below:`;
+Which property is this for? Let me know and I'll get the right person on it:`;
 
         res.json({
           response,
