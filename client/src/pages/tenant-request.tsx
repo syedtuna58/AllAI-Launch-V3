@@ -54,7 +54,7 @@ export default function TenantRequestPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isProcessing]);
 
   const sendMessage = async (content: string) => {
     if (!content.trim()) return;

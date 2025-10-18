@@ -4412,7 +4412,41 @@ Response format:
           }));
         }
 
-        const response = `I understand! It sounds like you're experiencing a **${triageResult.category}** issue${triageResult.urgency === 'Critical' || triageResult.urgency === 'High' ? ` that needs ${triageResult.urgency.toLowerCase()} attention` : ''}.
+        // Generate conversational, empathetic response using GPT-4
+        const conversationalPrompt = `You are Maya, a friendly and supportive AI maintenance assistant for tenants. A tenant just reported this issue: "${message}"
+
+Based on the analysis:
+- Category: ${triageResult.category} (${triageResult.subcategory})
+- Urgency: ${triageResult.urgency}
+- Safety Risk: ${triageResult.safetyRisk}
+- Estimated Duration: ${triageResult.estimatedDuration}
+- Preliminary Diagnosis: ${triageResult.preliminaryDiagnosis}
+- Troubleshooting Steps: ${triageResult.troubleshootingSteps.join(', ')}
+
+Write a warm, supportive response (2-3 short paragraphs) that:
+1. Acknowledges their issue empathetically
+2. ${triageResult.safetyRisk !== 'None' ? 'IMMEDIATELY provides safety warnings and damage mitigation tips (e.g., for leaks: turn off water, use towels, place bucket)' : 'Provides helpful immediate damage mitigation tips if relevant'}
+3. ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? 'Emphasizes urgency and reassures them help is coming fast' : 'Reassures them we will get it fixed'}
+4. Asks if they can upload photos or videos to help the contractor better understand the job
+5. Ends by asking which property this is for
+
+Use natural, conversational language. Be warm and supportive. Keep it concise. Don't use ** markdown for emphasis.`;
+
+        let mayaResponse = '';
+        try {
+          const conversationalRes = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              { role: "system", content: "You are Maya, a warm, empathetic AI assistant who helps tenants with maintenance issues. You speak naturally like a supportive friend who genuinely cares about their comfort and safety." },
+              { role: "user", content: conversationalPrompt }
+            ]
+          });
+          mayaResponse = conversationalRes.choices[0].message.content || '';
+        } catch (error) {
+          console.error("Conversational response error:", error);
+        }
+
+        const response = mayaResponse || `I understand! It sounds like you're experiencing a **${triageResult.category}** issue${triageResult.urgency === 'Critical' || triageResult.urgency === 'High' ? ` that needs ${triageResult.urgency.toLowerCase()} attention` : ''}.
 
 ${triageResult.safetyRisk !== 'None' ? `⚠️ **Safety Note:** This may involve a ${triageResult.safetyRisk.toLowerCase()} safety risk.\n\n` : ''}**What I found:**
 - **Category:** ${triageResult.category} (${triageResult.subcategory})
