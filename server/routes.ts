@@ -5064,6 +5064,105 @@ Which property is this for? Let me know and I'll get the right person on it:`;
     }
   });
 
+  // Get AI cost and duration guidance for a case
+  app.get('/api/cases/:caseId/ai-guidance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const smartCase = await storage.getSmartCase(req.params.caseId);
+      if (!smartCase) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+
+      // Authorization check: case must belong to user's organization
+      if (smartCase.orgId !== org.id) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get AI triage data if available
+      const aiTriage = smartCase.aiTriageJson as any;
+      const category = smartCase.category || aiTriage?.category || 'General Maintenance';
+      const subcategory = aiTriage?.subcategory || '';
+      const estimatedDurationMinutes = aiTriage?.estimatedDurationMinutes || 120;
+      const timeReasoningNotes = aiTriage?.timeReasoningNotes || '';
+      
+      // Get property details for location-based pricing
+      let locationInfo = '';
+      if (smartCase.propertyId) {
+        const property = await storage.getProperty(smartCase.propertyId);
+        if (property) {
+          locationInfo = `${property.city}, ${property.state}`;
+        }
+      }
+
+      // Use GPT-5 (o1) to estimate market cost
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      
+      const costPrompt = `You are a construction cost estimator. Provide a realistic market-rate cost estimate for this maintenance job:
+
+**Job Details:**
+- Category: ${category}${subcategory ? ` (${subcategory})` : ''}
+- Description: ${smartCase.description || smartCase.title}
+- Estimated Duration: ${estimatedDurationMinutes} minutes
+- Location: ${locationInfo || 'General US market'}
+
+Provide a JSON response with:
+{
+  "estimatedCostLow": <number>,
+  "estimatedCostHigh": <number>,
+  "estimatedCostAverage": <number>,
+  "reasoning": "Brief explanation of why this cost range makes sense (include typical hourly rates for this type of contractor and any material costs)"
+}
+
+Consider:
+- Typical hourly rates for ${category} contractors
+- Materials/parts typically needed
+- Travel/service call fees if applicable
+- Regional market rates`;
+
+      let costGuidance = {
+        estimatedCostLow: 75,
+        estimatedCostHigh: 200,
+        estimatedCostAverage: 125,
+        reasoning: "Standard service call with materials"
+      };
+
+      try {
+        console.log("💰 Generating cost estimate with gpt-4o...");
+        const costResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: "You are a construction cost estimator. Provide realistic market-rate cost estimates." },
+            { role: "user", content: costPrompt }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        const costContent = costResponse.choices[0].message.content || '';
+        costGuidance = JSON.parse(costContent);
+        console.log("✅ Cost estimate generated:", costGuidance);
+      } catch (error) {
+        console.error("❌ Cost estimation error:", error);
+        // Use fallback values - contractor will see default estimates
+      }
+
+      res.json({
+        duration: {
+          estimatedMinutes: estimatedDurationMinutes,
+          reasoning: timeReasoningNotes || `Based on typical ${category.toLowerCase()} jobs`
+        },
+        cost: costGuidance
+      });
+    } catch (error) {
+      console.error("Error getting AI guidance:", error);
+      res.status(500).json({ message: "Failed to get AI guidance" });
+    }
+  });
+
   app.post('/api/cases/:caseId/proposals', isAuthenticated, async (req: any, res) => {
     try {
       const { insertAppointmentProposalSchema } = await import("@shared/schema");
@@ -5076,7 +5175,7 @@ Which property is this for? Let me know and I'll get the right person on it:`;
       res.json(proposal);
     } catch (error) {
       console.error("Error creating appointment proposal:", error);
-      res.status(500).json({ message: "Failed to create appointment proposal" });
+      res.status(500).json({ message: "Failed to create proposal" });
     }
   });
 
