@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Calendar, Clock, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ interface RemindersWidgetProps {
 }
 
 export default function RemindersWidget({ onCreateReminder }: RemindersWidgetProps) {
+  const [, setLocation] = useLocation();
   const { data: reminders, isLoading } = useQuery<Reminder[]>({
     queryKey: ["/api/reminders"],
     retry: false,
@@ -95,13 +97,14 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
                 <div
                   key={reminder.id}
                   className={`
-                    p-3 rounded-lg border transition-colors
+                    p-3 rounded-lg border transition-colors cursor-pointer hover:opacity-80
                     ${isOverdue(reminder)
                       ? 'bg-destructive/10 border-destructive/30' 
                       : 'bg-muted/50 border-border'
                     }
                   `}
                   data-testid={`reminder-widget-${reminder.id}`}
+                  onClick={() => setLocation('/reminders')}
                 >
                   <div className="flex gap-2">
                     <Clock className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isOverdue(reminder) ? 'text-destructive' : 'text-muted-foreground'}`} />

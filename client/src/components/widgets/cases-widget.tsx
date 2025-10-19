@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { AlertTriangle, Filter, Building, User, Flame } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
 import type { SmartCase, Property, Vendor } from "@shared/schema";
 
 export default function CasesWidget() {
+  const [, setLocation] = useLocation();
   const [filterType, setFilterType] = useState<string>("all");
   const [filterUrgency, setFilterUrgency] = useState<string>("all");
   const [filterProperty, setFilterProperty] = useState<string>("all");
@@ -68,7 +70,7 @@ export default function CasesWidget() {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-yellow-600" />
-            <CardTitle className="text-base">Cases</CardTitle>
+            <CardTitle className="text-base">Maintenance</CardTitle>
             <Badge variant="secondary">{filteredCases.length}</Badge>
           </div>
           <Button
@@ -159,6 +161,7 @@ export default function CasesWidget() {
                   key={smartCase.id}
                   className="p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                   data-testid={`case-widget-${smartCase.id}`}
+                  onClick={() => setLocation('/maintenance')}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-start gap-2 flex-1 min-w-0">
