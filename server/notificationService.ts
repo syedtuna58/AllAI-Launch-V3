@@ -216,6 +216,16 @@ class NotificationService {
         promises.push(this.sendSMSNotification(notification, adminUser.phone));
       }
 
+      // Save notification to database for bell icon history
+      promises.push(
+        storage.createNotification(
+          adminUser.id,
+          notification.title || notification.subject || 'Notification',
+          notification.message,
+          notification.type
+        )
+      );
+
       this.sendWebSocketNotification(adminUser.id, notification, orgId);
 
       await Promise.allSettled(promises);
@@ -245,6 +255,16 @@ class NotificationService {
         promises.push(this.sendSMSNotification(notification, contractor.phone));
       }
 
+      // Save notification to database for bell icon history
+      promises.push(
+        storage.createNotification(
+          contractorId,
+          notification.title || notification.subject || 'Notification',
+          notification.message,
+          notification.type
+        )
+      );
+
       this.sendWebSocketNotification(contractorId, notification, orgId);
 
       await Promise.allSettled(promises);
@@ -258,10 +278,20 @@ class NotificationService {
     try {
       console.log(`📧 Sending tenant notification to ${tenantEmail}: ${notification.subject}`);
 
+      const storage = (await import('./storage.js')).storage;
       const promises = [];
       promises.push(this.sendEmailNotification(notification, tenantEmail));
 
       if (tenantUserId) {
+        // Save notification to database for bell icon history
+        promises.push(
+          storage.createNotification(
+            tenantUserId,
+            notification.title || notification.subject || 'Notification',
+            notification.message,
+            notification.type
+          )
+        );
         this.sendWebSocketNotification(tenantUserId, notification, orgId);
       }
 
