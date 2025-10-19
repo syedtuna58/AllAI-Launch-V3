@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -10,9 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Building, DollarSign, AlertTriangle, Bell, Check, Clock, X, Receipt, Users, Wrench, Bot } from "lucide-react";
-import type { SmartCase, Reminder } from "@shared/schema";
+import type { SmartCase, Reminder, Property, OwnershipEntity, Unit } from "@shared/schema";
 import PropertyAssistant from "@/components/ai/property-assistant";
+import CasesWidget from "@/components/widgets/cases-widget";
+import RemindersWidget from "@/components/widgets/reminders-widget";
+import NotificationsWidget from "@/components/widgets/notifications-widget";
+import ReminderForm from "@/components/forms/reminder-form";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type DashboardStats = {
   totalProperties: number;
@@ -39,6 +45,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const [showReminderForm, setShowReminderForm] = useState(false);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -65,46 +72,57 @@ export default function Dashboard() {
     retry: false,
   });
 
-  const { data: smartCases, isLoading: casesLoading } = useQuery<SmartCase[]>({
-    queryKey: ["/api/cases"],
+  const { data: properties } = useQuery<Property[]>({
+    queryKey: ["/api/properties"],
     retry: false,
   });
 
-  const { data: reminders, isLoading: remindersLoading } = useQuery<Reminder[]>({
-    queryKey: ["/api/reminders"],
+  const { data: entities } = useQuery<OwnershipEntity[]>({
+    queryKey: ["/api/entities"],
     retry: false,
+  });
+
+  const { data: units } = useQuery<Unit[]>({
+    queryKey: ["/api/units"],
+    retry: false,
+  });
+
+  const createReminderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/reminders", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
+      setShowReminderForm(false);
+      toast({
+        title: "Success",
+        description: "Reminder created successfully",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create reminder",
+        variant: "destructive",
+      });
+    },
   });
 
   if (isLoading || !isAuthenticated) {
     return null;
   }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "paid": return <Check className="h-4 w-4 text-green-600" />;
-      case "due": return <Clock className="h-4 w-4 text-yellow-600" />;
-      case "overdue": return <X className="h-4 w-4 text-red-600" />;
-      default: return <Clock className="h-4 w-4 text-gray-400" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "New": return <Badge className="bg-blue-100 text-blue-800" data-testid={`badge-status-new`}>New</Badge>;
-      case "In Progress": return <Badge className="bg-yellow-100 text-yellow-800" data-testid={`badge-status-progress`}>In Progress</Badge>;
-      case "Resolved": return <Badge className="bg-green-100 text-green-800" data-testid={`badge-status-resolved`}>Resolved</Badge>;
-      default: return <Badge variant="secondary" data-testid={`badge-status-default`}>{status}</Badge>;
-    }
-  };
-
-  const getPriorityColor = (type: string) => {
-    switch (type) {
-      case "rent": return "bg-red-500";
-      case "lease": return "bg-yellow-500";
-      case "maintenance": return "bg-blue-500";
-      default: return "bg-green-500";
-    }
-  };
 
   return (
     <div className="flex h-screen bg-background" data-testid="page-dashboard">
@@ -192,266 +210,39 @@ export default function Dashboard() {
             ]}
           />
 
-          {/* Main Dashboard Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Dashboard Grid - New Layout: Cases Left, Reminders/Notifications Right */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-32rem)]">
             
-            {/* Left Column - Large widgets */}
-            <div className="lg:col-span-2 space-y-6">
-              
-              {/* Rent Collection Status */}
-              <Card data-testid="card-rent-collection">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Rent Collection - {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</CardTitle>
-                    <Button variant="ghost" size="sm" data-testid="button-view-all-rent">View All</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {rentLoading ? (
-                    <div className="space-y-4">
-                      <div className="h-4 bg-muted animate-pulse rounded" />
-                      <div className="h-2 bg-muted animate-pulse rounded" />
-                    </div>
-                  ) : rentCollection ? (
-                    <>
-                      {/* Progress Bar */}
-                      <div className="mb-4">
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-muted-foreground" data-testid="text-rent-progress">
-                            Collected: ${rentCollection.collected?.toLocaleString()} / ${rentCollection.total?.toLocaleString()}
-                          </span>
-                          <span className="text-foreground font-medium" data-testid="text-rent-percentage">
-                            {rentCollection.percentage}%
-                          </span>
-                        </div>
-                        <Progress value={rentCollection.percentage} className="h-2" data-testid="progress-rent-collection" />
-                      </div>
-                      
-                      {/* Rent Status Items */}
-                      <div className="space-y-3">
-                        {rentCollection.items?.slice(0, 3).map((item, index) => (
-                          <div key={item.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-md" data-testid={`rent-item-${index}`}>
-                            <div className="flex items-center space-x-3">
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center">
-                                {getStatusIcon(item.status)}
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground" data-testid={`text-property-${index}`}>{item.property}</p>
-                                <p className="text-sm text-muted-foreground" data-testid={`text-tenant-${index}`}>{item.tenant}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-medium text-foreground" data-testid={`text-amount-${index}`}>${item.amount?.toLocaleString()}</p>
-                              <p className={`text-sm ${
-                                item.status === 'paid' ? 'text-green-600' : 
-                                item.status === 'overdue' ? 'text-red-600' : 'text-yellow-600'
-                              }`} data-testid={`text-status-${index}`}>
-                                {item.status === 'paid' ? `Paid ${item.dueDate ? new Date(item.dueDate).toLocaleDateString() : ''}` :
-                                 item.status === 'overdue' ? 'Overdue' : `Due ${item.dueDate ? new Date(item.dueDate).toLocaleDateString() : ''}`}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-muted-foreground">No rent collection data available</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Smart Cases Overview */}
-              <Card data-testid="card-smart-cases">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Smart Cases</CardTitle>
-                    <Button variant="ghost" size="sm" data-testid="button-manage-all-cases">Manage All</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {casesLoading ? (
-                    <div className="space-y-4">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-16 bg-muted animate-pulse rounded-md" />
-                      ))}
-                    </div>
-                  ) : (smartCases && smartCases.length > 0) ? (
-                    <div className="space-y-3">
-                      {smartCases.slice(0, 3).map((smartCase, index) => (
-                        <div key={smartCase.id} className="flex items-center justify-between p-4 border border-border rounded-md" data-testid={`case-item-${index}`}>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                              <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-foreground" data-testid={`text-case-title-${index}`}>{smartCase.title}</p>
-                              <p className="text-sm text-muted-foreground" data-testid={`text-case-property-${index}`}>
-                                {smartCase.propertyId ? "Property" : "General"}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            {getStatusBadge(smartCase.status || "New")}
-                            <span className="text-sm text-muted-foreground" data-testid={`text-case-date-${index}`}>
-                              {smartCase.createdAt ? new Date(smartCase.createdAt).toLocaleDateString() : 'Unknown'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No active cases</p>
-                  )}
-                </CardContent>
-              </Card>
+            {/* Left Half - Cases with Filtering (Scrollable) */}
+            <div className="h-full">
+              <CasesWidget />
             </div>
 
-            {/* Right Column - Sidebar widgets */}
-            <div className="space-y-6">
-              
-              {/* Upcoming Reminders */}
-              <Card data-testid="card-upcoming-reminders">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Upcoming Reminders</CardTitle>
-                    <Button variant="ghost" size="sm" data-testid="button-view-all-reminders">View All</Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {remindersLoading ? (
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-12 bg-muted animate-pulse rounded-md" />
-                      ))}
-                    </div>
-                  ) : (reminders && reminders.length > 0) ? (
-                    <div className="space-y-3">
-                      {reminders.slice(0, 4).map((reminder, index) => (
-                        <div key={reminder.id} className="flex items-start space-x-3 p-3 bg-muted/50 rounded-md" data-testid={`reminder-item-${index}`}>
-                          <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${getPriorityColor(reminder.type || '')}`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground" data-testid={`text-reminder-title-${index}`}>{reminder.title}</p>
-                            <p className="text-xs text-muted-foreground" data-testid={`text-reminder-date-${index}`}>
-                              Due {new Date(reminder.dueAt).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-muted-foreground" data-testid={`text-reminder-type-${index}`}>
-                              {reminder.type}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">No upcoming reminders</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Quick Actions */}
-              <Card data-testid="card-quick-actions">
-                <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Maya AI Assistant - Centered at top */}
-                    <Button
-                      variant="ghost"
-                      className="col-span-2 h-20 flex flex-col items-center justify-center space-y-2 border border-purple-200 bg-purple-50/50 hover:bg-purple-100/50 dark:border-purple-800 dark:bg-purple-900/20 dark:hover:bg-purple-900/30"
-                      onClick={() => {
-                        const mayaElement = document.getElementById('maya-assistant');
-                        if (mayaElement) {
-                          mayaElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                      }}
-                      aria-label="Focus on Maya AI Assistant"
-                      data-testid="button-maya-assistant"
-                    >
-                      <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center">
-                        <Bot className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                      </div>
-                      <span className="text-sm font-medium text-purple-700 dark:text-purple-300">Maya AI Assistant</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="h-20 flex flex-col items-center justify-center space-y-2 border border-border hover:bg-muted/50"
-                      onClick={() => setLocation('/properties')}
-                      data-testid="button-add-property"
-                    >
-                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <Building className="h-5 w-5 text-primary" />
-                      </div>
-                      <span className="text-sm font-medium">Property</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="h-20 flex flex-col items-center justify-center space-y-2 border border-border hover:bg-muted/50"
-                      onClick={() => setLocation('/tenants')}
-                      data-testid="button-add-tenant"
-                    >
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Users className="h-5 w-5 text-green-600" />
-                      </div>
-                      <span className="text-sm font-medium">Tenant</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="h-20 flex flex-col items-center justify-center space-y-2 border border-border hover:bg-muted/50"
-                      onClick={() => setLocation('/maintenance')}
-                      data-testid="button-create-maintenance"
-                    >
-                      <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                        <Wrench className="h-5 w-5 text-orange-600" />
-                      </div>
-                      <span className="text-sm font-medium">Maintenance</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="h-20 flex flex-col items-center justify-center space-y-2 border border-border hover:bg-muted/50"
-                      onClick={() => setLocation('/expenses')}
-                      data-testid="button-log-expense"
-                    >
-                      <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                        <Receipt className="h-5 w-5 text-yellow-600" />
-                      </div>
-                      <span className="text-sm font-medium">Expense</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="h-20 flex flex-col items-center justify-center space-y-2 border border-border hover:bg-muted/50"
-                      onClick={() => setLocation('/revenue')}
-                      data-testid="button-log-revenue"
-                    >
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                        <DollarSign className="h-5 w-5 text-green-600" />
-                      </div>
-                      <span className="text-sm font-medium">Revenue</span>
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      className="h-20 flex flex-col items-center justify-center space-y-2 border border-border hover:bg-muted/50"
-                      onClick={() => setLocation('/reminders')}
-                      data-testid="button-set-reminder"
-                    >
-                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Bell className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <span className="text-sm font-medium">Reminder</span>
-                    </Button>
-
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Right Half - Reminders (Top) and Notifications (Bottom) */}
+            <div className="grid grid-rows-2 gap-6 h-full">
+              <RemindersWidget onCreateReminder={() => setShowReminderForm(true)} />
+              <NotificationsWidget />
             </div>
           </div>
         </main>
       </div>
+
+      {/* Reminder Form Dialog */}
+      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Reminder</DialogTitle>
+          </DialogHeader>
+          <ReminderForm 
+            properties={properties || []}
+            entities={entities || []}
+            units={units || []}
+            onSubmit={(data) => createReminderMutation.mutate(data)}
+            onCancel={() => setShowReminderForm(false)}
+            isLoading={createReminderMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
