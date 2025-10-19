@@ -1,64 +1,85 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle, Clock, MapPin, Wrench } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertTriangle, CheckCircle, Clock, Wrench } from "lucide-react";
 import { LiveNotification } from "@/components/ui/live-notification";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
-
-interface SmartCase {
-  id: string;
-  caseNumber: string;
-  title: string;
-  description: string;
-  priority: string;
-  status: string;
-  category: string;
-  buildingName?: string;
-  roomNumber?: string;
-  createdAt: string;
-  updatedAt: string;
-  assignedContractorId?: string;
-  reportedBy: string;
-  estimatedCost?: string;
-}
-
-const PRIORITY_COLORS = {
-  Low: "text-green-700 border-green-300 bg-green-50",
-  Medium: "text-amber-700 border-amber-300 bg-amber-50",
-  High: "text-orange-600 border-orange-300 bg-orange-50",
-  Urgent: "text-red-700 border-red-300 bg-red-50"
-};
-
-const STATUS_COLORS = {
-  New: "text-blue-700 border-blue-300 bg-blue-50",
-  "In Review": "text-amber-700 border-amber-300 bg-amber-50",
-  Scheduled: "text-purple-700 border-purple-300 bg-purple-50",
-  "In Progress": "text-orange-600 border-orange-300 bg-orange-50",
-  "On Hold": "text-gray-700 border-gray-300 bg-gray-50",
-  Resolved: "text-green-700 border-green-300 bg-green-50",
-  Closed: "text-gray-600 border-gray-300 bg-gray-50"
-};
+import CasesWidget from "@/components/widgets/cases-widget";
+import RemindersWidget from "@/components/widgets/reminders-widget";
+import NotificationsWidget from "@/components/widgets/notifications-widget";
+import ReminderForm from "@/components/forms/reminder-form";
+import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const [selectedTab, setSelectedTab] = useState("cases");
+  const { toast } = useToast();
+  const [showReminderForm, setShowReminderForm] = useState(false);
 
-  const { data: allCases = [], isLoading: casesLoading } = useQuery<SmartCase[]>({
+  const { data: allCases = [] } = useQuery<SmartCase[]>({
     queryKey: ['/api/cases'],
     enabled: true
   });
 
+  const { data: properties } = useQuery<Property[]>({
+    queryKey: ["/api/properties"],
+    retry: false,
+  });
+
+  const { data: entities } = useQuery<OwnershipEntity[]>({
+    queryKey: ["/api/entities"],
+    retry: false,
+  });
+
+  const { data: units } = useQuery<Unit[]>({
+    queryKey: ["/api/units"],
+    retry: false,
+  });
+
   const unassignedCases = allCases.filter(c => !c.assignedContractorId);
-  const urgentCases = allCases.filter(c => ['High', 'Urgent'].includes(c.priority));
+  const urgentCases = allCases.filter(c => c.priority && ['High', 'Urgent'].includes(c.priority));
   const newCases = allCases.filter(c => c.status === 'New');
 
+  const createReminderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/reminders", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
+      setShowReminderForm(false);
+      toast({
+        title: "Success",
+        description: "Reminder created successfully",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error as Error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to create reminder",
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen bg-background flex" data-testid="page-admin-dashboard">
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header title="Admin Dashboard" />
@@ -138,197 +159,46 @@ export default function AdminDashboard() {
               </Card>
             </div>
 
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="cases" data-testid="tab-cases">All Cases</TabsTrigger>
-                <TabsTrigger value="unassigned" data-testid="tab-unassigned">Unassigned ({unassignedCases.length})</TabsTrigger>
-                <TabsTrigger value="urgent" data-testid="tab-urgent">Urgent ({urgentCases.length})</TabsTrigger>
-              </TabsList>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="h-[calc(100vh-28rem)]">
+                <CasesWidget />
+              </div>
 
-              <TabsContent value="cases" className="mt-6">
-                <div className="grid gap-4">
-                  <h2 className="text-xl font-semibold mb-4">All Maintenance Cases</h2>
-                  {casesLoading ? (
-                    <div className="text-center py-8">Loading cases...</div>
-                  ) : allCases.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No cases found. Cases will appear here when tenants report issues.
-                    </div>
-                  ) : (
-                    allCases.map((case_) => (
-                      <Card key={case_.id} className="w-full" data-testid={`card-case-${case_.id}`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <CardTitle className="text-lg" data-testid={`text-case-title-${case_.id}`}>
-                                {case_.title}
-                              </CardTitle>
-                              <Badge variant="outline" className="text-xs font-mono" data-testid={`text-case-number-${case_.caseNumber}`}>
-                                {case_.caseNumber}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className={`${PRIORITY_COLORS[case_.priority as keyof typeof PRIORITY_COLORS]} border`}
-                                data-testid={`badge-priority-${case_.id}`}
-                              >
-                                {case_.priority}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className={`${STATUS_COLORS[case_.status as keyof typeof STATUS_COLORS]} border`}
-                                data-testid={`badge-status-${case_.id}`}
-                              >
-                                {case_.status}
-                              </Badge>
-                            </div>
-                          </div>
-                          <CardDescription className="text-sm text-muted-foreground">
-                            {case_.category} • Created {new Date(case_.createdAt).toLocaleDateString()}
-                            {case_.estimatedCost && ` • Est. Cost: $${parseFloat(case_.estimatedCost).toFixed(0)}`}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm mb-3" data-testid={`text-case-description-${case_.id}`}>
-                            {case_.description}
-                          </p>
-
-                          {(case_.buildingName || case_.roomNumber) && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                              <MapPin className="h-4 w-4" />
-                              <span data-testid={`text-case-location-${case_.id}`}>
-                                {case_.buildingName} {case_.roomNumber && `Room ${case_.roomNumber}`}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm text-muted-foreground">
-                              Status: {case_.assignedContractorId ? 'Assigned to contractor' : 'Unassigned'}
-                            </div>
-                            <div className="flex gap-2">
-                              {!case_.assignedContractorId && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  data-testid={`button-assign-contractor-${case_.id}`}
-                                >
-                                  Assign Contractor
-                                </Button>
-                              )}
-                              <Button
-                                size="sm"
-                                data-testid={`button-view-case-${case_.id}`}
-                              >
-                                View Details
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
+              <div className="flex flex-col gap-6 h-[calc(100vh-28rem)]">
+                <div className="flex-1 min-h-0">
+                  <RemindersWidget onCreateReminder={() => setShowReminderForm(true)} />
                 </div>
-              </TabsContent>
-
-              <TabsContent value="unassigned" className="mt-6">
-                <div className="grid gap-4">
-                  <h2 className="text-xl font-semibold mb-4">Unassigned Cases ({unassignedCases.length})</h2>
-                  {unassignedCases.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      🎉 All cases have been assigned to contractors!
-                    </div>
-                  ) : (
-                    unassignedCases.map((case_) => (
-                      <Card key={case_.id} className="w-full border-l-4 border-l-orange-400">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">{case_.title}</CardTitle>
-                            <Badge variant="outline" className="text-xs font-mono">
-                              {case_.caseNumber}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm mb-3">{case_.description}</p>
-                          {case_.estimatedCost && (
-                            <p className="text-sm text-muted-foreground mb-3">
-                              Estimated Cost: <span className="font-semibold text-foreground">${parseFloat(case_.estimatedCost).toFixed(0)}</span>
-                            </p>
-                          )}
-                          <div className="flex items-center justify-between">
-                            <Badge className={`${PRIORITY_COLORS[case_.priority as keyof typeof PRIORITY_COLORS]} border`}>
-                              {case_.priority} Priority
-                            </Badge>
-                            <Button size="sm">
-                              Assign Contractor
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
+                <div className="flex-1 min-h-0">
+                  <NotificationsWidget />
                 </div>
-              </TabsContent>
-
-              <TabsContent value="urgent" className="mt-6">
-                <div className="grid gap-4">
-                  <h2 className="text-xl font-semibold mb-4">Urgent Cases ({urgentCases.length})</h2>
-                  {urgentCases.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      ✅ No urgent cases at the moment.
-                    </div>
-                  ) : (
-                    urgentCases.map((case_) => (
-                      <Card key={case_.id} className="w-full border-l-4 border-l-red-400">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">{case_.title}</CardTitle>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs font-mono">
-                                {case_.caseNumber}
-                              </Badge>
-                              <Badge className="bg-red-100 text-red-800 border-red-300">
-                                {case_.priority}
-                              </Badge>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm mb-3">{case_.description}</p>
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="text-sm text-muted-foreground">
-                              Created: {new Date(case_.createdAt).toLocaleDateString()}
-                            </div>
-                            {case_.estimatedCost && (
-                              <div className="text-sm font-semibold">
-                                Est. Cost: ${parseFloat(case_.estimatedCost).toFixed(0)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-end">
-                            <Button size="sm" className="bg-red-600 hover:bg-red-700">
-                              Priority Action Required
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+              </div>
+            </div>
           </div>
         </main>
       </div>
 
-      {user?.id && (
+      {user && (
         <LiveNotification
           userRole="admin"
           userId={user.id}
         />
       )}
+
+      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Reminder</DialogTitle>
+          </DialogHeader>
+          <ReminderForm 
+            properties={properties || []}
+            entities={entities || []}
+            units={units || []}
+            onSubmit={(data) => createReminderMutation.mutate(data)}
+            onCancel={() => setShowReminderForm(false)}
+            isLoading={createReminderMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
