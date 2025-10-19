@@ -4256,13 +4256,19 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
 
         const { notificationService } = await import('./notificationService');
         if (appointment.contractorId) {
-          await notificationService.notify({
-            message: `Tenant approved appointment for case ${smartCase.title}`,
-            type: 'case_scheduled',
-            title: 'Appointment Approved',
-            caseId: smartCase.id,
-            orgId: smartCase.orgId
-          }, appointment.contractorId, smartCase.orgId);
+          await notificationService.notifyContractor(
+            {
+              message: `Tenant approved appointment for case ${smartCase.title}`,
+              type: 'case_scheduled',
+              subject: 'Appointment Approved by Tenant',
+              title: 'Appointment Approved',
+              caseId: smartCase.id,
+              orgId: smartCase.orgId
+            },
+            appointment.contractorId,
+            smartCase.orgId
+          );
+          console.log(`✅ Contractor notified about approved appointment for case ${smartCase.id}`);
         }
       }
 
@@ -4307,13 +4313,19 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
 
         const { notificationService } = await import('./notificationService');
         if (appointment.contractorId) {
-          await notificationService.notify({
-            message: `Tenant declined appointment for case ${smartCase.title}. Reason: ${reason || 'Not specified'}`,
-            type: 'case_updated',
-            title: 'Appointment Declined',
-            caseId: smartCase.id,
-            orgId: smartCase.orgId
-          }, appointment.contractorId, smartCase.orgId);
+          await notificationService.notifyContractor(
+            {
+              message: `Tenant declined appointment for case ${smartCase.title}. Reason: ${reason || 'Not specified'}`,
+              type: 'case_updated',
+              subject: 'Appointment Declined by Tenant',
+              title: 'Appointment Declined',
+              caseId: smartCase.id,
+              orgId: smartCase.orgId
+            },
+            appointment.contractorId,
+            smartCase.orgId
+          );
+          console.log(`✅ Contractor notified about declined appointment for case ${smartCase.id}`);
         }
       }
 
@@ -5432,13 +5444,23 @@ Consider:
       // Notify tenant that proposals are ready
       const { notificationService } = await import('./notificationService');
       if (smartCase.reporterUserId) {
-        await notificationService.notify({
-          message: `Contractor ${contractor.name} has proposed 3 time slots for your maintenance request: ${smartCase.title}`,
-          type: 'proposal_submitted',
-          title: 'New Appointment Options',
-          caseId: smartCase.id,
-          orgId: smartCase.orgId
-        }, smartCase.reporterUserId, smartCase.orgId);
+        const reporterUser = await storage.getUser(smartCase.reporterUserId);
+        if (reporterUser?.email) {
+          await notificationService.notifyTenant(
+            {
+              message: `Contractor ${contractor.name} has proposed 3 time slots for your maintenance request: ${smartCase.title}`,
+              type: 'case_scheduled',
+              subject: 'New Appointment Options Available',
+              title: 'New Appointment Options',
+              caseId: smartCase.id,
+              orgId: smartCase.orgId
+            },
+            reporterUser.email,
+            smartCase.reporterUserId,
+            smartCase.orgId
+          );
+          console.log(`✅ Tenant notified about proposal for case ${smartCase.id}`);
+        }
       }
 
       res.json({
