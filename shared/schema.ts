@@ -437,16 +437,16 @@ export const appointments = pgTable("appointments", {
   contractorId: varchar("contractor_id").notNull().references(() => vendors.id),
   orgId: varchar("org_id").notNull().references(() => organizations.id),
   title: text("title"),
-  scheduledStartAt: timestamp("scheduled_start_at").notNull(),
-  scheduledEndAt: timestamp("scheduled_end_at").notNull(),
-  actualStartAt: timestamp("actual_start_at"),
-  actualEndAt: timestamp("actual_end_at"),
+  scheduledStartAt: timestamp("scheduled_start_at", { withTimezone: true }).notNull(),
+  scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }).notNull(),
+  actualStartAt: timestamp("actual_start_at", { withTimezone: true }),
+  actualEndAt: timestamp("actual_end_at", { withTimezone: true }),
   status: appointmentStatusEnum("status").default("Scheduled"),
   priority: varchar("priority").default("Medium"),
   notes: text("notes"),
   requiresTenantAccess: boolean("requires_tenant_access").default(false),
   tenantApproved: boolean("tenant_approved").default(false),
-  tenantApprovedAt: timestamp("tenant_approved_at"),
+  tenantApprovedAt: timestamp("tenant_approved_at", { withTimezone: true }),
   approvalToken: varchar("approval_token"),
   approvalExpiresAt: timestamp("approval_expires_at"),
   proposedBy: varchar("proposed_by").references(() => users.id),
@@ -462,15 +462,15 @@ export const proposedAppointmentSlots = pgTable("proposed_appointment_slots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   caseId: varchar("case_id").notNull().references(() => smartCases.id),
   contractorId: varchar("contractor_id").notNull().references(() => vendors.id),
-  proposedStartAt: timestamp("proposed_start_at").notNull(),
-  proposedEndAt: timestamp("proposed_end_at").notNull(),
+  proposedStartAt: timestamp("proposed_start_at", { withTimezone: true }).notNull(),
+  proposedEndAt: timestamp("proposed_end_at", { withTimezone: true }).notNull(),
   status: proposedSlotStatusEnum("status").default("Pending"),
   notes: text("notes"),
   slotOrder: integer("slot_order").default(1), // 1, 2, or 3 (which of the 3 slots)
   declineReason: text("decline_reason"), // If tenant declined, why?
-  selectedAt: timestamp("selected_at"), // When tenant chose this slot
+  selectedAt: timestamp("selected_at", { withTimezone: true }), // When tenant chose this slot
   createdAppointmentId: varchar("created_appointment_id").references(() => appointments.id),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
 
 // Reschedule Requests (for rescheduling existing appointments)
