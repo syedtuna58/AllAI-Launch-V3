@@ -5273,6 +5273,15 @@ Consider:
         return res.status(404).json({ message: "Case not found" });
       }
 
+      // Get property to determine timezone
+      const property = smartCase.propertyId ? await storage.getProperty(smartCase.propertyId) : null;
+      if (!property) {
+        return res.status(404).json({ message: "Property not found for case" });
+      }
+      
+      const propertyTimezone = getTimezoneFromState(property.state);
+      console.log(`🌍 Property timezone: ${property.city}, ${property.state} → ${propertyTimezone}`);
+
       // Get contractor - first try to match by userId, then use the assigned contractor
       const contractors = await storage.getContractors(smartCase.orgId);
       let contractor = contractors.find((c: any) => c.userId === userId);
@@ -5307,23 +5316,28 @@ Consider:
       }
 
       // Parse and create Date objects for all 3 slots with proper timezone handling
+      const { zonedTimeToUtc } = await import('date-fns-tz');
+      const { format: formatDate } = await import('date-fns');
+      
       const parseSlotDateTime = (dateStr: string, timeStr: string): Date => {
-        console.log(`📅 parseSlotDateTime - Input: dateStr=${dateStr}, timeStr=${timeStr}`);
+        console.log(`📅 parseSlotDateTime - Input: dateStr=${dateStr}, timeStr=${timeStr}, propertyTZ=${propertyTimezone}`);
         
         // Frontend sends Date objects serialized as ISO strings (e.g., "2025-10-21T07:00:00.000Z")
-        // We need to extract the date part and combine with the time
-        // The user means the time in their local timezone, not UTC
+        // Extract the date part
         const dateObj = new Date(dateStr);
-        const year = dateObj.getFullYear();
-        const month = dateObj.getMonth();
-        const day = dateObj.getDate();
+        const year = dateObj.getUTCFullYear();
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(dateObj.getUTCDate()).padStart(2, '0');
         
-        const [hours, minutes] = timeStr.split(':').map(Number);
+        // Combine with the time string to create a local datetime string
+        // Format: "2025-10-21 10:00:00" - this represents local time at the property
+        const localDateTimeStr = `${year}-${month}-${day} ${timeStr}:00`;
         
-        // Create a date in local server timezone (which should match org timezone)
-        const result = new Date(year, month, day, hours, minutes, 0, 0);
-        console.log(`📅 Created date: ${result.toISOString()} (local: ${result.toString()})`);
-        return result;
+        // Convert from property's local time to UTC
+        const utcDate = zonedTimeToUtc(localDateTimeStr, propertyTimezone);
+        console.log(`📅 Parsed "${localDateTimeStr}" in ${propertyTimezone} → UTC: ${utcDate.toISOString()}`);
+        
+        return utcDate;
       };
 
       const slot1Start = parseSlotDateTime(slot1Date, slot1Time);
