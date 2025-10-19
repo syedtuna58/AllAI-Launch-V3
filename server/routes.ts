@@ -29,6 +29,8 @@ import {
   insertChatMessageSchema,
 } from "@shared/schema";
 import OpenAI from "openai";
+import { fromZonedTime } from 'date-fns-tz';
+import { parse as parseDate } from 'date-fns';
 
 // Revenue schema for API validation
 const insertRevenueSchema = insertTransactionSchema;
@@ -5323,9 +5325,6 @@ Consider:
       }
 
       // Parse and create Date objects for all 3 slots with proper timezone handling
-      const { zonedTimeToUtc } = await import('date-fns-tz');
-      const { format: formatDate } = await import('date-fns');
-      
       const parseSlotDateTime = (dateStr: string, timeStr: string): Date => {
         console.log(`📅 parseSlotDateTime - Input: dateStr=${dateStr}, timeStr=${timeStr}, propertyTZ=${propertyTimezone}`);
         
@@ -5340,8 +5339,9 @@ Consider:
         // Format: "2025-10-21 10:00:00" - this represents local time at the property
         const localDateTimeStr = `${year}-${month}-${day} ${timeStr}:00`;
         
-        // Convert from property's local time to UTC
-        const utcDate = zonedTimeToUtc(localDateTimeStr, propertyTimezone);
+        // Parse the local datetime string, then convert from property's local time to UTC
+        const parsedLocal = parseDate(localDateTimeStr, 'yyyy-MM-dd HH:mm:ss', new Date());
+        const utcDate = fromZonedTime(parsedLocal, propertyTimezone);
         console.log(`📅 Parsed "${localDateTimeStr}" in ${propertyTimezone} → UTC: ${utcDate.toISOString()}`);
         
         return utcDate;
