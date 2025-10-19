@@ -5300,7 +5300,7 @@ Consider:
       const proposalData = insertAppointmentProposalSchema.parse({
         caseId: caseId,
         contractorId: contractor.id,
-        estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
+        estimatedCost: estimatedCost || null,
         estimatedDurationMinutes: durationMinutes,
         notes: notes || null,
         status: 'pending'
