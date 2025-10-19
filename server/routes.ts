@@ -5267,18 +5267,22 @@ Consider:
 
       // Parse and create Date objects for all 3 slots with proper timezone handling
       const parseSlotDateTime = (dateStr: string, timeStr: string): Date => {
+        console.log(`📅 parseSlotDateTime - Input: dateStr=${dateStr}, timeStr=${timeStr}`);
+        
         // Frontend sends Date objects serialized as ISO strings (e.g., "2025-10-21T07:00:00.000Z")
         // We need to extract the date part and combine with the time
+        // The user means the time in their local timezone, not UTC
         const dateObj = new Date(dateStr);
-        const year = dateObj.getUTCFullYear();
-        const month = dateObj.getUTCMonth();
-        const day = dateObj.getUTCDate();
+        const year = dateObj.getFullYear();
+        const month = dateObj.getMonth();
+        const day = dateObj.getDate();
         
         const [hours, minutes] = timeStr.split(':').map(Number);
         
-        // Create a UTC date with the selected date and time
-        // This will be stored in PostgreSQL as timestamp with timezone
-        return new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+        // Create a date in local server timezone (which should match org timezone)
+        const result = new Date(year, month, day, hours, minutes, 0, 0);
+        console.log(`📅 Created date: ${result.toISOString()} (local: ${result.toString()})`);
+        return result;
       };
 
       const slot1Start = parseSlotDateTime(slot1Date, slot1Time);
