@@ -5,14 +5,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import QuickAddModal from "@/components/modals/quick-add-modal";
 import ReminderForm from "@/components/forms/reminder-form";
+import NotificationDropdown from "@/components/notifications/notification-dropdown";
+import ReminderDropdown from "@/components/reminders/reminder-dropdown";
 import { RoleSwitcher } from "@/components/role-switcher";
 import { useAuth } from "@/hooks/useAuth";
-import { Search, Bell, Plus } from "lucide-react";
-import type { Notification, Property, OwnershipEntity, Unit } from "@shared/schema";
+import { Search, Plus } from "lucide-react";
+import type { Property, OwnershipEntity, Unit } from "@shared/schema";
 
 interface HeaderProps {
   title: string;
@@ -24,11 +25,6 @@ export default function Header({ title }: HeaderProps) {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const { data: notifications } = useQuery<Notification[]>({
-    queryKey: ["/api/notifications"],
-    retry: false,
-  });
 
   const { data: properties } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
@@ -78,8 +74,6 @@ export default function Header({ title }: HeaderProps) {
     },
   });
 
-  const unreadNotifications = notifications?.filter(n => !n.isRead).length || 0;
-
   return (
     <>
       <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6" data-testid="header">
@@ -107,21 +101,11 @@ export default function Header({ title }: HeaderProps) {
             />
           </div>
           
-          {/* Notifications */}
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="relative" 
-            onClick={() => setShowReminderForm(true)}
-            data-testid="button-notifications"
-          >
-            <Bell className="h-5 w-5" />
-            {unreadNotifications > 0 && (
-              <Badge className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center p-0" data-testid="badge-notification-count">
-                {unreadNotifications}
-              </Badge>
-            )}
-          </Button>
+          {/* Notifications Bell */}
+          <NotificationDropdown />
+          
+          {/* Reminders Calendar */}
+          <ReminderDropdown onCreateReminder={() => setShowReminderForm(true)} />
           
           {/* Quick Add */}
           <Button onClick={() => setShowQuickAdd(true)} data-testid="button-quick-add">

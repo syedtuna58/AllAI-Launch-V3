@@ -27,24 +27,24 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
 
   const now = new Date();
   const upcomingReminders = reminders?.filter(r => 
-    r.scheduledFor && new Date(r.scheduledFor) > now
+    r.dueAt && new Date(r.dueAt) > now
   ) || [];
   
   const overdueReminders = reminders?.filter(r => 
-    r.scheduledFor && new Date(r.scheduledFor) <= now && !r.completedAt
+    r.dueAt && new Date(r.dueAt) <= now && !r.completedAt
   ) || [];
 
   const sortedReminders = [...upcomingReminders, ...overdueReminders].sort((a, b) => {
-    const dateA = a.scheduledFor ? new Date(a.scheduledFor).getTime() : 0;
-    const dateB = b.scheduledFor ? new Date(b.scheduledFor).getTime() : 0;
+    const dateA = a.dueAt ? new Date(a.dueAt).getTime() : 0;
+    const dateB = b.dueAt ? new Date(b.dueAt).getTime() : 0;
     return dateA - dateB;
   });
 
   const overdueCount = overdueReminders.length;
 
   const isOverdue = (reminder: Reminder) => {
-    if (!reminder.scheduledFor) return false;
-    return new Date(reminder.scheduledFor) <= now && !reminder.completedAt;
+    if (!reminder.dueAt) return false;
+    return new Date(reminder.dueAt) <= now && !reminder.completedAt;
   };
 
   return (
@@ -134,17 +134,12 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
                           </Badge>
                         )}
                       </div>
-                      {reminder.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {reminder.description}
-                        </p>
-                      )}
-                      {reminder.scheduledFor && (
+                      {reminder.dueAt && (
                         <div className="flex items-center gap-2 mt-2">
                           <p className="text-xs text-muted-foreground/60">
                             {isOverdue(reminder) 
-                              ? formatDistanceToNow(new Date(reminder.scheduledFor), { addSuffix: true })
-                              : `Due ${formatDistanceToNow(new Date(reminder.scheduledFor), { addSuffix: true })}`
+                              ? formatDistanceToNow(new Date(reminder.dueAt), { addSuffix: true })
+                              : `Due ${formatDistanceToNow(new Date(reminder.dueAt), { addSuffix: true })}`
                             }
                           </p>
                         </div>
