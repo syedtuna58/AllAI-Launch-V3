@@ -2108,6 +2108,11 @@ function AcceptCaseDialog({
   onAccept: (data: any) => void;
   isPending: boolean;
 }) {
+  const [aiGuidance, setAiGuidance] = useState<any>(null);
+  const [loadingGuidance, setLoadingGuidance] = useState(false);
+  const [estimatedCost, setEstimatedCost] = useState("");
+  const [estimatedDuration, setEstimatedDuration] = useState(120);
+
   const form = useForm<z.infer<typeof proposeThreeSlotsSchema>>({
     resolver: zodResolver(proposeThreeSlotsSchema),
     defaultValues: {
@@ -2120,6 +2125,32 @@ function AcceptCaseDialog({
       notes: ""
     }
   });
+
+  // Fetch AI guidance when dialog opens
+  useEffect(() => {
+    if (isOpen && case_) {
+      setLoadingGuidance(true);
+      fetch(`/api/cases/${case_.id}/ai-guidance`, {
+        credentials: 'include'
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(guidance => {
+          if (guidance) {
+            setAiGuidance(guidance);
+            setEstimatedDuration(guidance.duration.estimatedMinutes);
+            if (guidance.cost.estimatedCostAverage) {
+              setEstimatedCost(guidance.cost.estimatedCostAverage.toString());
+            }
+          }
+        })
+        .catch(err => console.error("Failed to fetch AI guidance:", err))
+        .finally(() => setLoadingGuidance(false));
+    } else {
+      setAiGuidance(null);
+      setEstimatedCost("");
+      setEstimatedDuration(120);
+    }
+  }, [isOpen, case_]);
 
   // Pre-fill form with Maya's AI-suggested time when dialog opens
   useEffect(() => {
@@ -2189,11 +2220,72 @@ function AcceptCaseDialog({
         <div className="mb-4 p-3 bg-muted/50 rounded-lg">
           <h4 className="font-semibold text-sm mb-1">{case_.title}</h4>
           <p className="text-sm text-muted-foreground">{case_.description}</p>
-          {case_.aiSuggestedDurationMinutes && (
-            <p className="text-xs text-muted-foreground mt-2">
-              ⏱️ Estimated duration: {case_.aiSuggestedDurationMinutes} minutes
-            </p>
-          )}
+        </div>
+
+        {loadingGuidance ? (
+          <div className="bg-muted/50 p-4 rounded-lg border mb-4">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <span className="text-sm text-muted-foreground">Getting AI guidance...</span>
+            </div>
+          </div>
+        ) : aiGuidance ? (
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-white text-sm font-semibold">AI</span>
+              </div>
+              <div className="flex-1">
+                <h4 className="font-semibold text-sm mb-1">AI Recommendations (Editable)</h4>
+                <p className="text-xs text-muted-foreground mb-3">Based on job analysis and market data</p>
+                
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Duration</div>
+                    <div className="text-sm">{aiGuidance.duration.estimatedMinutes} minutes</div>
+                    <div className="text-xs text-muted-foreground italic mt-0.5">{aiGuidance.duration.reasoning}</div>
+                  </div>
+                  
+                  <div>
+                    <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Estimated Cost</div>
+                    <div className="text-sm">
+                      ${aiGuidance.cost.estimatedCostLow} - ${aiGuidance.cost.estimatedCostHigh} 
+                      <span className="text-muted-foreground ml-2">(avg: ${aiGuidance.cost.estimatedCostAverage})</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground italic mt-0.5">{aiGuidance.cost.reasoning}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="grid gap-2">
+            <label htmlFor="estimated-cost" className="text-sm font-medium">Estimated Cost ($)</label>
+            <input
+              id="estimated-cost"
+              type="number"
+              placeholder="150.00"
+              value={estimatedCost}
+              onChange={(e) => setEstimatedCost(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              data-testid="input-accept-cost"
+            />
+          </div>
+          <div className="grid gap-2">
+            <label htmlFor="estimated-duration" className="text-sm font-medium">Duration (minutes)</label>
+            <input
+              id="estimated-duration"
+              type="number"
+              value={estimatedDuration}
+              onChange={(e) => setEstimatedDuration(Number(e.target.value))}
+              min={15}
+              step={15}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              data-testid="input-accept-duration"
+            />
+          </div>
         </div>
 
         <Form {...form}>
