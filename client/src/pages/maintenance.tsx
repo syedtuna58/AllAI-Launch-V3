@@ -1095,7 +1095,7 @@ export default function Maintenance() {
               const propertyUnits = (units || []).filter(u => u.propertyId === property.id);
               const unitMatches = propertyUnits.map(u => ({
                 unit: u,
-                score: fuzzyMatch(normalizedUnitName, u.label || u.name || '')
+                score: fuzzyMatch(normalizedUnitName, u.label || '')
               })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
 
               const bestUnitMatch = unitMatches[0];
@@ -1138,8 +1138,8 @@ export default function Maintenance() {
               // Show match confidence if not 100%
               const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
               const matchMessage = isExactMatch 
-                ? `Creating maintenance request for ${property.name}, ${unit.label || unit.name}...`
-                : `Matched to ${property.name}, ${unit.label || unit.name}. Creating request...`;
+                ? `Creating maintenance request for ${property.name}, ${unit.label}...`
+                : `Matched to ${property.name}, ${unit.label}. Creating request...`;
               
               toast({
                 title: "Creating Case",
