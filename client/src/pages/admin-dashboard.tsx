@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, CheckCircle, Clock, Wrench } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, Wrench, Bell, Calendar } from "lucide-react";
 import { LiveNotification } from "@/components/ui/live-notification";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -13,10 +14,11 @@ import CasesWidget from "@/components/widgets/cases-widget";
 import RemindersWidget from "@/components/widgets/reminders-widget";
 import NotificationsWidget from "@/components/widgets/notifications-widget";
 import ReminderForm from "@/components/forms/reminder-form";
-import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
+import type { SmartCase, Property, OwnershipEntity, Unit, Reminder, Notification } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function AdminDashboard() {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [showReminderForm, setShowReminderForm] = useState(false);
@@ -41,9 +43,26 @@ export default function AdminDashboard() {
     retry: false,
   });
 
+  const { data: reminders } = useQuery<Reminder[]>({
+    queryKey: ["/api/reminders"],
+    retry: false,
+  });
+
+  const { data: notifications } = useQuery<Notification[]>({
+    queryKey: ["/api/notifications"],
+    retry: false,
+  });
+
   const unassignedCases = allCases.filter(c => !c.assignedContractorId);
   const urgentCases = allCases.filter(c => c.priority && ['High', 'Urgent'].includes(c.priority));
   const newCases = allCases.filter(c => c.status === 'New');
+  
+  const now = new Date();
+  const overdueReminders = reminders?.filter(r => 
+    r.dueAt && new Date(r.dueAt) <= now && !r.completedAt
+  ) || [];
+  
+  const unreadNotifications = notifications?.filter(n => !n.isRead) || [];
 
   const createReminderMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -98,9 +117,12 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card>
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
+                onClick={() => setLocation('/maintenance')}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Cases</CardTitle>
+                  <CardTitle className="text-sm font-medium">Maintenance</CardTitle>
                   <Wrench className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -113,7 +135,10 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
+                onClick={() => setLocation('/maintenance')}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Unassigned</CardTitle>
                   <AlertTriangle className="h-4 w-4 text-orange-500" />
@@ -128,32 +153,37 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
+                onClick={() => setLocation('/reminders')}
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Urgent Cases</CardTitle>
-                  <Clock className="h-4 w-4 text-red-500" />
+                  <CardTitle className="text-sm font-medium">Reminders</CardTitle>
+                  <Calendar className="h-4 w-4 text-blue-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600" data-testid="text-urgent-cases">
-                    {urgentCases.length}
+                  <div className="text-2xl font-bold text-blue-600" data-testid="text-reminders">
+                    {overdueReminders.length}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    High priority attention needed
+                    Overdue items
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
+              >
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">New Cases</CardTitle>
-                  <CheckCircle className="h-4 w-4 text-blue-500" />
+                  <CardTitle className="text-sm font-medium">Notifications</CardTitle>
+                  <Bell className="h-4 w-4 text-purple-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-blue-600" data-testid="text-new-cases">
-                    {newCases.length}
+                  <div className="text-2xl font-bold text-purple-600" data-testid="text-notifications">
+                    {unreadNotifications.length}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Awaiting review
+                    Unread messages
                   </p>
                 </CardContent>
               </Card>
