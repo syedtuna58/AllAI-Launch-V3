@@ -34,6 +34,47 @@ import OpenAI from "openai";
 const insertRevenueSchema = insertTransactionSchema;
 import { startCronJobs } from "./cronJobs";
 
+// Timezone mapper: US state codes to IANA timezone identifiers
+function getTimezoneFromState(stateCode: string): string {
+  const timezoneMap: Record<string, string> = {
+    // Eastern Time
+    'CT': 'America/New_York', 'DE': 'America/New_York', 'FL': 'America/New_York',
+    'GA': 'America/New_York', 'ME': 'America/New_York', 'MD': 'America/New_York',
+    'MA': 'America/New_York', 'NH': 'America/New_York', 'NJ': 'America/New_York',
+    'NY': 'America/New_York', 'NC': 'America/New_York', 'OH': 'America/New_York',
+    'PA': 'America/New_York', 'RI': 'America/New_York', 'SC': 'America/New_York',
+    'VT': 'America/New_York', 'VA': 'America/New_York', 'WV': 'America/New_York',
+    'DC': 'America/New_York',
+    
+    // Central Time
+    'AL': 'America/Chicago', 'AR': 'America/Chicago', 'IL': 'America/Chicago',
+    'IN': 'America/Chicago', 'IA': 'America/Chicago', 'KS': 'America/Chicago',
+    'KY': 'America/Chicago', 'LA': 'America/Chicago', 'MN': 'America/Chicago',
+    'MS': 'America/Chicago', 'MO': 'America/Chicago', 'NE': 'America/Chicago',
+    'ND': 'America/Chicago', 'OK': 'America/Chicago', 'SD': 'America/Chicago',
+    'TN': 'America/Chicago', 'TX': 'America/Chicago', 'WI': 'America/Chicago',
+    
+    // Mountain Time
+    'CO': 'America/Denver', 'MT': 'America/Denver', 'NM': 'America/Denver',
+    'UT': 'America/Denver', 'WY': 'America/Denver',
+    
+    // Mountain Time (no DST)
+    'AZ': 'America/Phoenix',
+    
+    // Pacific Time
+    'CA': 'America/Los_Angeles', 'NV': 'America/Los_Angeles',
+    'OR': 'America/Los_Angeles', 'WA': 'America/Los_Angeles',
+    
+    // Alaska Time
+    'AK': 'America/Anchorage',
+    
+    // Hawaii Time
+    'HI': 'Pacific/Honolulu',
+  };
+  
+  return timezoneMap[stateCode.toUpperCase()] || 'America/New_York'; // Default to Eastern
+}
+
 // Helper function to create equipment reminders
 async function createEquipmentReminders({
   org,
