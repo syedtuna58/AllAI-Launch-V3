@@ -38,11 +38,28 @@ export default function CasesWidget() {
   });
 
   const getStatusBadge = (status: string) => {
+    const shortStatus = (s: string) => {
+      const statusMap: { [key: string]: string } = {
+        "New": "New",
+        "In Review": "Review",
+        "In Progress": "Active",
+        "Scheduled": "Sched",
+        "Resolved": "Done",
+        "On Hold": "Hold",
+        "Closed": "Closed"
+      };
+      return statusMap[s] || s;
+    };
+    
+    const displayText = shortStatus(status);
+    
     switch (status) {
-      case "New": return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100" data-testid={`badge-status-new`}>New</Badge>;
-      case "In Progress": return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100" data-testid={`badge-status-progress`}>In Progress</Badge>;
-      case "Resolved": return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" data-testid={`badge-status-resolved`}>Resolved</Badge>;
-      default: return <Badge variant="secondary" data-testid={`badge-status-default`}>{status}</Badge>;
+      case "New": return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 shrink-0" data-testid={`badge-status-new`}>{displayText}</Badge>;
+      case "In Progress": return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 shrink-0" data-testid={`badge-status-progress`}>{displayText}</Badge>;
+      case "Resolved": return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 shrink-0" data-testid={`badge-status-resolved`}>{displayText}</Badge>;
+      case "Scheduled": return <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100 shrink-0" data-testid={`badge-status-scheduled`}>{displayText}</Badge>;
+      case "In Review": return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100 shrink-0" data-testid={`badge-status-review`}>{displayText}</Badge>;
+      default: return <Badge variant="secondary" className="shrink-0" data-testid={`badge-status-default`}>{displayText}</Badge>;
     }
   };
 
@@ -159,9 +176,12 @@ export default function CasesWidget() {
               {filteredCases.map((smartCase) => (
                 <div
                   key={smartCase.id}
-                  className="p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="p-3 border border-border rounded-lg hover:bg-accent hover:border-accent-foreground/20 transition-all cursor-pointer active:scale-[0.98]"
                   data-testid={`case-widget-${smartCase.id}`}
-                  onClick={() => setLocation('/maintenance')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation('/maintenance');
+                  }}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex items-start gap-2 flex-1 min-w-0">

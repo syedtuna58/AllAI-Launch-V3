@@ -97,14 +97,17 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
                 <div
                   key={reminder.id}
                   className={`
-                    p-3 rounded-lg border transition-colors cursor-pointer hover:opacity-80
+                    p-3 rounded-lg border transition-all cursor-pointer active:scale-[0.98]
                     ${isOverdue(reminder)
-                      ? 'bg-destructive/10 border-destructive/30' 
-                      : 'bg-muted/50 border-border'
+                      ? 'bg-destructive/10 border-destructive/30 hover:bg-destructive/20' 
+                      : 'bg-muted/50 border-border hover:bg-accent'
                     }
                   `}
                   data-testid={`reminder-widget-${reminder.id}`}
-                  onClick={() => setLocation('/reminders')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation('/reminders');
+                  }}
                 >
                   <div className="flex gap-2">
                     <Clock className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isOverdue(reminder) ? 'text-destructive' : 'text-muted-foreground'}`} />
