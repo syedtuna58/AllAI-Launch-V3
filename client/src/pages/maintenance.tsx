@@ -2202,7 +2202,11 @@ function AcceptCaseDialog({
   }, [isOpen, case_, form]);
 
   const onSubmit = (data: z.infer<typeof proposeThreeSlotsSchema>) => {
-    onAccept(data);
+    onAccept({
+      ...data,
+      estimatedCost,
+      estimatedDuration
+    });
   };
 
   if (!case_) return null;

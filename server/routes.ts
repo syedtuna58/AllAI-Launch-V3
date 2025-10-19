@@ -5224,7 +5224,7 @@ Consider:
     try {
       const userId = req.user.claims.sub;
       const caseId = req.params.caseId;
-      const { slot1Date, slot1Time, slot2Date, slot2Time, slot3Date, slot3Time, notes } = req.body;
+      const { slot1Date, slot1Time, slot2Date, slot2Time, slot3Date, slot3Time, notes, estimatedCost, estimatedDuration } = req.body;
 
       // Get the case
       const smartCase = await storage.getSmartCase(caseId);
@@ -5249,6 +5249,22 @@ Consider:
         return res.status(403).json({ message: "You are not registered as a contractor" });
       }
 
+      // Check if contractor already has a pending proposal for this case
+      const existingProposals = await storage.getAppointmentProposals(caseId);
+      const contractorExistingProposal = existingProposals.find(
+        (p: any) => p.contractorId === contractor.id && p.status === 'pending'
+      );
+      
+      if (contractorExistingProposal) {
+        // Delete the old proposal and its slots before creating a new one
+        const oldSlots = await storage.getProposalSlots(contractorExistingProposal.id);
+        for (const slot of oldSlots) {
+          await storage.deleteProposalSlot(slot.id);
+        }
+        await storage.deleteAppointmentProposal(contractorExistingProposal.id);
+        console.log(`🔄 Replaced existing proposal ${contractorExistingProposal.id} with new one`);
+      }
+
       // Parse and create Date objects for all 3 slots with proper timezone handling
       const parseSlotDateTime = (dateStr: string, timeStr: string): Date => {
         // Extract date components to avoid timezone shifts
@@ -5267,8 +5283,8 @@ Consider:
       const slot2Start = parseSlotDateTime(slot2Date, slot2Time);
       const slot3Start = parseSlotDateTime(slot3Date, slot3Time);
 
-      // Calculate end times (use AI suggested duration or default to 60 minutes)
-      const durationMinutes = smartCase.aiSuggestedDurationMinutes || 60;
+      // Calculate end times (use contractor's duration, AI suggested, or default to 60 minutes)
+      const durationMinutes = estimatedDuration || smartCase.aiSuggestedDurationMinutes || 60;
       
       const slot1End = new Date(slot1Start);
       slot1End.setMinutes(slot1End.getMinutes() + durationMinutes);
@@ -5284,6 +5300,8 @@ Consider:
       const proposalData = insertAppointmentProposalSchema.parse({
         caseId: caseId,
         contractorId: contractor.id,
+        estimatedCost: estimatedCost ? parseFloat(estimatedCost) : null,
+        estimatedDurationMinutes: durationMinutes,
         notes: notes || null,
         status: 'pending'
       });
