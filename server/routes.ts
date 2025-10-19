@@ -35,28 +35,30 @@ const insertRevenueSchema = insertTransactionSchema;
 import { startCronJobs } from "./cronJobs";
 
 // Timezone mapper: US state codes to IANA timezone identifiers
+// Note: Some states span multiple timezones. We use the majority timezone for simplicity.
+// For more precise handling, consider using city/ZIP code or storing timezone on property.
 function getTimezoneFromState(stateCode: string): string {
   const timezoneMap: Record<string, string> = {
     // Eastern Time
     'CT': 'America/New_York', 'DE': 'America/New_York', 'FL': 'America/New_York',
     'GA': 'America/New_York', 'ME': 'America/New_York', 'MD': 'America/New_York',
-    'MA': 'America/New_York', 'NH': 'America/New_York', 'NJ': 'America/New_York',
-    'NY': 'America/New_York', 'NC': 'America/New_York', 'OH': 'America/New_York',
-    'PA': 'America/New_York', 'RI': 'America/New_York', 'SC': 'America/New_York',
-    'VT': 'America/New_York', 'VA': 'America/New_York', 'WV': 'America/New_York',
-    'DC': 'America/New_York',
+    'MA': 'America/New_York', 'MI': 'America/New_York', 'NH': 'America/New_York',
+    'NJ': 'America/New_York', 'NY': 'America/New_York', 'NC': 'America/New_York',
+    'OH': 'America/New_York', 'PA': 'America/New_York', 'RI': 'America/New_York',
+    'SC': 'America/New_York', 'VT': 'America/New_York', 'VA': 'America/New_York',
+    'WV': 'America/New_York', 'DC': 'America/New_York',
     
-    // Central Time
+    // Central Time (Note: IN, KY, TN have mixed zones - using majority)
     'AL': 'America/Chicago', 'AR': 'America/Chicago', 'IL': 'America/Chicago',
-    'IN': 'America/Chicago', 'IA': 'America/Chicago', 'KS': 'America/Chicago',
-    'KY': 'America/Chicago', 'LA': 'America/Chicago', 'MN': 'America/Chicago',
+    'IN': 'America/Indiana/Indianapolis', 'IA': 'America/Chicago', 'KS': 'America/Chicago',
+    'KY': 'America/Kentucky/Louisville', 'LA': 'America/Chicago', 'MN': 'America/Chicago',
     'MS': 'America/Chicago', 'MO': 'America/Chicago', 'NE': 'America/Chicago',
-    'ND': 'America/Chicago', 'OK': 'America/Chicago', 'SD': 'America/Chicago',
+    'ND': 'America/North_Dakota/Center', 'OK': 'America/Chicago', 'SD': 'America/Chicago',
     'TN': 'America/Chicago', 'TX': 'America/Chicago', 'WI': 'America/Chicago',
     
     // Mountain Time
-    'CO': 'America/Denver', 'MT': 'America/Denver', 'NM': 'America/Denver',
-    'UT': 'America/Denver', 'WY': 'America/Denver',
+    'CO': 'America/Denver', 'ID': 'America/Boise', 'MT': 'America/Denver',
+    'NM': 'America/Denver', 'UT': 'America/Denver', 'WY': 'America/Denver',
     
     // Mountain Time (no DST)
     'AZ': 'America/Phoenix',
@@ -72,7 +74,12 @@ function getTimezoneFromState(stateCode: string): string {
     'HI': 'Pacific/Honolulu',
   };
   
-  return timezoneMap[stateCode.toUpperCase()] || 'America/New_York'; // Default to Eastern
+  const timezone = timezoneMap[stateCode.toUpperCase()];
+  if (!timezone) {
+    console.warn(`⚠️ Unknown state code: ${stateCode}, defaulting to America/New_York`);
+    return 'America/New_York';
+  }
+  return timezone;
 }
 
 // Helper function to create equipment reminders
