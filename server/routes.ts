@@ -4256,19 +4256,23 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
 
         const { notificationService } = await import('./notificationService');
         if (appointment.contractorId) {
-          await notificationService.notifyContractor(
-            {
-              message: `Tenant approved appointment for case ${smartCase.title}`,
-              type: 'case_scheduled',
-              subject: 'Appointment Approved by Tenant',
-              title: 'Appointment Approved',
-              caseId: smartCase.id,
-              orgId: smartCase.orgId
-            },
-            appointment.contractorId,
-            smartCase.orgId
-          );
-          console.log(`✅ Contractor notified about approved appointment for case ${smartCase.id}`);
+          // Get contractor's user ID from vendor record
+          const vendor = await storage.getVendor(appointment.contractorId);
+          if (vendor?.userId) {
+            await notificationService.notifyContractor(
+              {
+                message: `Tenant approved appointment for case ${smartCase.title}`,
+                type: 'case_scheduled',
+                subject: 'Appointment Approved by Tenant',
+                title: 'Appointment Approved',
+                caseId: smartCase.id,
+                orgId: smartCase.orgId
+              },
+              vendor.userId,
+              smartCase.orgId
+            );
+            console.log(`✅ Contractor notified about approved appointment for case ${smartCase.id}`);
+          }
         }
       }
 
@@ -4313,19 +4317,23 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
 
         const { notificationService } = await import('./notificationService');
         if (appointment.contractorId) {
-          await notificationService.notifyContractor(
-            {
-              message: `Tenant declined appointment for case ${smartCase.title}. Reason: ${reason || 'Not specified'}`,
-              type: 'case_updated',
-              subject: 'Appointment Declined by Tenant',
-              title: 'Appointment Declined',
-              caseId: smartCase.id,
-              orgId: smartCase.orgId
-            },
-            appointment.contractorId,
-            smartCase.orgId
-          );
-          console.log(`✅ Contractor notified about declined appointment for case ${smartCase.id}`);
+          // Get contractor's user ID from vendor record
+          const vendor = await storage.getVendor(appointment.contractorId);
+          if (vendor?.userId) {
+            await notificationService.notifyContractor(
+              {
+                message: `Tenant declined appointment for case ${smartCase.title}. Reason: ${reason || 'Not specified'}`,
+                type: 'case_updated',
+                subject: 'Appointment Declined by Tenant',
+                title: 'Appointment Declined',
+                caseId: smartCase.id,
+                orgId: smartCase.orgId
+              },
+              vendor.userId,
+              smartCase.orgId
+            );
+            console.log(`✅ Contractor notified about declined appointment for case ${smartCase.id}`);
+          }
         }
       }
 
