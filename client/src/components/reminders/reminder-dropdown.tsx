@@ -7,6 +7,11 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -49,25 +54,32 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="relative"
-          data-testid="button-reminders"
-        >
-          <Calendar className="h-5 w-5" />
-          {overdueCount > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-              variant="destructive"
-              data-testid="badge-overdue-count"
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="relative"
+              data-testid="button-reminders"
             >
-              {overdueCount > 9 ? '9+' : overdueCount}
-            </Badge>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
+              <Calendar className="h-5 w-5" />
+              {overdueCount > 0 && (
+                <Badge 
+                  className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  variant="destructive"
+                  data-testid="badge-overdue-count"
+                >
+                  {overdueCount > 9 ? '9+' : overdueCount}
+                </Badge>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Reminders</p>
+        </TooltipContent>
+      </Tooltip>
       <DropdownMenuContent align="end" className="w-80">
         <div className="flex items-center justify-between p-4">
           <h3 className="font-semibold text-sm">Reminders</h3>
