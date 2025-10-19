@@ -43,7 +43,10 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
     <Card data-testid="widget-reminders">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div 
+            className="flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity"
+            onClick={() => setLocation('/reminders')}
+          >
             <Calendar className="h-5 w-5 text-blue-600" />
             <CardTitle className="text-base">Reminders</CardTitle>
             {overdueReminders.length > 0 && (

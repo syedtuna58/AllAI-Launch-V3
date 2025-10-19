@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { AlertTriangle, Filter, Building, User, Flame } from "lucide-react";
+import { AlertTriangle, Filter, Building, User, Flame, Wrench } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -85,8 +85,11 @@ export default function CasesWidget() {
     <Card data-testid="widget-cases" className="h-full flex flex-col">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
+          <div 
+            className="flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity"
+            onClick={() => setLocation('/maintenance')}
+          >
+            <Wrench className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-base">Maintenance</CardTitle>
             <Badge variant="secondary">{filteredCases.length}</Badge>
           </div>
