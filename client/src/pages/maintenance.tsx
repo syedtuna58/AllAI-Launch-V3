@@ -2222,44 +2222,6 @@ function AcceptCaseDialog({
           <p className="text-sm text-muted-foreground">{case_.description}</p>
         </div>
 
-        {loadingGuidance ? (
-          <div className="bg-muted/50 p-4 rounded-lg border mb-4">
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-              <span className="text-sm text-muted-foreground">Getting AI guidance...</span>
-            </div>
-          </div>
-        ) : aiGuidance ? (
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
-            <div className="flex items-start gap-2 mb-3">
-              <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span className="text-white text-sm font-semibold">AI</span>
-              </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-sm mb-1">AI Recommendations (Editable)</h4>
-                <p className="text-xs text-muted-foreground mb-3">Based on job analysis and market data</p>
-                
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Duration</div>
-                    <div className="text-sm">{aiGuidance.duration.estimatedMinutes} minutes</div>
-                    <div className="text-xs text-muted-foreground italic mt-0.5">{aiGuidance.duration.reasoning}</div>
-                  </div>
-                  
-                  <div>
-                    <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Estimated Cost</div>
-                    <div className="text-sm">
-                      ${aiGuidance.cost.estimatedCostLow} - ${aiGuidance.cost.estimatedCostHigh} 
-                      <span className="text-muted-foreground ml-2">(avg: ${aiGuidance.cost.estimatedCostAverage})</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground italic mt-0.5">{aiGuidance.cost.reasoning}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="grid gap-2">
             <label htmlFor="estimated-cost" className="text-sm font-medium">Estimated Cost ($)</label>
@@ -2446,6 +2408,44 @@ function AcceptCaseDialog({
                 </FormItem>
               )}
             />
+
+            {loadingGuidance ? (
+              <div className="bg-muted/50 p-4 rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span className="text-sm text-muted-foreground">Getting AI guidance...</span>
+                </div>
+              </div>
+            ) : aiGuidance ? (
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-2 mb-3">
+                  <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-white text-sm font-semibold">AI</span>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-sm mb-1">AI Recommendations</h4>
+                    <p className="text-xs text-muted-foreground mb-3">Based on job analysis and market data</p>
+                    
+                    <div className="space-y-2">
+                      <div>
+                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Duration</div>
+                        <div className="text-sm">{aiGuidance.duration.estimatedMinutes} minutes</div>
+                        <div className="text-xs text-muted-foreground italic mt-0.5">{aiGuidance.duration.reasoning}</div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300">Estimated Cost</div>
+                        <div className="text-sm">
+                          ${aiGuidance.cost.estimatedCostLow} - ${aiGuidance.cost.estimatedCostHigh} 
+                          <span className="text-muted-foreground ml-2">(avg: ${aiGuidance.cost.estimatedCostAverage})</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground italic mt-0.5">{aiGuidance.cost.reasoning}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose} disabled={isPending} data-testid="button-cancel-accept">
