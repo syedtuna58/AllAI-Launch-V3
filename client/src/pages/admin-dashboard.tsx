@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { AlertTriangle, CheckCircle, Clock, Wrench, Bell, Calendar } from "lucide-react";
 import { LiveNotification } from "@/components/ui/live-notification";
 import { useAuth } from "@/hooks/useAuth";
@@ -97,6 +98,27 @@ export default function AdminDashboard() {
     },
   });
 
+  const testNotificationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/notifications/test");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      toast({
+        title: "Success",
+        description: "Test notification created successfully!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to create test notification",
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <div className="min-h-screen bg-background flex" data-testid="page-admin-dashboard">
       <Sidebar />
@@ -114,6 +136,16 @@ export default function AdminDashboard() {
                   Monitor and manage maintenance cases, contractors, and system performance
                 </p>
               </div>
+              <Button
+                onClick={() => testNotificationMutation.mutate()}
+                disabled={testNotificationMutation.isPending}
+                variant="outline"
+                size="sm"
+                data-testid="button-test-notification"
+              >
+                <Bell className="h-4 w-4 mr-2" />
+                Test Notification
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
