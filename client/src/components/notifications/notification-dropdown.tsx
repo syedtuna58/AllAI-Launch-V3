@@ -148,11 +148,21 @@ export default function NotificationDropdown() {
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {notification.message}
                       </p>
-                      {notification.createdAt && (
-                        <p className="text-xs text-muted-foreground/60 mt-2">
-                          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                        </p>
-                      )}
+                      <div className="flex items-center gap-2 mt-2">
+                        {notification.createdAt && (
+                          <p className="text-xs text-muted-foreground/60">
+                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                          </p>
+                        )}
+                        {notification.targetRole && notification.targetName && (
+                          <>
+                            <span className="text-xs text-muted-foreground/40">•</span>
+                            <p className="text-xs text-muted-foreground/60">
+                              For: <span className="font-medium">{notification.targetRole}</span> ({notification.targetName})
+                            </p>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
