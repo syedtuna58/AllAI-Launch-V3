@@ -5597,7 +5597,8 @@ Consider:
       const { notificationService } = await import('./notificationService');
       
       // Get approval policy to customize notification messages
-      const approvalPolicy = await storage.getApprovalPolicyForOrg(smartCase.orgId);
+      const policies = await storage.getApprovalPolicies(smartCase.orgId);
+      const approvalPolicy = policies.find(p => p.isActive) || policies[0];
       const involvementMode = approvalPolicy?.involvementMode || 'hands-on';
       
       // Customize messages based on involvement mode
@@ -5692,13 +5693,13 @@ Consider:
 
       // Get approval policies for the org
       const policies = await storage.getApprovalPolicies(userOrg.id);
+      const policy = policies.find(p => p.isActive) || policies[0]; // Get active policy or first one
       
       // Check if auto-approval applies
       let autoApproved = false;
       let appointmentId: string | null = null;
 
-      if (policies.length > 0) {
-        const policy = policies[0]; // Use the first/most recent policy
+      if (policy) {
         
         // Check auto-approval criteria
         const costWithinThreshold = !policy.costThreshold || Number(proposal.estimatedCost) <= Number(policy.costThreshold);
