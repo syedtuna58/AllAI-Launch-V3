@@ -653,6 +653,8 @@ export const notifications = pgTable("notifications", {
   type: varchar("type").default("info"), // info, warning, error, success
   isRead: boolean("is_read").default(false),
   metadata: jsonb("metadata"),
+  targetRole: varchar("target_role"), // admin, contractor, tenant (for testing visibility)
+  targetName: varchar("target_name"), // Optional: specific person name (for testing)
   createdAt: timestamp("created_at").defaultNow(),
 });
 
