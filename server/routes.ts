@@ -5596,12 +5596,22 @@ Consider:
       // Notify admin and tenant that proposals are ready
       const { notificationService } = await import('./notificationService');
       
+      // Get approval policy to customize notification messages
+      const approvalPolicy = await storage.getApprovalPolicyForOrg(smartCase.orgId);
+      const involvementMode = approvalPolicy?.involvementMode || 'hands-on';
+      
+      // Customize messages based on involvement mode
+      const isHandsOff = involvementMode === 'hands-off';
+      const requiresReview = involvementMode === 'hands-on' || involvementMode === 'balanced';
+      
       // Notify admin
       await notificationService.notifyAdmins({
-        message: `Contractor ${contractor.name} submitted a proposal for case: ${smartCase.title} - $${estimatedCost || 'TBD'}, ${durationMinutes}min`,
+        message: isHandsOff 
+          ? `FYI - Contractor ${contractor.name} submitted a proposal for case: ${smartCase.title} - $${estimatedCost || 'TBD'}, ${durationMinutes}min (auto-approval enabled)`
+          : `Action Required - Contractor ${contractor.name} submitted a proposal for case: ${smartCase.title} - $${estimatedCost || 'TBD'}, ${durationMinutes}min`,
         type: 'case_scheduled',
-        subject: 'Contractor Submitted Proposal',
-        title: 'New Proposal Received',
+        subject: isHandsOff ? 'FYI: New Proposal Submitted' : 'Action Required: Review Proposal',
+        title: isHandsOff ? 'New Proposal (Auto-Approval)' : 'New Proposal - Review Needed',
         caseId: smartCase.id,
         orgId: smartCase.orgId
       }, smartCase.orgId);
@@ -5612,10 +5622,12 @@ Consider:
         if (reporterUser?.email) {
           await notificationService.notifyTenant(
             {
-              message: `Contractor ${contractor.name} has proposed 3 time slots for your maintenance request: ${smartCase.title}`,
+              message: requiresReview
+                ? `Action Required - Please select a time slot for your maintenance request: ${smartCase.title}. Contractor ${contractor.name} has proposed 3 options.`
+                : `Contractor ${contractor.name} has proposed 3 time slots for your maintenance request: ${smartCase.title}. Please select your preferred time.`,
               type: 'case_scheduled',
-              subject: 'New Appointment Options Available',
-              title: 'New Appointment Options',
+              subject: requiresReview ? 'Action Required: Select Appointment Time' : 'New Appointment Options Available',
+              title: requiresReview ? 'Choose Your Appointment' : 'New Appointment Options',
               caseId: smartCase.id,
               orgId: smartCase.orgId
             },
@@ -5749,8 +5761,11 @@ Consider:
 
         // Notify contractor that their proposal was accepted
         const { notificationService } = await import('./notificationService');
+        const scheduledDate = new Date(slot.startTime).toLocaleDateString();
+        const scheduledTime = new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
         await notificationService.notifyContractor({
-          message: `Your proposal for "${case_.title}" has been accepted and scheduled!`,
+          message: `Your proposal for "${case_.title}" has been accepted and scheduled for ${scheduledDate} at ${scheduledTime}!`,
           type: 'case_accepted',
           title: 'Proposal Accepted',
           subject: 'Your Proposal Has Been Accepted',
@@ -5758,12 +5773,15 @@ Consider:
           orgId: case_.orgId
         }, proposal.contractorId, case_.orgId);
 
-        // Notify admin about the scheduled appointment
+        // Notify admin about the scheduled appointment with auto-approval context
+        const policyMode = policy?.involvementMode || 'hands-on';
         await notificationService.notifyAdmins({
-          message: `Appointment scheduled for case: ${case_.title} - ${new Date(slot.startTime).toLocaleString()}`,
+          message: policyMode === 'hands-off'
+            ? `FYI - Appointment auto-approved and scheduled for case: ${case_.title} on ${scheduledDate} at ${scheduledTime} (hands-off mode enabled)`
+            : `Appointment auto-approved and scheduled for case: ${case_.title} on ${scheduledDate} at ${scheduledTime} (criteria met for balanced mode)`,
           type: 'case_scheduled',
-          title: 'Appointment Scheduled',
-          subject: 'Maintenance Appointment Scheduled',
+          title: 'Appointment Auto-Approved',
+          subject: 'Maintenance Appointment Auto-Approved',
           caseId: case_.id,
           orgId: case_.orgId
         }, case_.orgId);
