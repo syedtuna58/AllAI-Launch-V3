@@ -3058,6 +3058,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint to create a notification
+  app.post('/api/notifications/test', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { notificationService } = await import('./notificationService.js');
+      
+      // Create a test notification in the database
+      const notification = await storage.createNotification(
+        userId,
+        "Test Notification",
+        "This is a test notification to verify the notification system is working correctly.",
+        "maintenance_test"
+      );
+
+      // Send real-time WebSocket notification (this method is private, so we'll skip it for now)
+      console.log(`✅ Test notification created for user ${userId}`);
+      res.json(notification);
+    } catch (error) {
+      console.error("Error creating test notification:", error);
+      res.status(500).json({ message: "Failed to create test notification" });
+    }
+  });
+
   // Payment status update endpoint
   app.patch('/api/transactions/:id/payment-status', isAuthenticated, async (req: any, res) => {
     try {
