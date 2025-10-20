@@ -15,11 +15,14 @@ export function startCronJobs() {
           // Get organization members to notify
           const org = await storage.getUserOrganization(reminder.orgId);
           if (org) {
+            const adminUser = await storage.getUser(org.ownerId);
             await storage.createNotification(
               org.ownerId,
               reminder.title,
               `Reminder: ${reminder.title} is due`,
-              'warning'
+              'warning',
+              'admin',
+              adminUser ? `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email || 'Admin' : 'Admin'
             );
           }
         }

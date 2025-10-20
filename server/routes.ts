@@ -3128,12 +3128,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { notificationService } = await import('./notificationService.js');
       
+      // Get user info for target fields
+      const user = await storage.getUser(userId);
+      
       // Create a test notification in the database
       const notification = await storage.createNotification(
         userId,
         "Test Notification",
         "This is a test notification to verify the notification system is working correctly.",
-        "maintenance_test"
+        "maintenance_test",
+        "test",
+        user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Test User' : 'Test User'
       );
 
       // Send real-time WebSocket notification (this method is private, so we'll skip it for now)

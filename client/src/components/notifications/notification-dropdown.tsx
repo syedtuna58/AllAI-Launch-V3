@@ -157,8 +157,8 @@ export default function NotificationDropdown() {
                         {notification.targetRole && notification.targetName && (
                           <>
                             <span className="text-xs text-muted-foreground/40">•</span>
-                            <p className="text-xs text-muted-foreground/60">
-                              For: <span className="font-medium">{notification.targetRole}</span> ({notification.targetName})
+                            <p className="text-xs text-muted-foreground/60" data-testid={`text-target-${notification.id}`}>
+                              For: <span className="font-medium" data-testid={`text-target-role-${notification.id}`}>{notification.targetRole}</span> (<span data-testid={`text-target-name-${notification.id}`}>{notification.targetName}</span>)
                             </p>
                           </>
                         )}
