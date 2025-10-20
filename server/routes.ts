@@ -1994,6 +1994,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         console.log(`📎 Attached ${mediaUrls.length} media file(s) to case ${smartCase.id}`);
       }
+
+      // Notify admin about new case
+      const { notificationService } = await import('./notificationService');
+      await notificationService.notifyAdmins({
+        message: `New maintenance request: ${smartCase.title}`,
+        type: 'case_created',
+        title: 'New Maintenance Case',
+        subject: 'New Maintenance Case Created',
+        caseId: smartCase.id,
+        caseNumber: smartCase.id,
+        priority: smartCase.priority || 'Medium'
+      }, org.id);
+
+      // If creator has user account (tenant), notify them their request was received
+      const creator = await storage.getUser(userId);
+      if (creator && creator.email) {
+        await notificationService.notifyTenant({
+          message: `Your maintenance request "${smartCase.title}" has been received and will be reviewed shortly.`,
+          type: 'case_created',
+          title: 'Request Received',
+          subject: 'Maintenance Request Received',
+          caseId: smartCase.id
+        }, creator.email, userId, org.id);
+      }
       
       // Trigger AI triage and contractor assignment in the background
       (async () => {
@@ -2095,7 +2119,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/cases/:id', isAuthenticated, async (req: any, res) => {
     try {
+      const oldCase = await storage.getSmartCase(req.params.id);
       const smartCase = await storage.updateSmartCase(req.params.id, req.body);
+      
+      // Notify if status changed
+      if (oldCase && req.body.status && oldCase.status !== req.body.status) {
+        const { notificationService } = await import('./notificationService');
+        
+        // Special handling for completion statuses
+        const isCompleted = req.body.status === 'Resolved' || req.body.status === 'Closed';
+        const notificationType = isCompleted ? 'case_completed' : 'case_updated';
+        
+        // Notify admin about status change
+        await notificationService.notifyAdmins({
+          message: isCompleted 
+            ? `Maintenance case "${smartCase.title}" has been completed!`
+            : `Case "${smartCase.title}" status changed from ${oldCase.status} to ${req.body.status}`,
+          type: notificationType,
+          title: isCompleted ? 'Case Completed' : 'Case Status Updated',
+          subject: isCompleted ? 'Maintenance Case Completed' : 'Maintenance Case Status Updated',
+          caseId: smartCase.id,
+          orgId: smartCase.orgId
+        }, smartCase.orgId);
+
+        // Notify tenant if they exist
+        if (smartCase.reporterUserId) {
+          const reporterUser = await storage.getUser(smartCase.reporterUserId);
+          if (reporterUser?.email) {
+            await notificationService.notifyTenant({
+              message: isCompleted
+                ? `Great news! Your maintenance request "${smartCase.title}" has been completed.`
+                : `Your maintenance request "${smartCase.title}" status changed to: ${req.body.status}`,
+              type: notificationType,
+              title: isCompleted ? 'Work Completed' : 'Request Updated',
+              subject: isCompleted ? 'Maintenance Request Completed' : 'Maintenance Request Status Update',
+              caseId: smartCase.id,
+              orgId: smartCase.orgId
+            }, reporterUser.email, smartCase.reporterUserId, smartCase.orgId);
+          }
+        }
+      }
+      
       res.json(smartCase);
     } catch (error) {
       console.error("Error updating case:", error);
@@ -4639,6 +4703,27 @@ Which property is this for? Let me know and I'll get the right person on it:`;
         await storage.updateSmartCase(req.params.id, {
           assignedContractorId: topContractor.contractorId
         });
+
+        // Notify contractor about assignment
+        const { notificationService } = await import('./notificationService');
+        await notificationService.notifyContractor({
+          message: `New ${smartCase.priority || 'Medium'} priority maintenance request assigned to you: ${smartCase.title}`,
+          type: 'case_assigned',
+          title: 'New Case Assigned',
+          subject: 'New Maintenance Case Assigned',
+          caseId: smartCase.id,
+          orgId: smartCase.orgId
+        }, topContractor.contractorId, smartCase.orgId);
+
+        // Notify admin about assignment
+        await notificationService.notifyAdmins({
+          message: `Contractor ${topContractor.contractorName} has been assigned to case: ${smartCase.title}`,
+          type: 'contractor_assigned',
+          title: 'Contractor Assigned',
+          subject: 'Contractor Assigned to Case',
+          caseId: smartCase.id,
+          orgId: smartCase.orgId
+        }, smartCase.orgId);
       }
 
       res.json({ recommendations });
@@ -5265,6 +5350,42 @@ Consider:
       });
 
       const proposal = await storage.createAppointmentProposal(validatedData);
+
+      // Get case and contractor info for notifications
+      const smartCase = await storage.getSmartCase(req.params.caseId);
+      if (smartCase) {
+        const contractor = await storage.getContractors(smartCase.orgId).then(
+          contractors => contractors.find((c: any) => c.id === proposal.contractorId)
+        );
+        
+        const { notificationService } = await import('./notificationService');
+        
+        // Notify admin
+        await notificationService.notifyAdmins({
+          message: `Contractor ${contractor?.name || 'Unknown'} submitted a proposal for case: ${smartCase.title}`,
+          type: 'case_scheduled',
+          subject: 'New Proposal Submitted',
+          title: 'New Proposal',
+          caseId: smartCase.id,
+          orgId: smartCase.orgId
+        }, smartCase.orgId);
+
+        // Notify tenant if available
+        if (smartCase.reporterUserId) {
+          const reporterUser = await storage.getUser(smartCase.reporterUserId);
+          if (reporterUser?.email) {
+            await notificationService.notifyTenant({
+              message: `A contractor has submitted a proposal for your maintenance request: ${smartCase.title}`,
+              type: 'case_scheduled',
+              subject: 'New Proposal Available',
+              title: 'Proposal Received',
+              caseId: smartCase.id,
+              orgId: smartCase.orgId
+            }, reporterUser.email, smartCase.reporterUserId, smartCase.orgId);
+          }
+        }
+      }
+
       res.json(proposal);
     } catch (error) {
       console.error("Error creating appointment proposal:", error);
@@ -5472,8 +5593,20 @@ Consider:
         status: 'In Review'
       });
 
-      // Notify tenant that proposals are ready
+      // Notify admin and tenant that proposals are ready
       const { notificationService } = await import('./notificationService');
+      
+      // Notify admin
+      await notificationService.notifyAdmins({
+        message: `Contractor ${contractor.name} submitted a proposal for case: ${smartCase.title} - $${estimatedCost || 'TBD'}, ${durationMinutes}min`,
+        type: 'case_scheduled',
+        subject: 'Contractor Submitted Proposal',
+        title: 'New Proposal Received',
+        caseId: smartCase.id,
+        orgId: smartCase.orgId
+      }, smartCase.orgId);
+
+      // Notify tenant
       if (smartCase.reporterUserId) {
         const reporterUser = await storage.getUser(smartCase.reporterUserId);
         if (reporterUser?.email) {
@@ -5613,6 +5746,27 @@ Consider:
 
         // Update case status
         await storage.updateSmartCase(case_.id, { status: "Scheduled" });
+
+        // Notify contractor that their proposal was accepted
+        const { notificationService } = await import('./notificationService');
+        await notificationService.notifyContractor({
+          message: `Your proposal for "${case_.title}" has been accepted and scheduled!`,
+          type: 'case_accepted',
+          title: 'Proposal Accepted',
+          subject: 'Your Proposal Has Been Accepted',
+          caseId: case_.id,
+          orgId: case_.orgId
+        }, proposal.contractorId, case_.orgId);
+
+        // Notify admin about the scheduled appointment
+        await notificationService.notifyAdmins({
+          message: `Appointment scheduled for case: ${case_.title} - ${new Date(slot.startTime).toLocaleString()}`,
+          type: 'case_scheduled',
+          title: 'Appointment Scheduled',
+          subject: 'Maintenance Appointment Scheduled',
+          caseId: case_.id,
+          orgId: case_.orgId
+        }, case_.orgId);
       } else {
         // Update case to indicate it's awaiting landlord review
         await storage.updateSmartCase(case_.id, { status: "In Review" });
