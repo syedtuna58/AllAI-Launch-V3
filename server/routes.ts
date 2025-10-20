@@ -2137,19 +2137,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isCompleted = req.body.status === 'Resolved' || req.body.status === 'Closed';
         const notificationType = isCompleted ? 'case_completed' : 'case_updated';
         
-        // Notify admin about status change
-        await notificationService.notifyAdmins({
-          message: isCompleted 
-            ? `Maintenance case "${smartCase.title}" has been completed!`
-            : `Case "${smartCase.title}" status changed from ${oldCase.status} to ${req.body.status}`,
-          type: notificationType,
-          title: isCompleted ? 'Case Completed' : 'Case Status Updated',
-          subject: isCompleted ? 'Maintenance Case Completed' : 'Maintenance Case Status Updated',
-          caseId: smartCase.id,
-          orgId: smartCase.orgId
-        }, smartCase.orgId);
+        // Get approval policy to check involvement mode
+        const policies = await storage.getApprovalPolicies(smartCase.orgId);
+        const adminPolicy = policies.find(p => p.isActive);
+        const involvementMode = adminPolicy?.involvementMode || 'hands-on';
+        
+        // In hands-off mode: only notify admin for completion, not for in-progress updates
+        // In hands-on/balanced modes: notify admin for all status changes
+        const shouldNotifyAdmin = involvementMode !== 'hands-off' || isCompleted;
+        
+        if (shouldNotifyAdmin) {
+          await notificationService.notifyAdmins({
+            message: isCompleted 
+              ? `Maintenance case "${smartCase.title}" has been completed!`
+              : `Case "${smartCase.title}" status changed from ${oldCase.status} to ${req.body.status}`,
+            type: notificationType,
+            title: isCompleted ? 'Case Completed' : 'Case Status Updated',
+            subject: isCompleted ? 'Maintenance Case Completed' : 'Maintenance Case Status Updated',
+            caseId: smartCase.id,
+            orgId: smartCase.orgId
+          }, smartCase.orgId);
+        }
 
-        // Notify tenant if they exist
+        // Always notify tenant for all status changes
         if (smartCase.reporterUserId) {
           const reporterUser = await storage.getUser(smartCase.reporterUserId);
           if (reporterUser?.email) {
