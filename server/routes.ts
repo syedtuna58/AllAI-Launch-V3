@@ -1995,17 +1995,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`📎 Attached ${mediaUrls.length} media file(s) to case ${smartCase.id}`);
       }
 
-      // Notify admin about new case
+      // Get admin approval policy to check involvement mode
       const { notificationService } = await import('./notificationService');
-      await notificationService.notifyAdmins({
-        message: `New maintenance request: ${smartCase.title}`,
-        type: 'case_created',
-        title: 'New Maintenance Case',
-        subject: 'New Maintenance Case Created',
-        caseId: smartCase.id,
-        caseNumber: smartCase.id,
-        priority: smartCase.priority || 'Medium'
-      }, org.id);
+      const adminPolicy = await storage.getAdminApprovalPolicy(org.id);
+      const involvementMode = adminPolicy?.involvementMode || 'hands-on';
+      
+      // Only notify admin at case creation if hands-on or balanced (not hands-off)
+      if (involvementMode !== 'hands-off') {
+        await notificationService.notifyAdmins({
+          message: `Action Required - New maintenance request: ${smartCase.title}`,
+          type: 'case_created',
+          title: 'Action Required: New Maintenance Case',
+          subject: 'Action Required: New Maintenance Case Created',
+          caseId: smartCase.id,
+          caseNumber: smartCase.id,
+          priority: smartCase.priority || 'Medium'
+        }, org.id);
+      }
 
       // If creator has user account (tenant), notify them their request was received
       const creator = await storage.getUser(userId);

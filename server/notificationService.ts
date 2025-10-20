@@ -241,9 +241,16 @@ class NotificationService {
     try {
       const storage = (await import('./storage.js')).storage;
 
-      const contractor = await storage.getUser(contractorId);
+      // contractorId is actually a vendor ID, need to look up the vendor first
+      const vendor = await storage.getContractor(contractorId);
+      if (!vendor || !vendor.userId) {
+        console.error(`❌ Contractor vendor ${contractorId} not found or has no userId`);
+        return;
+      }
+
+      const contractor = await storage.getUser(vendor.userId);
       if (!contractor) {
-        console.error(`❌ Contractor ${contractorId} not found`);
+        console.error(`❌ Contractor user ${vendor.userId} not found`);
         return;
       }
 
@@ -260,7 +267,7 @@ class NotificationService {
       // Save notification to database for bell icon history
       promises.push(
         storage.createNotification(
-          contractorId,
+          vendor.userId,
           notification.title || notification.subject || 'Notification',
           notification.message,
           notification.type,
@@ -269,7 +276,7 @@ class NotificationService {
         )
       );
 
-      this.sendWebSocketNotification(contractorId, notification, orgId);
+      this.sendWebSocketNotification(vendor.userId, notification, orgId);
 
       await Promise.allSettled(promises);
       console.log(`✅ Contractor notifications dispatched for ${notification.type}`);
