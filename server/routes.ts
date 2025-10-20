@@ -1997,7 +1997,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get admin approval policy to check involvement mode
       const { notificationService } = await import('./notificationService');
-      const adminPolicy = await storage.getAdminApprovalPolicy(org.id);
+      const policies = await storage.getApprovalPolicies(org.id);
+      const adminPolicy = policies.find(p => p.isActive);
       const involvementMode = adminPolicy?.involvementMode || 'hands-on';
       
       // Only notify admin at case creation if hands-on or balanced (not hands-off)
