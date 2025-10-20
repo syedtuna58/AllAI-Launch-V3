@@ -272,7 +272,7 @@ class NotificationService {
           notification.message,
           notification.type,
           'contractor',
-          `${contractor.firstName || ''} ${contractor.lastName || ''}`.trim() || contractor.email || 'Contractor'
+          vendor.name || contractor.email || 'Contractor'
         )
       );
 
