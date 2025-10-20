@@ -222,7 +222,9 @@ class NotificationService {
           adminUser.id,
           notification.title || notification.subject || 'Notification',
           notification.message,
-          notification.type
+          notification.type,
+          'admin',
+          `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email
         )
       );
 
@@ -261,7 +263,9 @@ class NotificationService {
           contractorId,
           notification.title || notification.subject || 'Notification',
           notification.message,
-          notification.type
+          notification.type,
+          'contractor',
+          `${contractor.firstName || ''} ${contractor.lastName || ''}`.trim() || contractor.email || 'Contractor'
         )
       );
 
@@ -289,7 +293,9 @@ class NotificationService {
             tenantUserId,
             notification.title || notification.subject || 'Notification',
             notification.message,
-            notification.type
+            notification.type,
+            'tenant',
+            tenantEmail
           )
         );
         this.sendWebSocketNotification(tenantUserId, notification, orgId);

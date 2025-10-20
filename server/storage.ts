@@ -194,7 +194,7 @@ export interface IStorage {
   
   // Notification operations
   getUserNotifications(userId: string): Promise<Notification[]>;
-  createNotification(userId: string, title: string, message: string, type?: string): Promise<Notification>;
+  createNotification(userId: string, title: string, message: string, type?: string, targetRole?: string, targetName?: string): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<void>;
   
   // Dashboard operations
@@ -2367,10 +2367,10 @@ export class DatabaseStorage implements IStorage {
       .limit(50);
   }
 
-  async createNotification(userId: string, title: string, message: string, type = "info"): Promise<Notification> {
+  async createNotification(userId: string, title: string, message: string, type = "info", targetRole?: string, targetName?: string): Promise<Notification> {
     const [notification] = await db
       .insert(notifications)
-      .values({ userId, title, message, type })
+      .values({ userId, title, message, type, targetRole, targetName })
       .returning();
     return notification;
   }
