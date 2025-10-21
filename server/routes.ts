@@ -2164,10 +2164,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (smartCase.reporterUserId) {
           const reporterUser = await storage.getUser(smartCase.reporterUserId);
           if (reporterUser?.email) {
+            // Customize message based on status
+            let tenantMessage = `Your maintenance request "${smartCase.title}" status changed to: ${req.body.status}`;
+            if (isCompleted) {
+              tenantMessage = `Great news! Your maintenance request "${smartCase.title}" has been completed.`;
+            } else if (req.body.status === 'In Progress') {
+              tenantMessage = `Good news! The contractor has started working on your maintenance request "${smartCase.title}".`;
+            }
+            
             await notificationService.notifyTenant({
-              message: isCompleted
-                ? `Great news! Your maintenance request "${smartCase.title}" has been completed.`
-                : `Your maintenance request "${smartCase.title}" status changed to: ${req.body.status}`,
+              message: tenantMessage,
               type: notificationType,
               title: isCompleted ? 'Work Completed' : 'Request Updated',
               subject: isCompleted ? 'Maintenance Request Completed' : 'Maintenance Request Status Update',
