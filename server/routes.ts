@@ -5382,29 +5382,36 @@ Consider:
         
         const { notificationService } = await import('./notificationService');
         
-        // Notify admin
-        await notificationService.notifyAdmins({
-          message: `Contractor ${contractor?.name || 'Unknown'} submitted a proposal for case: ${smartCase.title}`,
-          type: 'case_scheduled',
-          subject: 'New Proposal Submitted',
-          title: 'New Proposal',
-          caseId: smartCase.id,
-          orgId: smartCase.orgId
-        }, smartCase.orgId);
-
-        // Notify tenant if available
+        // Get approval policy to check involvement mode
+        const policies = await storage.getApprovalPolicies(smartCase.orgId);
+        const adminPolicy = policies.find(p => p.isActive);
+        const involvementMode = adminPolicy?.involvementMode || 'hands-on';
+        
+        // Always notify tenant to select time slot
         if (smartCase.reporterUserId) {
           const reporterUser = await storage.getUser(smartCase.reporterUserId);
-          if (reporterUser?.email) {
-            await notificationService.notifyTenant({
-              message: `A contractor has submitted a proposal for your maintenance request: ${smartCase.title}`,
-              type: 'case_scheduled',
-              subject: 'New Proposal Available',
-              title: 'Proposal Received',
-              caseId: smartCase.id,
-              orgId: smartCase.orgId
-            }, reporterUser.email, smartCase.reporterUserId, smartCase.orgId);
-          }
+          const tenantEmail = reporterUser?.email || '';
+          await notificationService.notifyTenant({
+            message: `A contractor has submitted a proposal for your maintenance request "${smartCase.title}". Please review and select a time slot.`,
+            type: 'case_scheduled',
+            subject: 'Action Required: Select Time Slot',
+            title: 'Proposal Received',
+            caseId: smartCase.id,
+            orgId: smartCase.orgId
+          }, tenantEmail, smartCase.reporterUserId, smartCase.orgId);
+        }
+        
+        // In hands-on/balanced mode: notify admin about proposal (they may need to approve)
+        // In hands-off mode: don't notify admin yet (wait for tenant to select time slot)
+        if (involvementMode !== 'hands-off') {
+          await notificationService.notifyAdmins({
+            message: `Contractor ${contractor?.name || 'Unknown'} submitted a proposal for case: ${smartCase.title}`,
+            type: 'case_scheduled',
+            subject: 'New Proposal Submitted',
+            title: 'New Proposal',
+            caseId: smartCase.id,
+            orgId: smartCase.orgId
+          }, smartCase.orgId);
         }
       }
 
@@ -5809,6 +5816,31 @@ Consider:
           orgId: case_.orgId
         }, case_.orgId);
       } else {
+        // Manual approval required - notify admin and contractor
+        const { notificationService } = await import('./notificationService');
+        const scheduledDate = new Date(slot.startTime).toLocaleDateString();
+        const scheduledTime = new Date(slot.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        // Notify admin that tenant selected a time slot (needs approval)
+        await notificationService.notifyAdmins({
+          message: `Tenant has selected a time slot for case "${case_.title}" - ${scheduledDate} at ${scheduledTime}. Please review and approve.`,
+          type: 'case_scheduled',
+          title: 'Appointment Approval Needed',
+          subject: 'Action Required: Approve Appointment',
+          caseId: case_.id,
+          orgId: case_.orgId
+        }, case_.orgId);
+        
+        // Notify contractor that tenant selected their slot (pending approval)
+        await notificationService.notifyContractor({
+          message: `Tenant has selected your proposed time slot for "${case_.title}" - ${scheduledDate} at ${scheduledTime}. Awaiting landlord approval.`,
+          type: 'case_scheduled',
+          title: 'Time Slot Selected',
+          subject: 'Tenant Selected Your Proposed Time',
+          caseId: case_.id,
+          orgId: case_.orgId
+        }, proposal.contractorId, case_.orgId);
+        
         // Update case to indicate it's awaiting landlord review
         await storage.updateSmartCase(case_.id, { status: "In Review" });
       }
