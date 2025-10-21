@@ -5630,9 +5630,13 @@ Consider:
       const approvalPolicy = policies.find(p => p.isActive) || policies[0];
       const involvementMode = approvalPolicy?.involvementMode || 'hands-on';
       
+      console.log(`📋 Approval policy: ${JSON.stringify({ policies: policies.length, active: !!approvalPolicy, involvementMode })}`);
+      
       // Customize messages based on involvement mode
       const isHandsOff = involvementMode === 'hands-off';
       const requiresReview = involvementMode === 'hands-on' || involvementMode === 'balanced';
+      
+      console.log(`🔔 Notification plan: isHandsOff=${isHandsOff}, will notify tenant=${!!smartCase.reporterUserId}, will notify admin=${!isHandsOff}`);
       
       // Always notify tenant to select time slot
       if (smartCase.reporterUserId) {
