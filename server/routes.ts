@@ -1967,6 +1967,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cleanedData = {
         ...req.body,
         orgId: org.id,
+        reporterUserId: userId, // Track who created this case
         unitId: req.body.unitId === "" ? null : req.body.unitId,
         propertyId: req.body.propertyId === "" ? null : req.body.propertyId,
         description: req.body.description === "" ? null : req.body.description,
