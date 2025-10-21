@@ -5632,6 +5632,7 @@ Consider:
       const involvementMode = approvalPolicy?.involvementMode || 'hands-on';
       
       console.log(`📋 Approval policy: ${JSON.stringify({ policies: policies.length, active: !!approvalPolicy, involvementMode })}`);
+      console.log(`📋 Case details: reporterUserId="${smartCase.reporterUserId}", caseId="${smartCase.id}"`);
       
       // Customize messages based on involvement mode
       const isHandsOff = involvementMode === 'hands-off';
