@@ -5634,39 +5634,36 @@ Consider:
       const isHandsOff = involvementMode === 'hands-off';
       const requiresReview = involvementMode === 'hands-on' || involvementMode === 'balanced';
       
-      // Notify admin
-      await notificationService.notifyAdmins({
-        message: isHandsOff 
-          ? `FYI - Contractor ${contractor.name} submitted a proposal for case: ${smartCase.title} - $${estimatedCost || 'TBD'}, ${durationMinutes}min (auto-approval enabled)`
-          : `Action Required - Contractor ${contractor.name} submitted a proposal for case: ${smartCase.title} - $${estimatedCost || 'TBD'}, ${durationMinutes}min`,
-        type: 'case_scheduled',
-        subject: isHandsOff ? 'FYI: New Proposal Submitted' : 'Action Required: Review Proposal',
-        title: isHandsOff ? 'New Proposal (Auto-Approval)' : 'New Proposal - Review Needed',
-        caseId: smartCase.id,
-        orgId: smartCase.orgId
-      }, smartCase.orgId);
-
-      // Notify tenant
+      // Always notify tenant to select time slot
       if (smartCase.reporterUserId) {
         const reporterUser = await storage.getUser(smartCase.reporterUserId);
-        if (reporterUser?.email) {
-          await notificationService.notifyTenant(
-            {
-              message: requiresReview
-                ? `Action Required - Please select a time slot for your maintenance request: ${smartCase.title}. Contractor ${contractor.name} has proposed 3 options.`
-                : `Contractor ${contractor.name} has proposed 3 time slots for your maintenance request: ${smartCase.title}. Please select your preferred time.`,
-              type: 'case_scheduled',
-              subject: requiresReview ? 'Action Required: Select Appointment Time' : 'New Appointment Options Available',
-              title: requiresReview ? 'Choose Your Appointment' : 'New Appointment Options',
-              caseId: smartCase.id,
-              orgId: smartCase.orgId
-            },
-            reporterUser.email,
-            smartCase.reporterUserId,
-            smartCase.orgId
-          );
-          console.log(`✅ Tenant notified about proposal for case ${smartCase.id}`);
-        }
+        const tenantEmail = reporterUser?.email || '';
+        await notificationService.notifyTenant(
+          {
+            message: `Contractor ${contractor.name} has proposed 3 time slots for your maintenance request: ${smartCase.title}. Please select your preferred time.`,
+            type: 'case_scheduled',
+            subject: 'Action Required: Select Appointment Time',
+            title: 'Choose Your Appointment',
+            caseId: smartCase.id,
+            orgId: smartCase.orgId
+          },
+          tenantEmail,
+          smartCase.reporterUserId,
+          smartCase.orgId
+        );
+        console.log(`✅ Tenant notified about proposal for case ${smartCase.id}`);
+      }
+      
+      // Only notify admin in hands-on/balanced mode (not in hands-off)
+      if (!isHandsOff) {
+        await notificationService.notifyAdmins({
+          message: `Action Required - Contractor ${contractor.name} submitted a proposal for case: ${smartCase.title} - $${estimatedCost || 'TBD'}, ${durationMinutes}min`,
+          type: 'case_scheduled',
+          subject: 'Action Required: Review Proposal',
+          title: 'New Proposal - Review Needed',
+          caseId: smartCase.id,
+          orgId: smartCase.orgId
+        }, smartCase.orgId);
       }
 
       res.json({
