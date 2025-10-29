@@ -41,6 +41,7 @@ import {
   equipmentFailures,
   predictiveInsights,
   channelSettings,
+  equipment,
   type User,
   type UpsertUser,
   type Organization,
@@ -105,6 +106,8 @@ import {
   type InsertPredictiveInsight,
   type ChannelSettings,
   type InsertChannelSettings,
+  type Equipment,
+  type InsertEquipment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
@@ -324,6 +327,14 @@ export interface IStorage {
   // Channel Settings operations
   getChannelSettings(orgId: string): Promise<ChannelSettings | undefined>;
   updateChannelSettings(orgId: string, settings: Partial<InsertChannelSettings>): Promise<ChannelSettings>;
+  
+  // Equipment operations
+  getEquipment(propertyId: string): Promise<Equipment[]>;
+  getEquipmentById(id: string): Promise<Equipment | undefined>;
+  createEquipment(equipment: InsertEquipment): Promise<Equipment>;
+  updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment>;
+  deleteEquipment(id: string): Promise<void>;
+  getOrgEquipment(orgId: string): Promise<Equipment[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3226,6 +3237,41 @@ export class DatabaseStorage implements IStorage {
     }
     
     return updated;
+  }
+
+  // Equipment operations
+  async getEquipment(propertyId: string): Promise<Equipment[]> {
+    return db.select().from(equipment)
+      .where(eq(equipment.propertyId, propertyId))
+      .orderBy(asc(equipment.equipmentType));
+  }
+
+  async getEquipmentById(id: string): Promise<Equipment | undefined> {
+    const [result] = await db.select().from(equipment).where(eq(equipment.id, id));
+    return result;
+  }
+
+  async createEquipment(equipmentData: InsertEquipment): Promise<Equipment> {
+    const [created] = await db.insert(equipment).values(equipmentData).returning();
+    return created;
+  }
+
+  async updateEquipment(id: string, equipmentData: Partial<InsertEquipment>): Promise<Equipment> {
+    const [updated] = await db.update(equipment)
+      .set({ ...equipmentData, updatedAt: new Date() })
+      .where(eq(equipment.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteEquipment(id: string): Promise<void> {
+    await db.delete(equipment).where(eq(equipment.id, id));
+  }
+
+  async getOrgEquipment(orgId: string): Promise<Equipment[]> {
+    return db.select().from(equipment)
+      .where(eq(equipment.orgId, orgId))
+      .orderBy(asc(equipment.equipmentType));
   }
 }
 
