@@ -24,15 +24,15 @@ export default function Financial() {
         </TabsList>
         
         <TabsContent value="expenses" className="mt-0">
-          <Expenses embedded />
+          <Expenses />
         </TabsContent>
         
         <TabsContent value="revenue" className="mt-0">
-          <Revenue embedded />
+          <Revenue />
         </TabsContent>
         
         <TabsContent value="tax" className="mt-0">
-          <Tax embedded />
+          <Tax />
         </TabsContent>
       </Tabs>
     </div>

@@ -19,11 +19,11 @@ export default function Portfolio() {
         </TabsList>
         
         <TabsContent value="properties" className="mt-0">
-          <Properties embedded />
+          <Properties />
         </TabsContent>
         
         <TabsContent value="entities" className="mt-0">
-          <Entities embedded />
+          <Entities />
         </TabsContent>
       </Tabs>
     </div>
