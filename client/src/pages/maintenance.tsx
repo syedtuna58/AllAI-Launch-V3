@@ -20,11 +20,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
-import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
+import type { SmartCase, Property, OwnershipEntity, Unit, PredictiveInsight } from "@shared/schema";
 import { format } from "date-fns";
 import PropertyAssistant from "@/components/ai/property-assistant";
 import { useRole } from "@/contexts/RoleContext";
@@ -138,7 +138,7 @@ export default function Maintenance() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
-  const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list">("cards");
+  const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list" | "insights">("cards");
   const [acceptingCase, setAcceptingCase] = useState<SmartCase | null>(null);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
@@ -188,6 +188,12 @@ export default function Maintenance() {
   const { data: contractorProfile } = useQuery<any>({
     queryKey: ["/api/contractors/me"],
     enabled: role === "contractor",
+    retry: false,
+  });
+
+  // Fetch predictive insights
+  const { data: insights = [] } = useQuery<PredictiveInsight[]>({
+    queryKey: ['/api/predictive-insights'],
     retry: false,
   });
 
@@ -1150,6 +1156,55 @@ export default function Maintenance() {
             }}
           />
 
+          {/* Predictive Insights Banner */}
+          {insights.length > 0 && (
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 mb-6" data-testid="card-insights-banner">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    <CardTitle>Predictive Maintenance Insights</CardTitle>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setCurrentView('insights')}
+                    data-testid="button-view-all-insights-banner"
+                  >
+                    View All Insights
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {[...insights]
+                    .sort((a, b) => parseFloat(b.confidence || '0') - parseFloat(a.confidence || '0'))
+                    .slice(0, 3)
+                    .map((insight) => (
+                      <div 
+                        key={insight.id} 
+                        className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg"
+                        data-testid={`insight-banner-${insight.id}`}
+                      >
+                        <Target className="h-4 w-4 mt-1 text-blue-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium line-clamp-2">{insight.prediction}</p>
+                          {insight.predictedDate && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
+                            </p>
+                          )}
+                          <Badge variant="outline" className="text-xs mt-2">
+                            {Math.round(parseFloat(insight.confidence ?? '0') * 100)}% confidence
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Summary Bar and View Toggle */}
           <div className="bg-background border rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
@@ -1228,6 +1283,15 @@ export default function Maintenance() {
                 >
                   <BarChart3 className="h-4 w-4 mr-1" />
                   Kanban
+                </Button>
+                <Button
+                  variant={currentView === "insights" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("insights")}
+                  data-testid="button-view-insights"
+                >
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  Insights
                 </Button>
               </div>
             </div>
@@ -1872,6 +1936,238 @@ export default function Maintenance() {
                   </div>
                 </div>
                 </VisualizationErrorBoundary>
+              )}
+
+              {/* Insights View */}
+              {currentView === "insights" && (
+                <div className="space-y-6">
+                  {insights.length > 0 ? (
+                    <>
+                      {/* Equipment Failure Predictions */}
+                      {insights.filter(i => i.insightType === 'equipment_failure').length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <Wrench className="h-5 w-5 text-red-600" />
+                            Equipment Failure Predictions
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {insights
+                              .filter(i => i.insightType === 'equipment_failure')
+                              .map((insight) => (
+                                <Card key={insight.id} className="hover:shadow-md transition-shadow" data-testid={`insight-card-${insight.id}`}>
+                                  <CardHeader>
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        <Wrench className="h-5 w-5 text-red-600 mt-1" />
+                                        <div className="flex-1">
+                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
+                                          {insight.reasoning && (
+                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <Badge variant={parseFloat(insight.confidence ?? '0') >= 0.8 ? "default" : "secondary"}>
+                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
+                                      </Badge>
+                                    </div>
+                                  </CardHeader>
+                                  <CardContent className="space-y-3">
+                                    <div className="grid grid-cols-3 gap-4 text-sm">
+                                      {insight.predictedDate && (
+                                        <div className="flex items-center gap-2">
+                                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">Predicted Date</p>
+                                            <p className="font-medium">{format(new Date(insight.predictedDate), 'MMM d, yyyy')}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {insight.estimatedCost && (
+                                        <div className="flex items-center gap-2">
+                                          <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">Estimated Cost</p>
+                                            <p className="font-medium">${Math.round(parseFloat(insight.estimatedCost))}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {insight.basedOnDataPoints && (
+                                        <div className="flex items-center gap-2">
+                                          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                                          <div>
+                                            <p className="text-xs text-muted-foreground">Based On</p>
+                                            <p className="font-medium">{insight.basedOnDataPoints} data points</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {insight.recommendations && insight.recommendations.length > 0 && (
+                                      <div className="pt-3 border-t">
+                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                          {insight.recommendations.map((rec: string, idx: number) => (
+                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* High Maintenance Units */}
+                      {insights.filter(i => i.insightType === 'high_maintenance_unit').length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-orange-600" />
+                            High Maintenance Units
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {insights
+                              .filter(i => i.insightType === 'high_maintenance_unit')
+                              .map((insight) => (
+                                <Card key={insight.id} className="hover:shadow-md transition-shadow">
+                                  <CardHeader>
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        <AlertTriangle className="h-5 w-5 text-orange-600 mt-1" />
+                                        <div className="flex-1">
+                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
+                                          {insight.reasoning && (
+                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <Badge variant="secondary">
+                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
+                                      </Badge>
+                                    </div>
+                                  </CardHeader>
+                                  <CardContent className="space-y-3">
+                                    {insight.recommendations && insight.recommendations.length > 0 && (
+                                      <div>
+                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                          {insight.recommendations.map((rec: string, idx: number) => (
+                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Problematic Contractors */}
+                      {insights.filter(i => i.insightType === 'problematic_contractor').length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-blue-600" />
+                            Contractor Performance Insights
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {insights
+                              .filter(i => i.insightType === 'problematic_contractor')
+                              .map((insight) => (
+                                <Card key={insight.id} className="hover:shadow-md transition-shadow">
+                                  <CardHeader>
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        <TrendingUp className="h-5 w-5 text-blue-600 mt-1" />
+                                        <div className="flex-1">
+                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
+                                          {insight.reasoning && (
+                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <Badge variant="outline">
+                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
+                                      </Badge>
+                                    </div>
+                                  </CardHeader>
+                                  <CardContent className="space-y-3">
+                                    {insight.recommendations && insight.recommendations.length > 0 && (
+                                      <div>
+                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                          {insight.recommendations.map((rec: string, idx: number) => (
+                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Other Insights */}
+                      {insights.filter(i => !['equipment_failure', 'high_maintenance_unit', 'problematic_contractor'].includes(i.insightType)).length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <Target className="h-5 w-5 text-purple-600" />
+                            Other Insights
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {insights
+                              .filter(i => !['equipment_failure', 'high_maintenance_unit', 'problematic_contractor'].includes(i.insightType))
+                              .map((insight) => (
+                                <Card key={insight.id} className="hover:shadow-md transition-shadow">
+                                  <CardHeader>
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex items-start gap-3 flex-1">
+                                        <Target className="h-5 w-5 text-purple-600 mt-1" />
+                                        <div className="flex-1">
+                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
+                                          {insight.reasoning && (
+                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <Badge variant="outline">
+                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
+                                      </Badge>
+                                    </div>
+                                  </CardHeader>
+                                  <CardContent className="space-y-3">
+                                    {insight.recommendations && insight.recommendations.length > 0 && (
+                                      <div>
+                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                          {insight.recommendations.map((rec: string, idx: number) => (
+                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    )}
+                                  </CardContent>
+                                </Card>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-12 text-center">
+                        <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No Insights Available</h3>
+                        <p className="text-muted-foreground">
+                          Predictive insights will appear here once there's enough historical maintenance data to analyze.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
               )}
             </>
           ) : (
