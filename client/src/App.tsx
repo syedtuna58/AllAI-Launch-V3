@@ -25,6 +25,7 @@ import Reminders from "@/pages/reminders";
 import Categories from "@/pages/categories";
 import Messages from "@/pages/messages";
 import ApprovalSettings from "@/pages/approval-settings";
+import PromptTester from "@/pages/prompt-tester";
 import NotFound from "@/pages/not-found";
 
 function RoleBasedHome() {
@@ -83,6 +84,7 @@ function Router() {
           <Route path="/categories" component={Categories} />
           <Route path="/messages" component={Messages} />
           <Route path="/approval-settings" component={ApprovalSettings} />
+          <Route path="/prompt-tester" component={PromptTester} />
           <Route component={NotFound} />
         </>
       )}
