@@ -3,35 +3,32 @@ import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/contexts/RoleContext";
+import { useDevMode } from "@/contexts/DevModeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserProfileForm from "@/components/forms/user-profile-form";
-import { Building, Home, Users, Wrench, Receipt, DollarSign, Bell, Settings, Building2, User, LogOut, ChevronDown, Calculator, ClipboardList, MessageSquare, ShieldCheck, Calendar, TestTube2, MessageCircle, Inbox, TrendingUp } from "lucide-react";
+import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, ClipboardList, MessageSquare, Calendar, TestTube2, MessageCircle, Inbox } from "lucide-react";
 
 export default function Sidebar() {
   const [location] = useLocation();
   const { user } = useAuth();
   const { currentRole } = useRole();
+  const { devModeEnabled } = useDevMode();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   const adminNavigation = [
     { name: "Dashboard", href: "/", icon: Home },
-    { name: "Inbox (AI Command)", href: "/inbox", icon: Inbox },
-    { name: "Predictive Insights", href: "/predictive-insights", icon: TrendingUp },
-    { name: "Channel Settings", href: "/channel-settings", icon: Settings },
-    { name: "My Properties", href: "/properties", icon: Building },
-    { name: "Entities", href: "/entities", icon: Building2 },
+    { name: "Inbox", href: "/inbox", icon: Inbox },
+    { name: "Portfolio", href: "/portfolio", icon: Building },
     { name: "Tenants", href: "/tenants", icon: Users },
     { name: "Maintenance", href: "/maintenance", icon: Wrench },
-    { name: "Internal Messages", href: "/messages", icon: MessageSquare },
-    { name: "Categories", href: "/categories", icon: Settings },
-    { name: "Approval Settings", href: "/approval-settings", icon: ShieldCheck },
+    { name: "Financial", href: "/financial", icon: DollarSign },
+    { name: "Reminders", href: "/reminders", icon: Calendar },
+  ];
+
+  const devToolsNavigation = [
     { name: "AI Prompt Tester", href: "/prompt-tester", icon: TestTube2 },
     { name: "Maya Chat Tester", href: "/maya-tester", icon: MessageCircle },
-    { name: "Expenses", href: "/expenses", icon: Receipt },
-    { name: "Revenue", href: "/revenue", icon: DollarSign },
-    { name: "Tax", href: "/tax", icon: Calculator },
-    { name: "Reminders", href: "/reminders", icon: Calendar },
   ];
 
   const contractorNavigation = [
@@ -45,11 +42,16 @@ export default function Sidebar() {
     { name: "My Requests", href: "/maintenance", icon: ClipboardList },
   ];
 
-  const navigation = currentRole === 'admin' 
+  let navigation = currentRole === 'admin' 
     ? adminNavigation 
     : currentRole === 'contractor'
     ? contractorNavigation
     : tenantNavigation;
+
+  // Add dev tools if dev mode is enabled (admin only)
+  if (currentRole === 'admin' && devModeEnabled) {
+    navigation = [...navigation, ...devToolsNavigation];
+  }
 
   const isActive = (path: string) => {
     if (path === "/" && location === "/") return true;

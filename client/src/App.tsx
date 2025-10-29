@@ -5,10 +5,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { RoleProvider, useRole } from "@/contexts/RoleContext";
+import { DevModeProvider } from "@/contexts/DevModeContext";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import Properties from "@/pages/properties";
 import Entities from "@/pages/entities";
+import Portfolio from "@/pages/portfolio";
+import Financial from "@/pages/financial";
 import EntityPerformance from "@/pages/entity-performance";
 import PropertyPerformance from "@/pages/property-performance";
 import Tenants from "@/pages/tenants";
@@ -70,6 +73,8 @@ function Router() {
       ) : (
         <>
           <Route path="/" component={RoleBasedHome} />
+          <Route path="/portfolio" component={Portfolio} />
+          <Route path="/financial" component={Financial} />
           <Route path="/properties" component={Properties} />
           <Route path="/properties/:id/performance" component={PropertyPerformance} />
           <Route path="/entities" component={Entities} />
@@ -105,8 +110,10 @@ function AppWithProviders() {
   
   return (
     <RoleProvider defaultRole="admin" userId={user?.id}>
-      <Toaster />
-      <Router />
+      <DevModeProvider>
+        <Toaster />
+        <Router />
+      </DevModeProvider>
     </RoleProvider>
   );
 }

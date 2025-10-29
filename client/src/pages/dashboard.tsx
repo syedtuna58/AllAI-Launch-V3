@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Building, DollarSign, AlertTriangle, Bell, Check, Clock, X, Receipt, Users, Wrench, Bot } from "lucide-react";
+import { Building, DollarSign, AlertTriangle, Bell, Check, Clock, X, Receipt, Users, Wrench, Bot, TrendingUp, Target } from "lucide-react";
+import { format } from "date-fns";
 import type { SmartCase, Reminder, Property, OwnershipEntity, Unit } from "@shared/schema";
 import PropertyAssistant from "@/components/ai/property-assistant";
 import CasesWidget from "@/components/widgets/cases-widget";
@@ -84,6 +85,11 @@ export default function Dashboard() {
 
   const { data: units } = useQuery<Unit[]>({
     queryKey: ["/api/units"],
+    retry: false,
+  });
+
+  const { data: insights = [] } = useQuery({
+    queryKey: ['/api/predictive-insights'],
     retry: false,
   });
 
@@ -209,6 +215,46 @@ export default function Dashboard() {
               "Which property is my best performer?"
             ]}
           />
+
+          {/* Predictive Insights Summary */}
+          {insights.length > 0 && (
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950" data-testid="card-predictive-insights">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    <CardTitle>Predictive Insights</CardTitle>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => window.location.href = '/predictive-insights'} data-testid="button-view-all-insights">
+                    View All
+                  </Button>
+                </div>
+                <CardDescription>
+                  AI-powered predictions based on historical data
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {insights.slice(0, 3).map((insight: any) => (
+                    <div key={insight.id} className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg">
+                      <Target className="h-4 w-4 mt-1 text-blue-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{insight.prediction}</p>
+                        {insight.predictedDate && (
+                          <p className="text-xs text-muted-foreground">
+                            Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {Math.round(parseFloat(insight.confidence || 0) * 100)}%
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Main Dashboard Grid - New Layout: Cases Left, Reminders/Notifications Right */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-32rem)]">

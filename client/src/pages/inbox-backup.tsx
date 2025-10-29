@@ -4,13 +4,13 @@ import Header from "@/components/layout/header";
 import Messages from "@/pages/messages";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Mail, Phone, MessageSquare, Globe, AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { format } from "date-fns";
 
-// Omnichannel component (external communications)
-function OmnichannelView() {
+export default function Inbox() {
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ['/api/inbox'],
   });
@@ -126,32 +126,54 @@ function OmnichannelView() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="container mx-auto p-6">
+        <div className="flex items-center justify-center h-64">
+          <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">📬 AI Command Center</h2>
-          <p className="text-muted-foreground">
-            Unified communications inbox - All channels in one place
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950" data-testid="total-messages">
-            {messages.length} Total Messages
-          </Badge>
-          <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950" data-testid="unreplied-count">
-            {messages.filter((m: any) => !m.mayaResponseSent).length} Need Response
-          </Badge>
-        </div>
-      </div>
+    <div className="flex h-screen bg-background" data-testid="page-inbox">
+      <Sidebar />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Inbox" />
+        
+        <main className="flex-1 overflow-auto p-6 bg-muted/30">
+          <Tabs defaultValue="external" className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+              <TabsTrigger value="external" data-testid="tab-external">
+                <Globe className="h-4 w-4 mr-2" />
+                External (Omnichannel)
+              </TabsTrigger>
+              <TabsTrigger value="internal" data-testid="tab-internal">
+                <Users className="h-4 w-4 mr-2" />
+                Internal (Team)
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="external" className="mt-0">
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight">📬 AI Command Center</h2>
+                    <p className="text-muted-foreground">
+                      Unified communications inbox - All channels in one place
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950" data-testid="total-messages">
+                      {messages.length} Total Messages
+                    </Badge>
+                    <Badge variant="outline" className="bg-yellow-50 dark:bg-yellow-950" data-testid="unreplied-count">
+                      {messages.filter((m: any) => !m.mayaResponseSent).length} Need Response
+                    </Badge>
+                  </div>
+                </div>
 
-      <Tabs defaultValue="all" className="w-full">
+                <Tabs defaultValue="all" className="w-full">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all" data-testid="tab-all">
             All ({messages.length})
@@ -228,35 +250,8 @@ function OmnichannelView() {
             </ScrollArea>
           </TabsContent>
         ))}
-      </Tabs>
-    </div>
-  );
-}
-
-// Main Inbox page with External/Internal tabs
-export default function Inbox() {
-  return (
-    <div className="flex h-screen bg-background" data-testid="page-inbox">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Inbox" />
-        
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <Tabs defaultValue="external" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-              <TabsTrigger value="external" data-testid="tab-external">
-                <Globe className="h-4 w-4 mr-2" />
-                External (Omnichannel)
-              </TabsTrigger>
-              <TabsTrigger value="internal" data-testid="tab-internal">
-                <Users className="h-4 w-4 mr-2" />
-                Internal (Team)
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="external" className="mt-0">
-              <OmnichannelView />
+                </Tabs>
+              </div>
             </TabsContent>
             
             <TabsContent value="internal" className="mt-0">
