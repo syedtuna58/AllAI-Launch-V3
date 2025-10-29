@@ -4,8 +4,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
 import RevenueForm from "@/components/forms/revenue-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -438,18 +436,12 @@ export default function Revenue() {
   }));
 
   return (
-    <div className="flex h-screen bg-background" data-testid="page-revenue">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Revenue" />
-        
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Revenue</h1>
-              <p className="text-muted-foreground">Track rental income and other property revenue</p>
-            </div>
+    <div className="space-y-6" data-testid="page-revenue">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Revenue</h1>
+          <p className="text-muted-foreground">Track rental income and other property revenue</p>
+        </div>
             
             <div className="flex items-center space-x-3">
               {/* Entity Filter - First */}
@@ -1556,8 +1548,6 @@ export default function Revenue() {
               </Card>
             </TabsContent>
           </Tabs>
-        </main>
-      </div>
 
       {/* Partial Payment Dialog */}
       <Dialog open={partialPaymentDialog?.open || false} onOpenChange={(open) => !open && setPartialPaymentDialog(null)}>

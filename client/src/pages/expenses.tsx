@@ -4,8 +4,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
 import ExpenseForm from "@/components/forms/expense-form";
 import MortgageAdjustmentForm from "@/components/forms/mortgage-adjustment-form";
 import ReminderForm from "@/components/forms/reminder-form";
@@ -473,18 +471,12 @@ export default function Expenses() {
   const timelineEntries = Object.values(timelineData).sort((a, b) => b.date.getTime() - a.date.getTime());
 
   return (
-    <div className="flex h-screen bg-background" data-testid="page-expenses">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Expenses" />
-        
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Expenses</h1>
-              <p className="text-muted-foreground">Track and categorize property expenses</p>
-            </div>
+    <div className="space-y-6" data-testid="page-expenses">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Expenses</h1>
+          <p className="text-muted-foreground">Track and categorize property expenses</p>
+        </div>
             
             <div className="flex items-center space-x-3">
               {/* Entity Filter - First */}
@@ -1531,8 +1523,6 @@ export default function Expenses() {
               )}
             </TabsContent>
           </Tabs>
-        </main>
-      </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteExpenseId} onOpenChange={() => setDeleteExpenseId(null)}>

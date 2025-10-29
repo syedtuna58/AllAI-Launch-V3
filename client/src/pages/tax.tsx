@@ -3,8 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -126,22 +124,15 @@ export default function Tax() {
 - Tax Readiness: ${uncategorizedExpenses.length === 0 ? 'Ready for Schedule E preparation' : 'Needs expense categorization'}`;
 
   return (
-    <div className="flex h-screen bg-background" data-testid="page-tax">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Tax Center" />
-        
-        <main className="flex-1 overflow-y-auto">
-          <div className="container mx-auto p-6 space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight">Tax Center</h1>
-                <p className="text-muted-foreground mt-1">
-                  Schedule E preparation, depreciation tracking, and 1099 reporting
-                </p>
-              </div>
+    <div className="space-y-6" data-testid="page-tax">
+      {/* Header */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Tax Center</h1>
+          <p className="text-muted-foreground mt-1">
+            Schedule E preparation, depreciation tracking, and 1099 reporting
+          </p>
+        </div>
               <div className="flex gap-2">
                 <Button variant="outline" data-testid="button-export-all">
                   <Download className="h-4 w-4 mr-2" />
@@ -498,22 +489,19 @@ export default function Tax() {
                 </Card>
               </TabsContent>
             </Tabs>
-          </div>
-        </main>
 
-        {/* Mortgage Adjustment Dialog */}
-        <Dialog open={showMortgageAdjustment} onOpenChange={setShowMortgageAdjustment}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Mortgage Interest Adjustment</DialogTitle>
-            </DialogHeader>
-            <MortgageAdjustmentForm 
-              properties={properties}
-              onClose={() => setShowMortgageAdjustment(false)}
-            />
-          </DialogContent>
-        </Dialog>
-      </div>
+      {/* Mortgage Adjustment Dialog */}
+      <Dialog open={showMortgageAdjustment} onOpenChange={setShowMortgageAdjustment}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Mortgage Interest Adjustment</DialogTitle>
+          </DialogHeader>
+          <MortgageAdjustmentForm 
+            properties={properties}
+            onClose={() => setShowMortgageAdjustment(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
