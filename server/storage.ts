@@ -37,6 +37,10 @@ import {
   approvalPolicies,
   appointmentProposals,
   proposalSlots,
+  channelMessages,
+  equipmentFailures,
+  predictiveInsights,
+  channelSettings,
   type User,
   type UpsertUser,
   type Organization,
@@ -93,6 +97,14 @@ import {
   type InsertAppointmentProposal,
   type ProposalSlot,
   type InsertProposalSlot,
+  type ChannelMessage,
+  type InsertChannelMessage,
+  type EquipmentFailure,
+  type InsertEquipmentFailure,
+  type PredictiveInsight,
+  type InsertPredictiveInsight,
+  type ChannelSettings,
+  type InsertChannelSettings,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
@@ -293,6 +305,25 @@ export interface IStorage {
   getProposalSlot(id: string): Promise<ProposalSlot | undefined>;
   createProposalSlot(slot: InsertProposalSlot): Promise<ProposalSlot>;
   deleteProposalSlot(id: string): Promise<void>;
+  
+  // Omnichannel Communication operations
+  getChannelMessages(orgId: string, filters?: { channelType?: string; status?: string; tenantId?: string; contractorId?: string; externalId?: string }): Promise<ChannelMessage[]>;
+  getChannelMessage(id: string): Promise<ChannelMessage | undefined>;
+  createChannelMessage(message: InsertChannelMessage): Promise<ChannelMessage>;
+  updateChannelMessage(id: string, message: Partial<InsertChannelMessage>): Promise<ChannelMessage>;
+  
+  // Equipment Failure operations
+  getEquipmentFailures(orgId: string, filters?: { equipmentType?: string; propertyId?: string; unitId?: string }): Promise<EquipmentFailure[]>;
+  createEquipmentFailure(failure: InsertEquipmentFailure): Promise<EquipmentFailure>;
+  
+  // Predictive Insights operations
+  getPredictiveInsights(orgId: string, filters?: { isActive?: boolean; insightType?: string }): Promise<PredictiveInsight[]>;
+  createPredictiveInsight(insight: InsertPredictiveInsight): Promise<PredictiveInsight>;
+  updatePredictiveInsight(id: string, insight: Partial<InsertPredictiveInsight>): Promise<PredictiveInsight>;
+  
+  // Channel Settings operations
+  getChannelSettings(orgId: string): Promise<ChannelSettings | undefined>;
+  updateChannelSettings(orgId: string, settings: Partial<InsertChannelSettings>): Promise<ChannelSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3078,6 +3109,123 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProposalSlot(id: string): Promise<void> {
     await db.delete(proposalSlots).where(eq(proposalSlots.id, id));
+  }
+
+  // Omnichannel Communication operations
+  async getChannelMessages(orgId: string, filters?: { channelType?: string; status?: string; tenantId?: string; contractorId?: string; externalId?: string }): Promise<ChannelMessage[]> {
+    // If searching by externalId, skip orgId filter since externalId is unique
+    let query = filters?.externalId 
+      ? db.select().from(channelMessages)
+      : db.select().from(channelMessages).where(eq(channelMessages.orgId, orgId));
+    
+    if (filters?.channelType) {
+      query = query.where(eq(channelMessages.channelType, filters.channelType as any));
+    }
+    if (filters?.status) {
+      query = query.where(eq(channelMessages.status, filters.status as any));
+    }
+    if (filters?.tenantId) {
+      query = query.where(eq(channelMessages.tenantId, filters.tenantId));
+    }
+    if (filters?.contractorId) {
+      query = query.where(eq(channelMessages.contractorId, filters.contractorId));
+    }
+    if (filters?.externalId) {
+      query = query.where(eq(channelMessages.externalId, filters.externalId));
+    }
+    
+    return query.orderBy(desc(channelMessages.createdAt));
+  }
+
+  async getChannelMessage(id: string): Promise<ChannelMessage | undefined> {
+    const [message] = await db.select().from(channelMessages).where(eq(channelMessages.id, id));
+    return message;
+  }
+
+  async createChannelMessage(message: InsertChannelMessage): Promise<ChannelMessage> {
+    const [created] = await db.insert(channelMessages).values(message).returning();
+    return created;
+  }
+
+  async updateChannelMessage(id: string, message: Partial<InsertChannelMessage>): Promise<ChannelMessage> {
+    const [updated] = await db.update(channelMessages)
+      .set(message)
+      .where(eq(channelMessages.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Equipment Failure operations
+  async getEquipmentFailures(orgId: string, filters?: { equipmentType?: string; propertyId?: string; unitId?: string }): Promise<EquipmentFailure[]> {
+    let query = db.select().from(equipmentFailures).where(eq(equipmentFailures.orgId, orgId));
+    
+    if (filters?.equipmentType) {
+      query = query.where(eq(equipmentFailures.equipmentType, filters.equipmentType));
+    }
+    if (filters?.propertyId) {
+      query = query.where(eq(equipmentFailures.propertyId, filters.propertyId));
+    }
+    if (filters?.unitId) {
+      query = query.where(eq(equipmentFailures.unitId, filters.unitId));
+    }
+    
+    return query.orderBy(desc(equipmentFailures.failureDate));
+  }
+
+  async createEquipmentFailure(failure: InsertEquipmentFailure): Promise<EquipmentFailure> {
+    const [created] = await db.insert(equipmentFailures).values(failure).returning();
+    return created;
+  }
+
+  // Predictive Insights operations
+  async getPredictiveInsights(orgId: string, filters?: { isActive?: boolean; insightType?: string }): Promise<PredictiveInsight[]> {
+    let query = db.select().from(predictiveInsights).where(eq(predictiveInsights.orgId, orgId));
+    
+    if (filters?.isActive !== undefined) {
+      query = query.where(eq(predictiveInsights.isActive, filters.isActive));
+    }
+    if (filters?.insightType) {
+      query = query.where(eq(predictiveInsights.insightType, filters.insightType));
+    }
+    
+    return query.orderBy(desc(predictiveInsights.createdAt));
+  }
+
+  async createPredictiveInsight(insight: InsertPredictiveInsight): Promise<PredictiveInsight> {
+    const [created] = await db.insert(predictiveInsights).values(insight).returning();
+    return created;
+  }
+
+  async updatePredictiveInsight(id: string, insight: Partial<InsertPredictiveInsight>): Promise<PredictiveInsight> {
+    const [updated] = await db.update(predictiveInsights)
+      .set({ ...insight, updatedAt: new Date() })
+      .where(eq(predictiveInsights.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Channel Settings operations
+  async getChannelSettings(orgId: string): Promise<ChannelSettings | undefined> {
+    const [settings] = await db.select().from(channelSettings).where(eq(channelSettings.orgId, orgId));
+    return settings;
+  }
+
+  async updateChannelSettings(orgId: string, settings: Partial<InsertChannelSettings>): Promise<ChannelSettings> {
+    // Try to update first
+    const [updated] = await db.update(channelSettings)
+      .set({ ...settings, updatedAt: new Date() })
+      .where(eq(channelSettings.orgId, orgId))
+      .returning();
+    
+    // If no record exists, create one
+    if (!updated) {
+      const [created] = await db.insert(channelSettings)
+        .values({ ...settings, orgId })
+        .returning();
+      return created;
+    }
+    
+    return updated;
   }
 }
 

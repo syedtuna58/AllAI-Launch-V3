@@ -5998,6 +5998,308 @@ Consider:
       res.status(500).json({ message: "Failed to check availability" });
     }
   });
-  
+
+  // ========================================
+  // OMNICHANNEL COMMUNICATION ROUTES
+  // ========================================
+
+  // Twilio SMS Webhook
+  app.post('/api/twilio/sms/inbound', async (req: any, res) => {
+    try {
+      // Get org ID from phone number lookup (simplified - you might need a mapping table)
+      const orgId = req.body.orgId || req.query.orgId;
+      
+      if (!orgId) {
+        return res.status(400).send('Missing organization ID');
+      }
+
+      const { TwilioSmsService } = await import('./twilioSmsService');
+      const smsService = new TwilioSmsService(storage);
+      
+      const message = await smsService.processInboundSms({
+        From: req.body.From,
+        To: req.body.To,
+        Body: req.body.Body,
+        MessageSid: req.body.MessageSid,
+        orgId,
+      });
+
+      // Generate Maya's response
+      const { MayaOmnichannelService } = await import('./mayaOmnichannelService');
+      const mayaService = new MayaOmnichannelService(storage);
+      
+      const response = await mayaService.processMessage({
+        messageId: message.id,
+        orgId,
+      });
+
+      if (response.shouldRespond) {
+        await mayaService.sendResponse({
+          messageId: message.id,
+          response: response.response!,
+          orgId,
+        });
+      }
+
+      res.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    } catch (error) {
+      console.error('Twilio SMS webhook error:', error);
+      res.status(500).send('Error processing SMS');
+    }
+  });
+
+  // Twilio Voice Webhook
+  app.post('/api/twilio/voice/inbound', async (req: any, res) => {
+    try {
+      const orgId = req.body.orgId || req.query.orgId;
+      
+      if (!orgId) {
+        return res.status(400).send('Missing organization ID');
+      }
+
+      const { TwilioVoiceService } = await import('./twilioVoiceService');
+      const voiceService = new TwilioVoiceService(storage);
+      
+      await voiceService.processInboundCall({
+        From: req.body.From,
+        To: req.body.To,
+        CallSid: req.body.CallSid,
+        orgId,
+      });
+
+      // Return TwiML response
+      const { IdentityMatchingService } = await import('./identityMatching');
+      const identityService = new IdentityMatchingService(storage);
+      const identity = await identityService.identifyContact({
+        phone: req.body.From,
+        orgId,
+      });
+
+      const twiml = voiceService.generateCallResponse(identity);
+      res.type('text/xml').send(twiml);
+    } catch (error) {
+      console.error('Twilio Voice webhook error:', error);
+      res.status(500).send('Error processing voice call');
+    }
+  });
+
+  // Twilio Transcription Callback
+  app.post('/api/twilio/voice/transcription', async (req: any, res) => {
+    try {
+      const { TwilioVoiceService } = await import('./twilioVoiceService');
+      const voiceService = new TwilioVoiceService(storage);
+      
+      await voiceService.processTranscription({
+        CallSid: req.body.CallSid,
+        TranscriptionText: req.body.TranscriptionText,
+        TranscriptionUrl: req.body.TranscriptionUrl,
+      });
+
+      res.send('OK');
+    } catch (error) {
+      console.error('Transcription webhook error:', error);
+      res.status(500).send('Error processing transcription');
+    }
+  });
+
+  // SendGrid Inbound Email Webhook
+  app.post('/api/sendgrid/inbound', async (req: any, res) => {
+    try {
+      const orgId = req.body.orgId || req.query.orgId;
+      
+      if (!orgId) {
+        return res.status(400).send('Missing organization ID');
+      }
+
+      const { SendGridEmailService } = await import('./sendgridEmailService');
+      const emailService = new SendGridEmailService(storage);
+      
+      const message = await emailService.processInboundEmail({
+        from: req.body.from,
+        to: req.body.to,
+        subject: req.body.subject,
+        text: req.body.text,
+        html: req.body.html,
+        attachments: req.body.attachments,
+        orgId,
+      });
+
+      // Generate Maya's response
+      const { MayaOmnichannelService } = await import('./mayaOmnichannelService');
+      const mayaService = new MayaOmnichannelService(storage);
+      
+      const response = await mayaService.processMessage({
+        messageId: message.id,
+        orgId,
+      });
+
+      if (response.shouldRespond) {
+        await mayaService.sendResponse({
+          messageId: message.id,
+          response: response.response!,
+          orgId,
+        });
+      }
+
+      res.send('OK');
+    } catch (error) {
+      console.error('SendGrid webhook error:', error);
+      res.status(500).send('Error processing email');
+    }
+  });
+
+  // Get Channel Messages (Inbox)
+  app.get('/api/inbox', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const filters: any = {};
+      if (req.query.channelType) filters.channelType = req.query.channelType;
+      if (req.query.status) filters.status = req.query.status;
+      if (req.query.tenantId) filters.tenantId = req.query.tenantId;
+      if (req.query.contractorId) filters.contractorId = req.query.contractorId;
+
+      const messages = await storage.getChannelMessages(org.id, filters);
+      
+      // Enrich with related data
+      const enrichedMessages = await Promise.all(messages.map(async (msg: any) => {
+        const tenant = msg.tenantId ? await storage.getTenantsInGroup('').then(t => t.find((x: any) => x.id === msg.tenantId)) : null;
+        const contractor = msg.contractorId ? await storage.getContractor(msg.contractorId) : null;
+        const unit = msg.unitId ? await storage.getUnit(msg.unitId) : null;
+        const property = msg.propertyId ? await storage.getProperty(msg.propertyId) : null;
+        const smartCase = msg.caseId ? await storage.getSmartCase(msg.caseId) : null;
+
+        return {
+          ...msg,
+          tenant,
+          contractor,
+          unit,
+          property,
+          case: smartCase,
+        };
+      }));
+
+      res.json(enrichedMessages);
+    } catch (error) {
+      console.error("Error fetching inbox:", error);
+      res.status(500).json({ message: "Failed to fetch inbox" });
+    }
+  });
+
+  // Get Predictive Insights
+  app.get('/api/predictive-insights', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const filters: any = {};
+      if (req.query.isActive !== undefined) filters.isActive = req.query.isActive === 'true';
+      if (req.query.insightType) filters.insightType = req.query.insightType;
+
+      const insights = await storage.getPredictiveInsights(org.id, filters);
+      res.json(insights);
+    } catch (error) {
+      console.error("Error fetching predictive insights:", error);
+      res.status(500).json({ message: "Failed to fetch predictive insights" });
+    }
+  });
+
+  // Generate Predictive Insights (Run Analytics)
+  app.post('/api/predictive-insights/generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const { PredictiveAnalyticsEngine } = await import('./predictiveAnalyticsEngine');
+      const analyticsEngine = new PredictiveAnalyticsEngine(storage);
+      
+      await analyticsEngine.generatePredictions(org.id);
+
+      const insights = await storage.getPredictiveInsights(org.id, { isActive: true });
+      res.json({ 
+        success: true, 
+        count: insights.length,
+        insights 
+      });
+    } catch (error) {
+      console.error("Error generating predictions:", error);
+      res.status(500).json({ message: "Failed to generate predictions" });
+    }
+  });
+
+  // Get Channel Settings
+  app.get('/api/channel-settings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const settings = await storage.getChannelSettings(org.id);
+      res.json(settings || {});
+    } catch (error) {
+      console.error("Error fetching channel settings:", error);
+      res.status(500).json({ message: "Failed to fetch channel settings" });
+    }
+  });
+
+  // Update Channel Settings
+  app.put('/api/channel-settings', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const settings = await storage.updateChannelSettings(org.id, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating channel settings:", error);
+      res.status(500).json({ message: "Failed to update channel settings" });
+    }
+  });
+
+  // Manually Respond to Message
+  app.post('/api/messages/:id/respond', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const { response } = req.body;
+      if (!response) {
+        return res.status(400).json({ message: "Response text is required" });
+      }
+
+      const { MayaOmnichannelService } = await import('./mayaOmnichannelService');
+      const mayaService = new MayaOmnichannelService(storage);
+      
+      await mayaService.sendResponse({
+        messageId: req.params.id,
+        response,
+        orgId: org.id,
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error sending response:", error);
+      res.status(500).json({ message: "Failed to send response" });
+    }
+  });
+
   return httpServer;
 }

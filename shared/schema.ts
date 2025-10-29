@@ -219,8 +219,8 @@ export const tenants = pgTable("tenants", {
   groupId: varchar("group_id").references(() => tenantGroups.id),
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
-  email: varchar("email"),
-  phone: varchar("phone"),
+  email: varchar("email").notNull(), // Now required for omnichannel
+  phone: varchar("phone").notNull(), // Now required for omnichannel
   emergencyContact: varchar("emergency_contact"),
   emergencyPhone: varchar("emergency_phone"),
   notes: text("notes"),
@@ -377,8 +377,8 @@ export const vendors = pgTable("vendors", {
   userId: varchar("user_id").references(() => users.id), // For contractor user accounts
   name: varchar("name").notNull(),
   category: varchar("category"), // plumbing, electrical, hvac, etc.
-  phone: varchar("phone"),
-  email: varchar("email"),
+  phone: varchar("phone").notNull(), // Now required for omnichannel
+  email: varchar("email").notNull(), // Now required for omnichannel
   address: text("address"),
   rating: decimal("rating", { precision: 3, scale: 2 }),
   notes: text("notes"),
@@ -1101,6 +1101,171 @@ export const proposalSlots = pgTable("proposal_slots", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ============================================================================
+// OMNICHANNEL COMMUNICATION SYSTEM
+// ============================================================================
+
+// Channel types for communication
+export const channelTypeEnum = pgEnum("channel_type", ["sms", "email", "voice", "web"]);
+export const messageDirectionEnum = pgEnum("message_direction", ["inbound", "outbound"]);
+export const messageStatusEnum = pgEnum("message_status", ["received", "processing", "processed", "replied", "failed", "archived"]);
+
+// Channel Messages - All communications across SMS, email, voice, web
+export const channelMessages = pgTable("channel_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  
+  // Channel information
+  channelType: channelTypeEnum("channel_type").notNull(),
+  direction: messageDirectionEnum("direction").notNull(),
+  status: messageStatusEnum("status").default("received"),
+  
+  // Sender/Recipient identification
+  fromPhone: varchar("from_phone"), // For SMS/voice
+  fromEmail: varchar("from_email"), // For email
+  toPhone: varchar("to_phone"), // For SMS/voice
+  toEmail: varchar("to_email"), // For email
+  
+  // Identified parties
+  tenantId: varchar("tenant_id").references(() => tenants.id),
+  contractorId: varchar("contractor_id").references(() => vendors.id),
+  unitId: varchar("unit_id").references(() => units.id),
+  propertyId: varchar("property_id").references(() => properties.id),
+  
+  // Message content
+  subject: text("subject"), // For email
+  body: text("body").notNull(), // Message text or transcription
+  rawData: jsonb("raw_data"), // Original webhook payload
+  
+  // AI analysis
+  aiSentiment: varchar("ai_sentiment"), // positive, neutral, negative, frustrated, urgent
+  aiUrgencyScore: integer("ai_urgency_score"), // 1-10
+  aiCategory: varchar("ai_category"), // maintenance, complaint, inquiry, emergency
+  aiSummary: text("ai_summary"),
+  aiExtractedIssue: text("ai_extracted_issue"),
+  
+  // Related entities
+  caseId: varchar("case_id").references(() => smartCases.id), // Linked smart case
+  conversationThreadId: varchar("conversation_thread_id"), // Groups related messages
+  
+  // Maya response
+  mayaResponseSent: boolean("maya_response_sent").default(false),
+  mayaResponseBody: text("maya_response_body"),
+  mayaResponseSentAt: timestamp("maya_response_sent_at"),
+  
+  // Voice call specifics
+  callDuration: integer("call_duration"), // seconds
+  recordingUrl: varchar("recording_url"),
+  transcriptionUrl: varchar("transcription_url"),
+  
+  // Metadata
+  externalId: varchar("external_id"), // Twilio/SendGrid message ID
+  attachments: text("attachments").array().default([]),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  processedAt: timestamp("processed_at"),
+});
+
+// Equipment Failure History - Track all maintenance for predictive analytics
+export const equipmentFailures = pgTable("equipment_failures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  
+  // Equipment identification
+  equipmentType: varchar("equipment_type").notNull(), // hvac, boiler, water_heater, roof, etc.
+  manufacturer: varchar("manufacturer"),
+  model: varchar("model"),
+  yearInstalled: integer("year_installed"),
+  
+  // Location
+  propertyId: varchar("property_id").references(() => properties.id),
+  unitId: varchar("unit_id").references(() => units.id),
+  
+  // Failure details
+  failureDate: timestamp("failure_date").notNull(),
+  description: text("description"),
+  repairCost: decimal("repair_cost", { precision: 10, scale: 2 }),
+  wasReplaced: boolean("was_replaced").default(false),
+  
+  // Related case
+  caseId: varchar("case_id").references(() => smartCases.id),
+  
+  // Analytics metadata
+  ageAtFailure: integer("age_at_failure"), // years
+  seasonOfFailure: varchar("season_of_failure"), // winter, spring, summer, fall
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Predictive Insights - AI-generated predictions about equipment failures
+export const predictiveInsights = pgTable("predictive_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  
+  // What is predicted
+  insightType: varchar("insight_type").notNull(), // equipment_failure, high_maintenance_unit, problematic_contractor, etc.
+  equipmentType: varchar("equipment_type"), // hvac, boiler, water_heater, roof
+  
+  // Where
+  propertyId: varchar("property_id").references(() => properties.id),
+  unitId: varchar("unit_id").references(() => units.id),
+  contractorId: varchar("contractor_id").references(() => vendors.id),
+  
+  // Prediction details
+  prediction: text("prediction").notNull(), // Human-readable prediction
+  confidence: decimal("confidence", { precision: 3, scale: 2 }), // 0-1 confidence score
+  predictedDate: timestamp("predicted_date"), // When failure is expected
+  estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
+  
+  // Supporting data
+  basedOnDataPoints: integer("based_on_data_points"), // How many failures analyzed
+  reasoning: text("reasoning"), // Why this prediction
+  recommendations: text("recommendations").array().default([]),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  wasDismissed: boolean("was_dismissed").default(false),
+  dismissedReason: text("dismissed_reason"),
+  
+  // Outcome tracking
+  didOccur: boolean("did_occur"),
+  actualDate: timestamp("actual_date"),
+  actualCost: decimal("actual_cost", { precision: 10, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Channel Settings - Configuration for omnichannel communication
+export const channelSettings = pgTable("channel_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  
+  // Phone/SMS settings
+  twilioPhoneNumber: varchar("twilio_phone_number"),
+  twilioAccountSid: varchar("twilio_account_sid"),
+  smsEnabled: boolean("sms_enabled").default(false),
+  voiceEnabled: boolean("voice_enabled").default(false),
+  
+  // Email settings
+  inboundEmailAddress: varchar("inbound_email_address"),
+  sendgridDomain: varchar("sendgrid_domain"),
+  emailEnabled: boolean("email_enabled").default(false),
+  
+  // Auto-response settings
+  autoResponseEnabled: boolean("auto_response_enabled").default(true),
+  businessHoursOnly: boolean("business_hours_only").default(false),
+  businessHoursStart: varchar("business_hours_start").default("09:00"),
+  businessHoursEnd: varchar("business_hours_end").default("17:00"),
+  
+  // Identity verification
+  requireIdentityVerification: boolean("require_identity_verification").default(true),
+  autoCreateCases: boolean("auto_create_cases").default(true),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations for new tables
 export const userCategoriesRelations = relations(userCategories, ({ one, many }) => ({
   organization: one(organizations, {
@@ -1183,3 +1348,19 @@ export type AppointmentProposal = typeof appointmentProposals.$inferSelect;
 export type InsertAppointmentProposal = z.infer<typeof insertAppointmentProposalSchema>;
 export type ProposalSlot = typeof proposalSlots.$inferSelect;
 export type InsertProposalSlot = z.infer<typeof insertProposalSlotSchema>;
+
+// Omnichannel insert schemas
+export const insertChannelMessageSchema = createInsertSchema(channelMessages).omit({ id: true, createdAt: true });
+export const insertEquipmentFailureSchema = createInsertSchema(equipmentFailures).omit({ id: true, createdAt: true });
+export const insertPredictiveInsightSchema = createInsertSchema(predictiveInsights).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertChannelSettingsSchema = createInsertSchema(channelSettings).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Omnichannel types
+export type ChannelMessage = typeof channelMessages.$inferSelect;
+export type InsertChannelMessage = z.infer<typeof insertChannelMessageSchema>;
+export type EquipmentFailure = typeof equipmentFailures.$inferSelect;
+export type InsertEquipmentFailure = z.infer<typeof insertEquipmentFailureSchema>;
+export type PredictiveInsight = typeof predictiveInsights.$inferSelect;
+export type InsertPredictiveInsight = z.infer<typeof insertPredictiveInsightSchema>;
+export type ChannelSettings = typeof channelSettings.$inferSelect;
+export type InsertChannelSettings = z.infer<typeof insertChannelSettingsSchema>;
