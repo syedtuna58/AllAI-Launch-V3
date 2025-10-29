@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, TestTube2, AlertTriangle, CheckCircle2, Clock, DollarSign, Shield, Zap } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -356,180 +355,123 @@ export default function PromptTester() {
           {testResults && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Comparison Results</h2>
+                <h2 className="text-2xl font-bold">Side-by-Side Comparison</h2>
                 <Badge variant="outline" data-testid="text-result-count">
                   {testResults.length} Prompt Variations Tested
                 </Badge>
               </div>
 
-              <Tabs defaultValue="comparison" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="comparison">Side-by-Side</TabsTrigger>
-                  <TabsTrigger value="detailed">Detailed View</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="comparison" className="space-y-4">
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    {testResults.map((result, idx) => (
-                      <Card key={idx} className="relative">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {getPromptIcon(result.promptType)}
-                              <CardTitle className="text-lg">{result.promptName}</CardTitle>
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {result.executionTime}ms
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <span className="text-muted-foreground">Urgency:</span>
-                              <Badge variant={getUrgencyColor(result.result.urgency) as any} className="ml-2">
-                                {result.result.urgency}
-                              </Badge>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Safety:</span>
-                              <Badge variant={getSafetyColor(result.result.safetyRisk) as any} className="ml-2">
-                                {result.result.safetyRisk}
-                              </Badge>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Complexity:</span>
-                              <span className="ml-2 font-medium">{result.result.estimatedComplexity}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Duration:</span>
-                              <span className="ml-2 font-medium">{result.result.estimatedDuration}</span>
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="text-xs font-medium text-muted-foreground mb-1">Category</div>
-                            <div className="text-sm">{result.result.category} • {result.result.subcategory}</div>
-                          </div>
-
-                          <div>
-                            <div className="text-xs font-medium text-muted-foreground mb-1">Diagnosis</div>
-                            <div className="text-sm">{result.result.preliminaryDiagnosis}</div>
-                          </div>
-
-                          <div>
-                            <div className="text-xs font-medium text-muted-foreground mb-1">Reasoning</div>
-                            <div className="text-sm text-muted-foreground">{result.result.reasoning}</div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="detailed" className="space-y-4">
-                  {testResults.map((result, idx) => (
-                    <Card key={idx}>
-                      <CardHeader>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {testResults.map((result, idx) => (
+                  <Card key={idx} className="relative">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           {getPromptIcon(result.promptType)}
-                          <CardTitle>{result.promptName}</CardTitle>
-                          <Badge variant="outline" className="ml-auto">
-                            {result.executionTime}ms
+                          <CardTitle className="text-lg">{result.promptName}</CardTitle>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {result.executionTime}ms
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Urgency:</span>
+                          <Badge variant={getUrgencyColor(result.result.urgency) as any} className="ml-2">
+                            {result.result.urgency}
                           </Badge>
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          <div>
-                            <div className="text-sm font-medium mb-1">Urgency</div>
-                            <Badge variant={getUrgencyColor(result.result.urgency) as any}>
-                              {result.result.urgency}
-                            </Badge>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium mb-1">Safety Risk</div>
-                            <Badge variant={getSafetyColor(result.result.safetyRisk) as any}>
-                              {result.result.safetyRisk}
-                            </Badge>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium mb-1">Complexity</div>
-                            <div className="text-sm">{result.result.estimatedComplexity}</div>
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium mb-1">Contractor</div>
-                            <div className="text-sm">{result.result.contractorType}</div>
-                          </div>
-                        </div>
-
                         <div>
-                          <div className="text-sm font-medium mb-2">Category & Subcategory</div>
-                          <div>{result.result.category} • {result.result.subcategory}</div>
+                          <span className="text-muted-foreground">Safety:</span>
+                          <Badge variant={getSafetyColor(result.result.safetyRisk) as any} className="ml-2">
+                            {result.result.safetyRisk}
+                          </Badge>
                         </div>
-
                         <div>
-                          <div className="text-sm font-medium mb-2">Preliminary Diagnosis</div>
-                          <p className="text-sm text-muted-foreground">{result.result.preliminaryDiagnosis}</p>
+                          <span className="text-muted-foreground">Complexity:</span>
+                          <span className="ml-2 font-medium">{result.result.estimatedComplexity}</span>
                         </div>
-
                         <div>
-                          <div className="text-sm font-medium mb-2">Reasoning</div>
-                          <p className="text-sm text-muted-foreground">{result.result.reasoning}</p>
+                          <span className="text-muted-foreground">Duration:</span>
+                          <span className="ml-2 font-medium">{result.result.estimatedDuration}</span>
                         </div>
+                      </div>
 
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Category</div>
+                        <div className="text-sm">{result.result.category} • {result.result.subcategory}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Contractor Type</div>
+                        <div className="text-sm">{result.result.contractorType}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Diagnosis</div>
+                        <div className="text-sm">{result.result.preliminaryDiagnosis}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Reasoning</div>
+                        <div className="text-sm text-muted-foreground">{result.result.reasoning}</div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Required Expertise</div>
+                        <div className="flex flex-wrap gap-1">
+                          {result.result.requiredExpertise.map((skill, i) => (
+                            <Badge key={i} variant="secondary" className="text-xs">{skill}</Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-medium text-muted-foreground mb-1">Troubleshooting Steps</div>
+                        <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground">
+                          {result.result.troubleshootingSteps.slice(0, 3).map((step, i) => (
+                            <li key={i}>{step}</li>
+                          ))}
+                          {result.result.troubleshootingSteps.length > 3 && (
+                            <li className="text-xs italic">+{result.result.troubleshootingSteps.length - 3} more steps</li>
+                          )}
+                        </ol>
+                      </div>
+
+                      {result.result.specialEquipment.length > 0 && (
                         <div>
-                          <div className="text-sm font-medium mb-2">Required Expertise</div>
-                          <div className="flex flex-wrap gap-2">
-                            {result.result.requiredExpertise.map((skill, i) => (
-                              <Badge key={i} variant="secondary">{skill}</Badge>
+                          <div className="text-xs font-medium text-muted-foreground mb-1">Special Equipment</div>
+                          <div className="flex flex-wrap gap-1">
+                            {result.result.specialEquipment.map((equipment, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">{equipment}</Badge>
                             ))}
                           </div>
                         </div>
+                      )}
 
+                      {result.result.timeReasoningNotes && (
                         <div>
-                          <div className="text-sm font-medium mb-2">Troubleshooting Steps</div>
-                          <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
-                            {result.result.troubleshootingSteps.map((step, i) => (
-                              <li key={i}>{step}</li>
-                            ))}
-                          </ol>
+                          <div className="text-xs font-medium text-muted-foreground mb-1">Scheduling</div>
+                          <div className="text-xs space-y-1">
+                            <div>
+                              <span className="text-muted-foreground">Window:</span> {result.result.suggestedTimeWindow}
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Duration:</span> {result.result.estimatedDurationMinutes} min
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Confidence:</span> {((result.result.timeConfidence || 0) * 100).toFixed(0)}%
+                            </div>
+                          </div>
                         </div>
-
-                        {result.result.specialEquipment.length > 0 && (
-                          <div>
-                            <div className="text-sm font-medium mb-2">Special Equipment</div>
-                            <div className="flex flex-wrap gap-2">
-                              {result.result.specialEquipment.map((equipment, i) => (
-                                <Badge key={i} variant="outline">{equipment}</Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {result.result.timeReasoningNotes && (
-                          <div>
-                            <div className="text-sm font-medium mb-2">Scheduling Recommendation</div>
-                            <div className="text-sm space-y-1">
-                              <div>
-                                <span className="text-muted-foreground">Window:</span> {result.result.suggestedTimeWindow}
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Duration:</span> {result.result.estimatedDurationMinutes} minutes
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Confidence:</span> {((result.result.timeConfidence || 0) * 100).toFixed(0)}%
-                              </div>
-                              <p className="text-muted-foreground mt-2">{result.result.timeReasoningNotes}</p>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </TabsContent>
-              </Tabs>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
 
