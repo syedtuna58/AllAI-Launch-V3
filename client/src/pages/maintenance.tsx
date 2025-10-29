@@ -146,6 +146,7 @@ export default function Maintenance() {
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [viewingProposalsCase, setViewingProposalsCase] = useState<SmartCase | null>(null);
   const [showProposalsDialog, setShowProposalsDialog] = useState(false);
+  const [insightsPropertyId, setInsightsPropertyId] = useState<string>("");
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -198,6 +199,17 @@ export default function Maintenance() {
     queryKey: ['/api/predictive-insights'],
     retry: false,
   });
+
+  // Fetch equipment for selected insights property
+  const { data: propertyEquipment = [] } = useQuery<any[]>({
+    queryKey: ['/api/properties', insightsPropertyId, 'equipment'],
+    enabled: !!insightsPropertyId,
+    retry: false,
+  });
+
+  // Filter insights for selected property
+  const insightsProperty = properties?.find(p => p.id === insightsPropertyId);
+  const propertyInsights = insights.filter(insight => insight.propertyId === insightsPropertyId);
 
   const selectedProperty = properties?.find(p => p.id === selectedPropertyId);
   const selectedPropertyUnits = units.filter(unit => unit.propertyId === selectedPropertyId);
@@ -641,6 +653,102 @@ export default function Maintenance() {
         <Header title="Maintenance" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
+          {/* Predictive Insights Section */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                <h2 className="text-lg font-semibold">Predictive Maintenance</h2>
+              </div>
+              <Select value={insightsPropertyId} onValueChange={setInsightsPropertyId}>
+                <SelectTrigger className="w-64" data-testid="select-insights-property">
+                  <SelectValue placeholder="Select a property..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {properties?.map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      {property.name || `${property.street}, ${property.city}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {insightsProperty && (
+              <>
+                {propertyInsights.length > 0 ? (
+                  <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950" data-testid="card-insights-banner">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Target className="h-5 w-5 text-blue-600" />
+                          <CardTitle>Equipment Replacement Predictions</CardTitle>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => setShowEquipmentModal(true)}
+                          data-testid="button-manage-equipment"
+                        >
+                          <Wrench className="h-4 w-4 mr-2" />
+                          Manage Equipment
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {propertyInsights
+                          .sort((a, b) => parseFloat(b.confidence || '0') - parseFloat(a.confidence || '0'))
+                          .slice(0, 3)
+                          .map((insight) => (
+                            <div 
+                              key={insight.id} 
+                              className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg"
+                              data-testid={`insight-card-${insight.id}`}
+                            >
+                              <AlertTriangle className="h-4 w-4 mt-1 text-orange-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium line-clamp-2">{insight.prediction}</p>
+                                {insight.predictedDate && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {Math.round(parseFloat(insight.confidence ?? '0') * 100)}% confidence
+                                  </Badge>
+                                  {insight.dataSource === 'equipment_age' && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      Industry Average
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="p-12 text-center">
+                      <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">Track Equipment for Predictions</h3>
+                      <p className="text-muted-foreground mb-6">
+                        Add equipment to {insightsProperty.name} to receive intelligent replacement predictions based on industry data and climate.
+                      </p>
+                      <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-setup-equipment">
+                        <Wrench className="h-4 w-4 mr-2" />
+                        Add Equipment
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </div>
+
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Smart Cases</h1>
@@ -2415,11 +2523,11 @@ export default function Maintenance() {
       )}
 
       {/* Equipment Management Modal */}
-      {selectedProperty && (
+      {insightsProperty && (
         <EquipmentManagementModal
           open={showEquipmentModal}
           onOpenChange={setShowEquipmentModal}
-          property={selectedProperty}
+          property={insightsProperty}
         />
       )}
     </div>
