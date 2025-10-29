@@ -1,4 +1,5 @@
 import type { IStorage } from './storage';
+import { calculateReplacementYear, getEquipmentDefinition, EQUIPMENT_CATALOG } from './equipment-catalog';
 
 /**
  * Predictive Analytics Engine
@@ -11,13 +12,16 @@ export class PredictiveAnalyticsEngine {
    * Analyze equipment failure patterns and generate predictions
    */
   async generatePredictions(orgId: string): Promise<void> {
+    // First, generate predictions based on equipment inventory (always available)
+    await this.generateEquipmentInventoryPredictions(orgId);
+
     // Get all equipment failures for the organization
     const failures = await this.storage.getEquipmentFailures(orgId, {});
 
     // Group failures by equipment type
     const failuresByType = this.groupFailuresByType(failures);
 
-    // Generate predictions for each equipment type
+    // Generate predictions for each equipment type (historical data)
     for (const [equipmentType, typeFailures] of Object.entries(failuresByType)) {
       if (typeFailures.length < 2) continue; // Need at least 2 data points
 
@@ -29,6 +33,115 @@ export class PredictiveAnalyticsEngine {
 
     // Identify problematic contractors (if failures mention quality issues)
     await this.identifyProblematicContractors(orgId);
+  }
+
+  /**
+   * Generate predictions based on equipment inventory using industry-standard lifespans
+   */
+  private async generateEquipmentInventoryPredictions(orgId: string): Promise<void> {
+    // Get all equipment for the organization
+    const allEquipment = await this.storage.getOrgEquipment(orgId);
+    
+    if (allEquipment.length === 0) return;
+
+    // Get properties for property details
+    const properties = await this.storage.getProperties(orgId);
+    const propertyMap = new Map(properties.map(p => [p.id, p]));
+
+    const currentYear = new Date().getFullYear();
+
+    for (const eq of allEquipment) {
+      const property = propertyMap.get(eq.propertyId);
+      if (!property) continue;
+
+      const definition = getEquipmentDefinition(eq.equipmentType);
+      if (!definition) continue;
+
+      const age = currentYear - eq.installYear;
+      const replacementYear = calculateReplacementYear(
+        eq.installYear,
+        eq.equipmentType,
+        property.state,
+        eq.customLifespanYears ?? undefined,
+        eq.useClimateAdjustment
+      );
+
+      const lifespan = replacementYear - eq.installYear;
+      const remainingYears = replacementYear - currentYear;
+
+      // Generate prediction if equipment is within final 2 years of lifespan
+      if (remainingYears <= 2 && remainingYears >= -1) {
+        const confidence = remainingYears <= 0 ? 0.95 : (1 - (remainingYears / lifespan)) * 0.85;
+        const clampedConfidence = Math.max(0.60, Math.min(0.95, confidence));
+
+        const statusText = remainingYears <= 0 
+          ? 'has exceeded its expected lifespan' 
+          : `is approaching end of lifespan (${remainingYears} ${remainingYears === 1 ? 'year' : 'years'} remaining)`;
+
+        const prediction = {
+          orgId,
+          insightType: 'equipment_failure',
+          equipmentType: eq.equipmentType,
+          propertyId: eq.propertyId,
+          unitId: eq.unitId || undefined,
+          prediction: `${definition.displayName} at ${property.name} ${statusText}. Installed in ${eq.installYear}, typical lifespan is ${lifespan} years.`,
+          confidence: clampedConfidence.toFixed(2),
+          predictedDate: new Date(replacementYear, 0, 1),
+          estimatedCost: this.estimateReplacementCost(eq.equipmentType),
+          basedOnDataPoints: 0, // Industry average, not historical data
+          reasoning: `${definition.description}. Based on industry-standard lifespan of ${definition.defaultLifespanYears} years${eq.useClimateAdjustment ? ' with climate adjustment for ' + property.state : ''}. Equipment is currently ${age} years old.`,
+          recommendations: this.getRecommendationsForEquipment(definition.category, remainingYears),
+        };
+
+        // Check for duplicates
+        const existing = await this.storage.getPredictiveInsights(orgId, {
+          isActive: true,
+          insightType: 'equipment_failure',
+        });
+
+        const duplicate = existing.find(
+          p => p.equipmentType === eq.equipmentType && 
+               p.propertyId === eq.propertyId && 
+               p.unitId === eq.unitId
+        );
+
+        if (!duplicate) {
+          await this.storage.createPredictiveInsight(prediction);
+        }
+      }
+    }
+  }
+
+  /**
+   * Get recommendations based on equipment category and time remaining
+   */
+  private getRecommendationsForEquipment(category: string, remainingYears: number): string[] {
+    if (remainingYears <= 0) {
+      return category === 'critical'
+        ? [
+            'URGENT: Schedule replacement immediately to prevent property damage',
+            'Obtain quotes from multiple contractors',
+            'Consider temporary monitoring or backup solutions',
+          ]
+        : [
+            'Schedule replacement within next 3-6 months',
+            'Get multiple quotes to compare pricing',
+            'Plan replacement during low-occupancy period if possible',
+          ];
+    }
+
+    return category === 'critical'
+      ? [
+          'Schedule professional inspection within 30 days',
+          'Budget for replacement in next 12 months',
+          'Consider preventive maintenance to extend lifespan',
+          'Obtain preliminary quotes for planning',
+        ]
+      : [
+          'Schedule inspection to assess current condition',
+          'Begin budgeting for replacement',
+          'Research current market pricing for this equipment',
+        ];
   }
 
   /**

@@ -29,6 +29,7 @@ import { format } from "date-fns";
 import PropertyAssistant from "@/components/ai/property-assistant";
 import { useRole } from "@/contexts/RoleContext";
 import { TimePicker15Min } from "@/components/ui/time-picker-15min";
+import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
 
 // Predefined maintenance categories
@@ -139,6 +140,7 @@ export default function Maintenance() {
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
   const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list" | "insights">("cards");
+  const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [acceptingCase, setAcceptingCase] = useState<SmartCase | null>(null);
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
@@ -2157,13 +2159,19 @@ export default function Maintenance() {
                       )}
                     </>
                   ) : (
-                    <Card>
+                    <Card className="border-2 border-dashed">
                       <CardContent className="p-12 text-center">
-                        <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">No Insights Available</h3>
-                        <p className="text-muted-foreground">
-                          Predictive insights will appear here once there's enough historical maintenance data to analyze.
+                        <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">Get Started with Predictive Insights</h3>
+                        <p className="text-muted-foreground mb-6">
+                          Track equipment at your properties to receive intelligent replacement predictions based on industry data and climate.
                         </p>
+                        {selectedProperty && (
+                          <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-setup-equipment">
+                            <Wrench className="h-4 w-4 mr-2" />
+                            Add Equipment to {selectedProperty.name}
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   )}
@@ -2404,6 +2412,15 @@ export default function Maintenance() {
             <AvailabilityCalendar contractorId={contractorProfile.id} />
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Equipment Management Modal */}
+      {selectedProperty && (
+        <EquipmentManagementModal
+          open={showEquipmentModal}
+          onOpenChange={setShowEquipmentModal}
+          property={selectedProperty}
+        />
       )}
     </div>
   );
