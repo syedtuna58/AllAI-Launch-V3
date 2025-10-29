@@ -1236,6 +1236,31 @@ export const predictiveInsights = pgTable("predictive_insights", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Equipment - Track installed equipment at properties for predictive maintenance
+export const equipment = pgTable("equipment", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  propertyId: varchar("property_id").notNull().references(() => properties.id),
+  unitId: varchar("unit_id").references(() => units.id),
+  
+  // Equipment details
+  equipmentType: varchar("equipment_type").notNull(), // roof, water_heater, hvac, etc.
+  installYear: integer("install_year").notNull(),
+  manufacturer: varchar("manufacturer"),
+  model: varchar("model"),
+  
+  // Lifespan management
+  customLifespanYears: integer("custom_lifespan_years"), // Override default if set
+  useClimateAdjustment: boolean("use_climate_adjustment").default(true),
+  
+  // Optional details
+  condition: varchar("condition"), // excellent, good, fair, poor
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Channel Settings - Configuration for omnichannel communication
 export const channelSettings = pgTable("channel_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1354,6 +1379,7 @@ export const insertChannelMessageSchema = createInsertSchema(channelMessages).om
 export const insertEquipmentFailureSchema = createInsertSchema(equipmentFailures).omit({ id: true, createdAt: true });
 export const insertPredictiveInsightSchema = createInsertSchema(predictiveInsights).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertChannelSettingsSchema = createInsertSchema(channelSettings).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Omnichannel types
 export type ChannelMessage = typeof channelMessages.$inferSelect;
@@ -1364,3 +1390,5 @@ export type PredictiveInsight = typeof predictiveInsights.$inferSelect;
 export type InsertPredictiveInsight = z.infer<typeof insertPredictiveInsightSchema>;
 export type ChannelSettings = typeof channelSettings.$inferSelect;
 export type InsertChannelSettings = z.infer<typeof insertChannelSettingsSchema>;
+export type Equipment = typeof equipment.$inferSelect;
+export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
