@@ -16,7 +16,7 @@ import { RoleSwitcher } from "@/components/role-switcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useDevMode } from "@/contexts/DevModeContext";
 import { useLocation } from "wouter";
-import { Search, Plus, Settings, DollarSign, Building, Wrench, Users, Calendar, Home, Star, Command } from "lucide-react";
+import { Search, Plus, Settings, DollarSign, Building, Wrench, Users, Calendar, Home, Star, Command, TrendingUp, Inbox } from "lucide-react";
 import type { Property, OwnershipEntity, Unit } from "@shared/schema";
 
 interface HeaderProps {
@@ -25,10 +25,12 @@ interface HeaderProps {
 
 const AVAILABLE_SHORTCUTS = [
   { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/' },
+  { id: 'inbox', label: 'Inbox', icon: Inbox, href: '/inbox' },
   { id: 'portfolio', label: 'Portfolio', icon: Building, href: '/portfolio' },
-  { id: 'financial', label: 'Financial', icon: DollarSign, href: '/financial' },
-  { id: 'maintenance', label: 'Maintenance', icon: Wrench, href: '/maintenance' },
   { id: 'tenants', label: 'Tenants', icon: Users, href: '/tenants' },
+  { id: 'maintenance', label: 'Maintenance', icon: Wrench, href: '/maintenance' },
+  { id: 'predictive-insights', label: 'Predictive Insights', icon: TrendingUp, href: '/predictive-insights' },
+  { id: 'financial', label: 'Financial', icon: DollarSign, href: '/financial' },
   { id: 'reminders', label: 'Reminders', icon: Calendar, href: '/reminders' },
 ];
 
