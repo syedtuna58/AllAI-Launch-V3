@@ -27,7 +27,9 @@ import {
   insertUserCategoryMemberSchema,
   insertMessageThreadSchema,
   insertChatMessageSchema,
+  insertEquipmentSchema,
 } from "@shared/schema";
+import { EQUIPMENT_CATALOG, calculateReplacementYear, getEquipmentDefinition } from "./equipment-catalog";
 import OpenAI from "openai";
 import { fromZonedTime } from 'date-fns-tz';
 import { parse as parseDate } from 'date-fns';
@@ -6298,6 +6300,80 @@ Consider:
     } catch (error) {
       console.error("Error sending response:", error);
       res.status(500).json({ message: "Failed to send response" });
+    }
+  });
+
+  // Equipment routes
+
+  // Get equipment catalog
+  app.get('/api/equipment-catalog', isAuthenticated, async (req: any, res) => {
+    try {
+      res.json(EQUIPMENT_CATALOG);
+    } catch (error) {
+      console.error("Error fetching equipment catalog:", error);
+      res.status(500).json({ message: "Failed to fetch equipment catalog" });
+    }
+  });
+
+  // Get equipment for a property
+  app.get('/api/properties/:id/equipment', isAuthenticated, async (req: any, res) => {
+    try {
+      const equipment = await storage.getEquipment(req.params.id);
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error fetching equipment:", error);
+      res.status(500).json({ message: "Failed to fetch equipment" });
+    }
+  });
+
+  // Create equipment for a property
+  app.post('/api/properties/:id/equipment', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const property = await storage.getProperty(req.params.id);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      const validatedData = insertEquipmentSchema.parse({
+        ...req.body,
+        orgId: org.id,
+        propertyId: req.params.id,
+      });
+
+      const equipment = await storage.createEquipment(validatedData);
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error creating equipment:", error);
+      res.status(500).json({ message: "Failed to create equipment" });
+    }
+  });
+
+  // Update equipment
+  app.put('/api/equipment/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const validatedData = insertEquipmentSchema.partial().parse(req.body);
+      const equipment = await storage.updateEquipment(req.params.id, validatedData);
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(500).json({ message: "Failed to update equipment" });
+    }
+  });
+
+  // Delete equipment
+  app.delete('/api/equipment/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteEquipment(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting equipment:", error);
+      res.status(500).json({ message: "Failed to delete equipment" });
     }
   });
 
