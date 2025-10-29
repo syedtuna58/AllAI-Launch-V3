@@ -20,7 +20,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign, Settings } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
@@ -142,6 +142,10 @@ export default function Maintenance() {
   const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list" | "insights">("cards");
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [acceptingCase, setAcceptingCase] = useState<SmartCase | null>(null);
+  const [predictivePropertyFilter, setPredictivePropertyFilter] = useState<string>("all");
+  const [predictiveEquipmentTypeFilter, setPredictiveEquipmentTypeFilter] = useState<string>("all");
+  const [predictiveEntityFilter, setPredictiveEntityFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"maintenance" | "predictive">("maintenance");
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [viewingProposalsCase, setViewingProposalsCase] = useState<SmartCase | null>(null);
@@ -163,6 +167,11 @@ export default function Maintenance() {
 
   const { data: smartCases, isLoading: casesLoading, error } = useQuery<SmartCase[]>({
     queryKey: ["/api/cases"],
+    retry: false,
+  });
+
+  const { data: predictiveInsights, isLoading: insightsLoading } = useQuery<PredictiveInsight[]>({
+    queryKey: ["/api/predictive-insights"],
     retry: false,
   });
 
@@ -573,6 +582,23 @@ export default function Maintenance() {
     return statusMatch && propertyMatch && categoryMatch && unitMatch;
   }) || [];
 
+  const filteredInsights = predictiveInsights?.filter(insight => {
+    const propertyMatch = predictivePropertyFilter === "all" || insight.propertyId === predictivePropertyFilter;
+    const equipmentTypeMatch = predictiveEquipmentTypeFilter === "all" || insight.equipmentType === predictiveEquipmentTypeFilter;
+    
+    // Filter by entity - check property's ownerships
+    let entityMatch = true;
+    if (predictiveEntityFilter !== "all") {
+      const property = properties?.find(p => p.id === insight.propertyId);
+      if (property && property.ownerships) {
+        entityMatch = property.ownerships.some(ownership => ownership.entityId === predictiveEntityFilter);
+      } else {
+        entityMatch = false;
+      }
+    }
+    
+    return propertyMatch && equipmentTypeMatch && entityMatch;
+  }) || [];
 
   const onSubmit = async (data: z.infer<typeof createCaseSchema>) => {
     const { createReminder, ...caseData } = data;
@@ -641,7 +667,7 @@ export default function Maintenance() {
         <Header title="Maintenance" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <Tabs defaultValue="maintenance" className="w-full">
+          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "maintenance" | "predictive")} className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
               <TabsTrigger value="maintenance" data-testid="tab-maintenance">
                 <Wrench className="h-4 w-4 mr-2" />
@@ -1025,21 +1051,173 @@ export default function Maintenance() {
                   <h1 className="text-2xl font-bold text-foreground">Predictive Maintenance</h1>
                   <p className="text-muted-foreground">Equipment replacement predictions and insights</p>
                 </div>
+                <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-manage-equipment">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Equipment
+                </Button>
               </div>
 
-              {/* Predictive Insights will go here */}
-              <div className="text-center py-12">
-                <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Predictive Insights Coming Soon</h3>
-                <p className="text-muted-foreground">Card-based equipment insights view will be added here</p>
+              {/* Filters */}
+              <div className="flex items-center gap-3 mb-6">
+                <Select value={predictivePropertyFilter} onValueChange={setPredictivePropertyFilter}>
+                  <SelectTrigger className="w-52" data-testid="select-predictive-property-filter">
+                    <SelectValue placeholder="All Properties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties</SelectItem>
+                    {properties?.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.name || `${property.street}, ${property.city}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={predictiveEquipmentTypeFilter} onValueChange={setPredictiveEquipmentTypeFilter}>
+                  <SelectTrigger className="w-52" data-testid="select-equipment-type-filter">
+                    <SelectValue placeholder="All Equipment Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Equipment Types</SelectItem>
+                    <SelectItem value="hvac">HVAC</SelectItem>
+                    <SelectItem value="water_heater">Water Heater</SelectItem>
+                    <SelectItem value="boiler">Boiler</SelectItem>
+                    <SelectItem value="roof">Roof</SelectItem>
+                    <SelectItem value="appliance">Appliance</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={predictiveEntityFilter} onValueChange={setPredictiveEntityFilter}>
+                  <SelectTrigger className="w-44" data-testid="select-predictive-entity-filter">
+                    <SelectValue placeholder="All Entities" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Entities</SelectItem>
+                    {entities?.map((entity) => (
+                      <SelectItem key={entity.id} value={entity.id}>
+                        {entity.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Predictive Insights Cards */}
+              {insightsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading predictions...</p>
+                </div>
+              ) : filteredInsights.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Predictions Available</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Add equipment to your properties to start generating predictive maintenance insights
+                    </p>
+                    <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-add-equipment">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Equipment
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredInsights.map((insight) => {
+                    const property = properties?.find(p => p.id === insight.propertyId);
+                    const unit = units?.find(u => u.id === insight.unitId);
+                    const daysUntil = insight.predictedDate 
+                      ? Math.ceil((new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                      : null;
+                    
+                    const urgencyColor = daysUntil !== null && daysUntil < 90 
+                      ? 'text-red-600 border-red-600 bg-red-50 dark:bg-red-950' 
+                      : daysUntil !== null && daysUntil < 180 
+                      ? 'text-orange-600 border-orange-600 bg-orange-50 dark:bg-orange-950'
+                      : 'text-blue-600 border-blue-600 bg-blue-50 dark:bg-blue-950';
+
+                    return (
+                      <Card key={insight.id} className="hover:shadow-lg transition-shadow" data-testid={`card-insight-${insight.id}`}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className={urgencyColor}>
+                                  {insight.equipmentType?.replace(/_/g, ' ').toUpperCase()}
+                                </Badge>
+                                {insight.confidence && (
+                                  <Badge variant="outline" className="text-muted-foreground">
+                                    {Math.round(Number(insight.confidence) * 100)}% confidence
+                                  </Badge>
+                                )}
+                              </div>
+                              <CardTitle className="text-base">{insight.prediction}</CardTitle>
+                              <CardDescription className="mt-1">
+                                {property?.name || `${property?.street}, ${property?.city}`}
+                                {unit && ` • ${unit.unitNumber}`}
+                              </CardDescription>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {insight.predictedDate && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
+                                {daysUntil !== null && ` (${daysUntil} days)`}
+                              </span>
+                            </div>
+                          )}
+                          {insight.estimatedCost && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <DollarSign className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold">
+                                ${Number(insight.estimatedCost).toLocaleString()}
+                              </span>
+                              <span className="text-muted-foreground">estimated cost</span>
+                            </div>
+                          )}
+                          {insight.basedOnDataPoints && (
+                            <div className="text-xs text-muted-foreground">
+                              Based on {insight.basedOnDataPoints} data point{insight.basedOnDataPoints !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                          <div className="pt-2 border-t">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full"
+                              onClick={() => {
+                                setSelectedPropertyId(insight.propertyId || '');
+                                setShowEquipmentModal(true);
+                              }}
+                              data-testid={`button-manage-equipment-${insight.id}`}
+                            >
+                              <Settings className="h-4 w-4 mr-2" />
+                              Manage Equipment
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </TabsContent>
           </Tabs>
 
           {/* Maya AI Assistant */}
           <PropertyAssistant 
-            context="maintenance"
-            exampleQuestions={[
+            context={activeTab === "predictive" ? "predictive-maintenance" : "maintenance"}
+            exampleQuestions={activeTab === "predictive" ? [
+              "Which equipment is most likely to fail soon?",
+              "What's the total cost of upcoming replacements?",
+              "Which property has the highest equipment risk?",
+              "What equipment should I budget for this year?"
+            ] : [
               "What maintenance is overdue or urgent?",
               "Which property needs the most attention?",
               "Any recurring maintenance patterns I should address?",
