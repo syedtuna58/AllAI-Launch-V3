@@ -30,6 +30,7 @@ import {
   insertEquipmentSchema,
 } from "@shared/schema";
 import { EQUIPMENT_CATALOG, calculateReplacementYear, getEquipmentDefinition } from "./equipment-catalog";
+import { PredictiveAnalyticsEngine } from "./predictiveAnalyticsEngine";
 import OpenAI from "openai";
 import { fromZonedTime } from 'date-fns-tz';
 import { parse as parseDate } from 'date-fns';
@@ -6347,6 +6348,10 @@ Consider:
       });
 
       const equipment = await storage.createEquipment(validatedData);
+      
+      // Note: Prediction generation handled by modal's single call to /api/predictive-insights/generate
+      // to avoid N redundant rebuilds when saving multiple equipment items
+      
       res.json(equipment);
     } catch (error) {
       console.error("Error creating equipment:", error);
@@ -6359,6 +6364,10 @@ Consider:
     try {
       const validatedData = insertEquipmentSchema.partial().parse(req.body);
       const equipment = await storage.updateEquipment(req.params.id, validatedData);
+      
+      // Note: Prediction generation handled by modal's single call to /api/predictive-insights/generate
+      // to avoid N redundant rebuilds when saving multiple equipment items
+      
       res.json(equipment);
     } catch (error) {
       console.error("Error updating equipment:", error);
