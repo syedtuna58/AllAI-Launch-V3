@@ -641,11 +641,24 @@ export default function Maintenance() {
         <Header title="Maintenance" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Smart Cases</h1>
-              <p className="text-muted-foreground">Track and manage maintenance requests</p>
-            </div>
+          <Tabs defaultValue="maintenance" className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+              <TabsTrigger value="maintenance" data-testid="tab-maintenance">
+                <Wrench className="h-4 w-4 mr-2" />
+                Maintenance
+              </TabsTrigger>
+              <TabsTrigger value="predictive" data-testid="tab-predictive">
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Predictive Maintenance
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="maintenance" className="mt-0">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Smart Cases</h1>
+                  <p className="text-muted-foreground">Track and manage maintenance requests</p>
+                </div>
             
             <div className="flex items-center space-x-3">
               {/* Contractor Availability Button */}
@@ -1004,6 +1017,24 @@ export default function Maintenance() {
               </Dialog>
             </div>
           </div>
+            </TabsContent>
+
+            <TabsContent value="predictive" className="mt-0">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Predictive Maintenance</h1>
+                  <p className="text-muted-foreground">Equipment replacement predictions and insights</p>
+                </div>
+              </div>
+
+              {/* Predictive Insights will go here */}
+              <div className="text-center py-12">
+                <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Predictive Insights Coming Soon</h3>
+                <p className="text-muted-foreground">Card-based equipment insights view will be added here</p>
+              </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Maya AI Assistant */}
           <PropertyAssistant 
