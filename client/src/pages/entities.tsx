@@ -4,8 +4,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -309,18 +307,12 @@ export default function Entities() {
   }) || [];
 
   return (
-    <div className="flex h-screen bg-background" data-testid="page-entities">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Ownership Entities" />
-        
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Ownership Entities</h1>
-              <p className="text-muted-foreground">Manage your LLCs, partnerships, and individual ownership</p>
-            </div>
+    <div data-testid="page-entities">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Ownership Entities</h1>
+          <p className="text-muted-foreground">Manage your LLCs, partnerships, and individual ownership</p>
+        </div>
             
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -648,8 +640,6 @@ export default function Entities() {
               </CardContent>
             </Card>
           )}
-        </main>
-      </div>
     </div>
   );
 }

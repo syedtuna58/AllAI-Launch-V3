@@ -5,8 +5,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import Sidebar from "@/components/layout/sidebar";
-import Header from "@/components/layout/header";
 import PropertyForm from "@/components/forms/property-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -384,18 +382,12 @@ export default function Properties() {
   };
 
   return (
-    <div className="flex h-screen bg-background" data-testid="page-properties">
-      <Sidebar />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="My Properties" />
-        
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Properties</h1>
-              <p className="text-muted-foreground">Manage your property portfolio</p>
-            </div>
+    <div data-testid="page-properties">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Properties</h1>
+          <p className="text-muted-foreground">Manage your property portfolio</p>
+        </div>
             
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -1053,8 +1045,6 @@ export default function Properties() {
               </CardContent>
             </Card>
           )}
-        </main>
-      </div>
     </div>
   );
 }
