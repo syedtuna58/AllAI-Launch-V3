@@ -3829,6 +3829,56 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // Maya Conversation Testing endpoint
+  app.post('/api/test-maya-conversation', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ 
+          message: "AI service not configured - please add OPENAI_API_KEY" 
+        });
+      }
+
+      const { userMessage, conversationHistories } = req.body;
+      
+      if (!userMessage?.trim()) {
+        return res.status(400).json({ message: "User message is required" });
+      }
+
+      // Default to empty histories if not provided
+      const histories = conversationHistories || {
+        empathetic: [],
+        professional: [],
+        deescalating: [],
+        casual: []
+      };
+
+      const { testAllMayaStrategies } = await import('./mayaConversationTester');
+      const results = await testAllMayaStrategies(
+        userMessage,
+        histories,
+        process.env.OPENAI_API_KEY
+      );
+      
+      res.json({ 
+        success: true,
+        results,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Maya conversation testing failed:", error);
+      res.status(500).json({ 
+        message: "Failed to test Maya conversation",
+        error: (error as Error).message 
+      });
+    }
+  });
+
   // ========================================
   // AI TRIAGE & CONTRACTOR ROUTES
   // ========================================
