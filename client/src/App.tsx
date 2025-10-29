@@ -31,7 +31,6 @@ import ApprovalSettings from "@/pages/approval-settings";
 import PromptTester from "@/pages/prompt-tester";
 import MayaTester from "@/pages/maya-tester";
 import Inbox from "@/pages/inbox";
-import PredictiveInsights from "@/pages/predictive-insights";
 import ChannelSettings from "@/pages/channel-settings";
 import NotFound from "@/pages/not-found";
 
@@ -96,7 +95,6 @@ function Router() {
           <Route path="/prompt-tester" component={PromptTester} />
           <Route path="/maya-tester" component={MayaTester} />
           <Route path="/inbox" component={Inbox} />
-          <Route path="/predictive-insights" component={PredictiveInsights} />
           <Route path="/channel-settings" component={ChannelSettings} />
           <Route component={NotFound} />
         </>
