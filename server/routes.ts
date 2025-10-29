@@ -3797,6 +3797,38 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
+  // AI Triage Prompt Testing endpoint
+  app.post('/api/test-triage-prompts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ 
+          message: "AI service not configured - please add OPENAI_API_KEY" 
+        });
+      }
+
+      const { aiTriagePromptTester } = await import('./aiTriagePromptTester');
+      const results = await aiTriagePromptTester.testAllPrompts(req.body);
+      
+      res.json({ 
+        success: true,
+        results,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Prompt testing failed:", error);
+      res.status(500).json({ 
+        message: "Failed to test prompts",
+        error: (error as Error).message 
+      });
+    }
+  });
+
   // ========================================
   // AI TRIAGE & CONTRACTOR ROUTES
   // ========================================
