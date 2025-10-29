@@ -22,7 +22,6 @@ export default function Sidebar() {
     { name: "Portfolio", href: "/portfolio", icon: Building },
     { name: "Tenants", href: "/tenants", icon: Users },
     { name: "Maintenance", href: "/maintenance", icon: Wrench },
-    { name: "Predictive Insights", href: "/predictive-insights", icon: TrendingUp },
     { name: "Financial", href: "/financial", icon: DollarSign },
     { name: "Reminders", href: "/reminders", icon: Calendar },
   ];
