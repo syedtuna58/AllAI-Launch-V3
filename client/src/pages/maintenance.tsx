@@ -20,7 +20,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import { format } from "date-fns";
@@ -1895,7 +1897,19 @@ export default function Maintenance() {
             <DialogTitle>Case Details</DialogTitle>
           </DialogHeader>
           {selectedCase && (
-            <div className="space-y-6">
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details" data-testid="tab-case-details">
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Details
+                </TabsTrigger>
+                <TabsTrigger value="communications" data-testid="tab-case-communications">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Communications
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details" className="mt-6 space-y-6">
               <div>
                 <h3 className="text-lg font-semibold">{selectedCase.title}</h3>
                 <p className="text-sm text-muted-foreground mt-1">{selectedCase.description}</p>
@@ -2020,7 +2034,12 @@ export default function Maintenance() {
                   </Button>
                 </div>
               </div>
-            </div>
+              </TabsContent>
+              
+              <TabsContent value="communications" className="mt-6">
+                <CaseCommunications caseId={selectedCase.id} />
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
@@ -2885,5 +2904,94 @@ function AppointmentInfo({ caseId }: { caseId: string }) {
         <Badge className="bg-green-600 text-white text-xs">Confirmed</Badge>
       </div>
     </div>
+  );
+}
+
+// Case Communications Component - Shows omnichannel messages related to a case
+function CaseCommunications({ caseId }: { caseId: string }) {
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ['/api/inbox', { caseId }],
+    enabled: !!caseId,
+  });
+
+  const getChannelIcon = (type: string) => {
+    switch (type) {
+      case 'sms': return <MessageSquare className="h-4 w-4" />;
+      case 'email': return <Mail className="h-4 w-4" />;
+      case 'voice': return <Phone className="h-4 w-4" />;
+      default: return <MessageSquare className="h-4 w-4" />;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-48">
+        <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (messages.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-48 text-center">
+        <MessageSquare className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+        <h3 className="font-medium text-muted-foreground">No Communications Yet</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Messages from tenants and contractors will appear here
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="h-[500px] pr-4">
+      <div className="space-y-4">
+        {messages.map((message: any) => (
+          <div key={message.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors" data-testid={`communication-${message.id}`}>
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center gap-2">
+                {getChannelIcon(message.channelType)}
+                <span className="font-medium text-sm">
+                  {message.channelType.toUpperCase()} Message
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  {message.direction === 'inbound' ? 'Received' : 'Sent'}
+                </Badge>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {message.createdAt && format(new Date(message.createdAt), 'MMM d, h:mm a')}
+              </span>
+            </div>
+            
+            {message.subject && (
+              <p className="font-medium text-sm mb-1">{message.subject}</p>
+            )}
+            
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {message.body}
+            </p>
+            
+            <div className="flex items-center gap-2 mt-3 flex-wrap">
+              {message.aiSentiment && (
+                <Badge variant="secondary" className="text-xs">
+                  {message.aiSentiment}
+                </Badge>
+              )}
+              {message.aiUrgencyScore && (
+                <Badge variant="outline" className="text-xs">
+                  Urgency: {message.aiUrgencyScore}/10
+                </Badge>
+              )}
+              {message.mayaResponseSent && (
+                <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-xs">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Maya Responded
+                </Badge>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
   );
 }
