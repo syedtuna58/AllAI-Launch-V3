@@ -2,6 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -30,26 +31,43 @@ type ChannelSettingsForm = z.infer<typeof channelSettingsSchema>;
 export default function ChannelSettings() {
   const { toast } = useToast();
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading } = useQuery<ChannelSettingsForm>({
     queryKey: ['/api/channel-settings'],
   });
 
   const form = useForm<ChannelSettingsForm>({
     resolver: zodResolver(channelSettingsSchema),
     defaultValues: {
-      twilioAccountSid: settings?.twilioAccountSid || "",
-      twilioAuthToken: settings?.twilioAuthToken || "",
-      twilioPhoneNumber: settings?.twilioPhoneNumber || "",
-      sendgridApiKey: settings?.sendgridApiKey || "",
-      sendgridFromEmail: settings?.sendgridFromEmail || "",
-      openaiApiKey: settings?.openaiApiKey || "",
-      autoRespondEnabled: settings?.autoRespondEnabled ?? true,
-      autoCreateCasesEnabled: settings?.autoCreateCasesEnabled ?? true,
-      mayaPersonality: settings?.mayaPersonality || "empathetic",
+      twilioAccountSid: "",
+      twilioAuthToken: "",
+      twilioPhoneNumber: "",
+      sendgridApiKey: "",
+      sendgridFromEmail: "",
+      openaiApiKey: "",
+      autoRespondEnabled: true,
+      autoCreateCasesEnabled: true,
+      mayaPersonality: "empathetic",
     },
   });
 
-  const updateMutation = useMutation({
+  // Reset form when settings load from the server
+  useEffect(() => {
+    if (settings) {
+      form.reset({
+        twilioAccountSid: settings.twilioAccountSid || "",
+        twilioAuthToken: settings.twilioAuthToken || "",
+        twilioPhoneNumber: settings.twilioPhoneNumber || "",
+        sendgridApiKey: settings.sendgridApiKey || "",
+        sendgridFromEmail: settings.sendgridFromEmail || "",
+        openaiApiKey: settings.openaiApiKey || "",
+        autoRespondEnabled: settings.autoRespondEnabled ?? true,
+        autoCreateCasesEnabled: settings.autoCreateCasesEnabled ?? true,
+        mayaPersonality: settings.mayaPersonality || "empathetic",
+      });
+    }
+  }, [settings, form]);
+
+  const updateMutation = useMutation<ChannelSettingsForm, Error, ChannelSettingsForm>({
     mutationFn: async (data: ChannelSettingsForm) => {
       const response = await apiRequest("PUT", "/api/channel-settings", data);
       return response.json();
