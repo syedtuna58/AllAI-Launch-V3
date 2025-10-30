@@ -2623,6 +2623,15 @@ export default function Maintenance() {
         </Dialog>
       )}
 
+      {/* Equipment Management Modal */}
+      {properties && properties.length > 0 && (
+        <EquipmentManagementModal
+          open={showEquipmentModal}
+          onOpenChange={setShowEquipmentModal}
+          property={properties[0]}
+        />
+      )}
+
     </div>
   );
 }
