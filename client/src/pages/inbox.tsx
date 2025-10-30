@@ -3,6 +3,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import Messages from "@/pages/messages";
 import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/contexts/RoleContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -236,10 +237,10 @@ function OmnichannelView() {
 
 // Main Inbox page with External/Internal tabs
 export default function Inbox() {
-  const { user } = useAuth();
+  const { currentRole } = useRole();
   
-  // Check if user is admin or manager (can see Internal/External tabs)
-  const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+  // Check if user is admin (can see Internal/External tabs)
+  const isAdmin = currentRole === 'admin';
   
   return (
     <div className="flex h-screen bg-background" data-testid="page-inbox">
@@ -249,7 +250,7 @@ export default function Inbox() {
         <Header title="Inbox" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          {isAdminOrManager ? (
+          {isAdmin ? (
             <Tabs defaultValue="external" className="w-full">
               <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
                 <TabsTrigger value="external" data-testid="tab-external">
@@ -267,7 +268,7 @@ export default function Inbox() {
               </TabsContent>
               
               <TabsContent value="internal" className="mt-0">
-                <Messages embedded />
+                <Messages />
               </TabsContent>
             </Tabs>
           ) : (

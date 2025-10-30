@@ -35,6 +35,7 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/contractor-dashboard", icon: Home },
     { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "My Jobs", href: "/maintenance", icon: Wrench },
+    { name: "Reminders", href: "/reminders", icon: Calendar },
   ];
 
   const tenantNavigation = [
@@ -42,6 +43,7 @@ export default function Sidebar() {
     { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "Submit Request", href: "/tenant-request", icon: MessageSquare },
     { name: "My Requests", href: "/maintenance", icon: ClipboardList },
+    { name: "Reminders", href: "/reminders", icon: Calendar },
   ];
 
   let navigation = currentRole === 'admin' 
