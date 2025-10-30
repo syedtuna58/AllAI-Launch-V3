@@ -103,7 +103,7 @@ export default function EquipmentManagementModal({
   // Migration mutation to import existing property equipment data
   const migrateMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('/api/equipment/migrate', 'POST');
+      return await apiRequest('POST', '/api/equipment/migrate');
     },
     onSuccess: async (data: any) => {
       if (data.importedCount > 0) {
@@ -114,7 +114,7 @@ export default function EquipmentManagementModal({
         // Refresh equipment data for this property
         await queryClient.invalidateQueries({ queryKey: ['/api/properties', selectedPropertyId, 'equipment'] });
         // Trigger predictive insights generation
-        await apiRequest('/api/predictive-insights/generate', 'POST');
+        await apiRequest('POST', '/api/predictive-insights/generate');
         // Refresh predictions
         await queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
         await queryClient.invalidateQueries({ queryKey: ['/api/properties'] });

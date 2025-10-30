@@ -77,6 +77,28 @@ export function startCronJobs() {
     }
   });
 
+  // Generate predictive maintenance insights (run daily at 3 AM)
+  // Note: Predictions are also auto-generated when equipment is added/updated
+  cron.schedule('0 3 * * *', async () => {
+    console.log('Regenerating predictive maintenance insights for all organizations...');
+    
+    try {
+      const { PredictiveAnalyticsEngine } = await import('./predictiveAnalyticsEngine');
+      // Get all unique organization IDs from properties
+      const allProperties = await storage.getAllProperties();
+      const uniqueOrgIds = [...new Set(allProperties.map(p => p.orgId))];
+      
+      for (const orgId of uniqueOrgIds) {
+        const analyticsEngine = new PredictiveAnalyticsEngine(storage);
+        await analyticsEngine.generatePredictions(orgId);
+        console.log(`Generated predictions for organization ID: ${orgId}`);
+      }
+      
+      console.log('Predictive insights regeneration completed');
+    } catch (error) {
+      console.error('Error generating predictive insights:', error);
+    }
+  });
 
   console.log('Cron jobs started successfully');
 }
