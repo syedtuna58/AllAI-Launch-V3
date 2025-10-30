@@ -13,7 +13,7 @@ import { format } from "date-fns";
 
 // Omnichannel component (external communications)
 function OmnichannelView() {
-  const { data: messages = [], isLoading } = useQuery({
+  const { data: messages = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/inbox'],
   });
 

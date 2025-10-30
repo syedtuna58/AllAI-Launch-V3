@@ -101,7 +101,7 @@ export default function EquipmentManagementModal({
       
       // Load climate adjustment preference from first equipment item (all should be same per property)
       const firstEquipment = existingEquipment[0];
-      if (firstEquipment && firstEquipment.useClimateAdjustment !== undefined) {
+      if (firstEquipment && firstEquipment.useClimateAdjustment !== undefined && firstEquipment.useClimateAdjustment !== null) {
         setUseClimateAdjustment(firstEquipment.useClimateAdjustment);
       }
       
