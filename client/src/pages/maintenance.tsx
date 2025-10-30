@@ -2414,10 +2414,9 @@ export default function Maintenance() {
             </TabsContent>
           </Tabs>
         </main>
-      </div>
 
-      {/* Maya AI Assistant */}
-      <PropertyAssistant 
+        {/* Maya AI Assistant */}
+        <PropertyAssistant 
             key={activeTab}
             context={activeTab === "predictive" ? "predictive-maintenance" : "maintenance"}
             exampleQuestions={activeTab === "predictive" ? [
@@ -2574,8 +2573,9 @@ export default function Maintenance() {
               });
             }}
           />
+      </div>
 
-          {/* Predictive Insights Banner */}
+      {/* Predictive Insights Banner */}
           {insights.length > 0 && (
             <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 mb-6" data-testid="card-insights-banner">
               <CardHeader>
