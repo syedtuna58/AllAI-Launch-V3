@@ -6316,6 +6316,96 @@ Consider:
     }
   });
 
+  // Migrate existing property/unit equipment data to equipment table
+  app.post('/api/equipment/migrate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      const properties = await storage.getProperties();
+      const units = await storage.getUnits();
+      let importedCount = 0;
+
+      // Import building-level equipment from properties
+      for (const property of properties) {
+        // Building HVAC
+        if (property.buildingHvacYear) {
+          await storage.createEquipment({
+            orgId: org.id,
+            propertyId: property.id,
+            unitId: null,
+            equipmentType: 'hvac',
+            installYear: property.buildingHvacYear,
+            manufacturer: property.buildingHvacBrand || undefined,
+            model: property.buildingHvacModel || undefined,
+            customLifespanYears: property.buildingHvacLifetime || undefined,
+            useClimateAdjustment: true,
+          });
+          importedCount++;
+        }
+
+        // Building Water Heater
+        if (property.buildingWaterYear) {
+          await storage.createEquipment({
+            orgId: org.id,
+            propertyId: property.id,
+            unitId: null,
+            equipmentType: 'water_heater',
+            installYear: property.buildingWaterYear,
+            manufacturer: property.buildingWaterBrand || undefined,
+            model: property.buildingWaterModel || undefined,
+            customLifespanYears: property.buildingWaterLifetime || undefined,
+            useClimateAdjustment: true,
+          });
+          importedCount++;
+        }
+      }
+
+      // Import unit-level equipment
+      for (const unit of units) {
+        // Unit HVAC
+        if (unit.hvacYear) {
+          await storage.createEquipment({
+            orgId: org.id,
+            propertyId: unit.propertyId,
+            unitId: unit.id,
+            equipmentType: 'hvac',
+            installYear: unit.hvacYear,
+            manufacturer: unit.hvacBrand || undefined,
+            model: unit.hvacModel || undefined,
+            customLifespanYears: unit.hvacLifetime || undefined,
+            useClimateAdjustment: true,
+          });
+          importedCount++;
+        }
+
+        // Unit Water Heater
+        if (unit.waterHeaterYear) {
+          await storage.createEquipment({
+            orgId: org.id,
+            propertyId: unit.propertyId,
+            unitId: unit.id,
+            equipmentType: 'water_heater',
+            installYear: unit.waterHeaterYear,
+            manufacturer: unit.waterHeaterBrand || undefined,
+            model: unit.waterHeaterModel || undefined,
+            customLifespanYears: unit.waterHeaterLifetime || undefined,
+            useClimateAdjustment: true,
+          });
+          importedCount++;
+        }
+      }
+
+      res.json({ success: true, importedCount, message: `Imported ${importedCount} equipment items` });
+    } catch (error) {
+      console.error("Error migrating equipment:", error);
+      res.status(500).json({ message: "Failed to migrate equipment" });
+    }
+  });
+
   // Get equipment for a property
   app.get('/api/properties/:id/equipment', isAuthenticated, async (req: any, res) => {
     try {
