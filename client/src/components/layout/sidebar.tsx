@@ -33,11 +33,13 @@ export default function Sidebar() {
 
   const contractorNavigation = [
     { name: "Dashboard", href: "/contractor-dashboard", icon: Home },
+    { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "My Jobs", href: "/maintenance", icon: Wrench },
   ];
 
   const tenantNavigation = [
     { name: "Dashboard", href: "/tenant-dashboard", icon: Home },
+    { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "Submit Request", href: "/tenant-request", icon: MessageSquare },
     { name: "My Requests", href: "/maintenance", icon: ClipboardList },
   ];
