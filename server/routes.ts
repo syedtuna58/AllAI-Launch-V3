@@ -252,7 +252,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      res.json(user);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Get user's role in their organization
+      const org = await storage.getUserOrganization(userId);
+      let role = null;
+      
+      if (org) {
+        const userRole = await db
+          .select({ role: organizationMembers.role })
+          .from(organizationMembers)
+          .where(
+            and(
+              eq(organizationMembers.userId, userId),
+              eq(organizationMembers.orgId, org.id)
+            )
+          )
+          .limit(1);
+        
+        if (userRole[0]) {
+          role = userRole[0].role;
+        }
+      }
+      
+      // If no role found, default to admin ONLY for org owner (backward compatibility)
+      if (!role && org?.ownerId === userId) {
+        role = 'admin';
+      }
+      
+      // If still no role, user has no membership - return null role (not admin!)
+      res.json({ ...user, role: role || null });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -2949,6 +2981,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const org = await storage.getUserOrganization(userId);
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
+      // Get user's role in the organization
+      const userRole = await db
+        .select({ role: organizationMembers.role })
+        .from(organizationMembers)
+        .where(
+          and(
+            eq(organizationMembers.userId, userId),
+            eq(organizationMembers.orgId, org.id)
+          )
+        )
+        .limit(1);
+
+      const role = userRole[0]?.role;
+      
+      // If no role found, check if user is org owner (backward compatibility)
+      const effectiveRole = role || (org.ownerId === userId ? 'admin' : null);
+      
+      if (!effectiveRole) {
+        // User has no role in this organization
+        return res.json([]);
+      }
+
+      // Role-based filtering
+      if (effectiveRole === 'vendor' || effectiveRole === 'tenant') {
+        // Vendors and tenants don't see reminders (they work from Smart Cases instead)
+        // Reminders are an admin/manager organization tool
+        return res.json([]);
+      }
+      
+      // Admin and managers see all reminders
       const reminders = await storage.getReminders(org.id);
       res.json(reminders);
     } catch (error) {
@@ -6160,11 +6222,61 @@ Consider:
         return res.status(404).json({ message: "Organization not found" });
       }
 
+      // Get user's role in the organization
+      const userRole = await db
+        .select({ role: organizationMembers.role })
+        .from(organizationMembers)
+        .where(
+          and(
+            eq(organizationMembers.userId, userId),
+            eq(organizationMembers.orgId, org.id)
+          )
+        )
+        .limit(1);
+
+      const role = userRole[0]?.role;
+      
+      // If no role found, check if user is org owner (backward compatibility)
+      const effectiveRole = role || (org.ownerId === userId ? 'admin' : null);
+      
+      if (!effectiveRole) {
+        // User has no role in this organization
+        return res.json([]);
+      }
+
       const filters: any = {};
       if (req.query.channelType) filters.channelType = req.query.channelType;
       if (req.query.status) filters.status = req.query.status;
       if (req.query.tenantId) filters.tenantId = req.query.tenantId;
       if (req.query.contractorId) filters.contractorId = req.query.contractorId;
+
+      // Role-based filtering
+      if (effectiveRole === 'vendor') {
+        // Find the vendor record for this user
+        const vendor = await db
+          .select()
+          .from(vendors)
+          .where(
+            and(
+              eq(vendors.userId, userId),
+              eq(vendors.orgId, org.id)
+            )
+          )
+          .limit(1);
+
+        if (vendor[0]) {
+          // Only show messages where this contractor is involved
+          filters.contractorId = vendor[0].id;
+        } else {
+          // No vendor record found, return empty array
+          return res.json([]);
+        }
+      } else if (effectiveRole === 'tenant') {
+        // Tenants cannot access inbox (they work through their own portal)
+        // For now, return empty array - tenant portal would be a separate feature
+        return res.json([]);
+      }
+      // For admin and manager roles, no additional filtering needed (they see all)
 
       const messages = await storage.getChannelMessages(org.id, filters);
       

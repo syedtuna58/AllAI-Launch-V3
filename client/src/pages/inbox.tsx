@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import Messages from "@/pages/messages";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -235,6 +236,11 @@ function OmnichannelView() {
 
 // Main Inbox page with External/Internal tabs
 export default function Inbox() {
+  const { user } = useAuth();
+  
+  // Check if user is admin or manager (can see Internal/External tabs)
+  const isAdminOrManager = user?.role === 'admin' || user?.role === 'manager';
+  
   return (
     <div className="flex h-screen bg-background" data-testid="page-inbox">
       <Sidebar />
@@ -243,26 +249,30 @@ export default function Inbox() {
         <Header title="Inbox" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <Tabs defaultValue="external" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
-              <TabsTrigger value="external" data-testid="tab-external">
-                <Globe className="h-4 w-4 mr-2" />
-                External (Omnichannel)
-              </TabsTrigger>
-              <TabsTrigger value="internal" data-testid="tab-internal">
-                <Users className="h-4 w-4 mr-2" />
-                Internal (Team)
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="external" className="mt-0">
-              <OmnichannelView />
-            </TabsContent>
-            
-            <TabsContent value="internal" className="mt-0">
-              <Messages embedded />
-            </TabsContent>
-          </Tabs>
+          {isAdminOrManager ? (
+            <Tabs defaultValue="external" className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+                <TabsTrigger value="external" data-testid="tab-external">
+                  <Globe className="h-4 w-4 mr-2" />
+                  External (Omnichannel)
+                </TabsTrigger>
+                <TabsTrigger value="internal" data-testid="tab-internal">
+                  <Users className="h-4 w-4 mr-2" />
+                  Internal (Team)
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="external" className="mt-0">
+                <OmnichannelView />
+              </TabsContent>
+              
+              <TabsContent value="internal" className="mt-0">
+                <Messages embedded />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <OmnichannelView />
+          )}
         </main>
       </div>
     </div>
