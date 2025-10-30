@@ -424,6 +424,27 @@ export default function Maintenance() {
     },
   });
 
+  const generatePredictionsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/predictive-insights/generate');
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
+      toast({
+        title: "Predictions Generated",
+        description: `Successfully generated ${data.count || 0} predictions from your equipment data.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate predictions",
+        variant: "destructive",
+      });
+    },
+  });
+
   const acceptCaseMutation = useMutation({
     mutationFn: async ({ caseId, appointmentData }: { caseId: string, appointmentData: any }) => {
       const response = await apiRequest("POST", `/api/contractor/cases/${caseId}/accept`, appointmentData);
@@ -2384,10 +2405,30 @@ export default function Maintenance() {
                   <h1 className="text-2xl font-bold text-foreground">Predictive Maintenance</h1>
                   <p className="text-muted-foreground">Equipment replacement predictions and insights</p>
                 </div>
-                <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-manage-equipment">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Manage Equipment
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => generatePredictionsMutation.mutate()} 
+                    disabled={generatePredictionsMutation.isPending}
+                    variant="outline"
+                    data-testid="button-generate-predictions"
+                  >
+                    {generatePredictionsMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <TrendingUp className="h-4 w-4 mr-2" />
+                        Generate Predictions
+                      </>
+                    )}
+                  </Button>
+                  <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-manage-equipment">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Manage Equipment
+                  </Button>
+                </div>
               </div>
 
               {/* Filters */}
