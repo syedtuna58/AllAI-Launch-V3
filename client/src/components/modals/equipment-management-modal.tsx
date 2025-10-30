@@ -58,6 +58,42 @@ export default function EquipmentManagementModal({
     enabled: open,
   });
 
+  // Migration mutation to import existing property equipment data
+  const migrateMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest('/api/equipment/migrate', 'POST');
+    },
+    onSuccess: async (data: any) => {
+      if (data.importedCount > 0) {
+        toast({
+          title: "Equipment Imported",
+          description: `Successfully imported ${data.importedCount} equipment items from your properties.`,
+        });
+        // Refresh equipment data for this property
+        await queryClient.invalidateQueries({ queryKey: ['/api/properties', property.id, 'equipment'] });
+        // Trigger predictive insights generation
+        await apiRequest('/api/predictive-insights/generate', 'POST');
+        // Refresh predictions
+        await queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
+        await queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Migration Failed",
+        description: "Failed to import equipment data. Please try adding equipment manually.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Auto-migrate on first load if no equipment exists yet
+  useEffect(() => {
+    if (open && !isLoading && existingEquipment.length === 0 && !migrateMutation.isPending && !migrateMutation.isSuccess) {
+      migrateMutation.mutate();
+    }
+  }, [open, isLoading, existingEquipment.length]);
+
   // Initialize form data when existing equipment loads
   useEffect(() => {
     if (existingEquipment.length > 0 && catalog.length > 0) {
