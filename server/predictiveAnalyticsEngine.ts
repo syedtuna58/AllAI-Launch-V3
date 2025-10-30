@@ -69,45 +69,56 @@ export class PredictiveAnalyticsEngine {
       const lifespan = replacementYear - eq.installYear;
       const remainingYears = replacementYear - currentYear;
 
-      // Generate prediction if equipment is within final 2 years of lifespan
-      if (remainingYears <= 2 && remainingYears >= -1) {
-        const confidence = remainingYears <= 0 ? 0.95 : (1 - (remainingYears / lifespan)) * 0.85;
-        const clampedConfidence = Math.max(0.60, Math.min(0.95, confidence));
+      // Generate prediction for all equipment regardless of timeline
+      // Adjust confidence based on how close to replacement
+      let confidence: number;
+      let statusText: string;
+      
+      if (remainingYears <= 0) {
+        confidence = 0.95;
+        statusText = 'has exceeded its expected lifespan';
+      } else if (remainingYears <= 2) {
+        confidence = (1 - (remainingYears / lifespan)) * 0.85;
+        statusText = `is approaching end of lifespan (${remainingYears} ${remainingYears === 1 ? 'year' : 'years'} remaining)`;
+      } else if (remainingYears <= 5) {
+        confidence = 0.70;
+        statusText = `will need replacement in ${remainingYears} years`;
+      } else {
+        confidence = 0.60;
+        statusText = `is projected for replacement in ${remainingYears} years`;
+      }
+      
+      const clampedConfidence = Math.max(0.60, Math.min(0.95, confidence));
 
-        const statusText = remainingYears <= 0 
-          ? 'has exceeded its expected lifespan' 
-          : `is approaching end of lifespan (${remainingYears} ${remainingYears === 1 ? 'year' : 'years'} remaining)`;
+      const prediction = {
+        orgId,
+        insightType: 'equipment_failure',
+        equipmentType: eq.equipmentType,
+        propertyId: eq.propertyId,
+        unitId: eq.unitId || undefined,
+        prediction: `${definition.displayName} at ${property.name} ${statusText}. Installed in ${eq.installYear}, typical lifespan is ${lifespan} years.`,
+        confidence: clampedConfidence.toFixed(2),
+        predictedDate: new Date(replacementYear, 0, 1),
+        estimatedCost: this.estimateReplacementCost(eq.equipmentType),
+        basedOnDataPoints: 0, // Industry average, not historical data
+        reasoning: `${definition.description}. Based on industry-standard lifespan of ${definition.defaultLifespanYears} years${eq.useClimateAdjustment ? ' with climate adjustment for ' + property.state : ''}. Equipment is currently ${age} years old.`,
+        recommendations: this.getRecommendationsForEquipment(definition.category, remainingYears),
+      };
 
-        const prediction = {
-          orgId,
-          insightType: 'equipment_failure',
-          equipmentType: eq.equipmentType,
-          propertyId: eq.propertyId,
-          unitId: eq.unitId || undefined,
-          prediction: `${definition.displayName} at ${property.name} ${statusText}. Installed in ${eq.installYear}, typical lifespan is ${lifespan} years.`,
-          confidence: clampedConfidence.toFixed(2),
-          predictedDate: new Date(replacementYear, 0, 1),
-          estimatedCost: this.estimateReplacementCost(eq.equipmentType),
-          basedOnDataPoints: 0, // Industry average, not historical data
-          reasoning: `${definition.description}. Based on industry-standard lifespan of ${definition.defaultLifespanYears} years${eq.useClimateAdjustment ? ' with climate adjustment for ' + property.state : ''}. Equipment is currently ${age} years old.`,
-          recommendations: this.getRecommendationsForEquipment(definition.category, remainingYears),
-        };
+      // Check for duplicates
+      const existing = await this.storage.getPredictiveInsights(orgId, {
+        isActive: true,
+        insightType: 'equipment_failure',
+      });
 
-        // Check for duplicates
-        const existing = await this.storage.getPredictiveInsights(orgId, {
-          isActive: true,
-          insightType: 'equipment_failure',
-        });
+      const duplicate = existing.find(
+        p => p.equipmentType === eq.equipmentType && 
+             p.propertyId === eq.propertyId && 
+             p.unitId === eq.unitId
+      );
 
-        const duplicate = existing.find(
-          p => p.equipmentType === eq.equipmentType && 
-               p.propertyId === eq.propertyId && 
-               p.unitId === eq.unitId
-        );
-
-        if (!duplicate) {
-          await this.storage.createPredictiveInsight(prediction);
-        }
+      if (!duplicate) {
+        await this.storage.createPredictiveInsight(prediction);
       }
     }
   }
@@ -116,6 +127,7 @@ export class PredictiveAnalyticsEngine {
    * Get recommendations based on equipment category and time remaining
    */
   private getRecommendationsForEquipment(category: string, remainingYears: number): string[] {
+    // Overdue or past lifespan
     if (remainingYears <= 0) {
       return category === 'critical'
         ? [
@@ -130,18 +142,43 @@ export class PredictiveAnalyticsEngine {
           ];
     }
 
-    return category === 'critical'
-      ? [
-          'Schedule professional inspection within 30 days',
-          'Budget for replacement in next 12 months',
-          'Consider preventive maintenance to extend lifespan',
-          'Obtain preliminary quotes for planning',
-        ]
-      : [
-          'Schedule inspection to assess current condition',
-          'Begin budgeting for replacement',
-          'Research current market pricing for this equipment',
-        ];
+    // Within 2 years - approaching replacement
+    if (remainingYears <= 2) {
+      return category === 'critical'
+        ? [
+            'Schedule professional inspection within 30 days',
+            'Budget for replacement in next 12 months',
+            'Consider preventive maintenance to extend lifespan',
+            'Obtain preliminary quotes for planning',
+          ]
+        : [
+            'Schedule inspection to assess current condition',
+            'Begin budgeting for replacement',
+            'Research current market pricing for this equipment',
+          ];
+    }
+
+    // 3-5 years - upcoming replacement
+    if (remainingYears <= 5) {
+      return category === 'critical'
+        ? [
+            'Add to long-term maintenance plan',
+            'Schedule periodic inspections to monitor condition',
+            'Start capital reserve planning for replacement',
+          ]
+        : [
+            'Monitor equipment condition during routine maintenance',
+            'Include in capital expenditure forecast',
+            'Track performance for early warning signs',
+          ];
+    }
+
+    // 5+ years - healthy equipment
+    return [
+      'Equipment is in healthy condition',
+      'Continue routine maintenance schedule',
+      'Review during annual property assessments',
+    ];
   }
 
   /**

@@ -145,6 +145,7 @@ export default function Maintenance() {
   const [predictivePropertyFilter, setPredictivePropertyFilter] = useState<string>("all");
   const [predictiveEquipmentTypeFilter, setPredictiveEquipmentTypeFilter] = useState<string>("all");
   const [predictiveEntityFilter, setPredictiveEntityFilter] = useState<string>("all");
+  const [timelineFilter, setTimelineFilter] = useState<string>("5"); // Default to "Due Within 5 Years"
   const [activeTab, setActiveTab] = useState<"maintenance" | "predictive">("maintenance");
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
@@ -596,8 +597,16 @@ export default function Maintenance() {
         entityMatch = false;
       }
     }
+
+    // Filter by timeline - check years until predicted date
+    let timelineMatch = true;
+    if (timelineFilter !== "all" && insight.predictedDate) {
+      const yearsUntil = (new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 365);
+      const filterYears = parseInt(timelineFilter);
+      timelineMatch = yearsUntil <= filterYears;
+    }
     
-    return propertyMatch && equipmentTypeMatch && entityMatch;
+    return propertyMatch && equipmentTypeMatch && entityMatch && timelineMatch;
   }) || [];
 
   const onSubmit = async (data: z.infer<typeof createCaseSchema>) => {
@@ -2425,6 +2434,18 @@ export default function Maintenance() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Select value={timelineFilter} onValueChange={setTimelineFilter}>
+                  <SelectTrigger className="w-52" data-testid="select-timeline-filter">
+                    <SelectValue placeholder="Timeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="1">Due Within 1 Year</SelectItem>
+                    <SelectItem value="2">Due Within 2 Years</SelectItem>
+                    <SelectItem value="5">Due Within 5 Years</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Predictive Insights Cards */}
@@ -2456,14 +2477,27 @@ export default function Maintenance() {
                       ? Math.ceil((new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
                       : null;
                     
-                    const urgencyColor = daysUntil !== null && daysUntil < 90 
-                      ? 'text-red-600 border-red-600 bg-red-50 dark:bg-red-950' 
-                      : daysUntil !== null && daysUntil < 180 
-                      ? 'text-orange-600 border-orange-600 bg-orange-50 dark:bg-orange-950'
-                      : 'text-blue-600 border-blue-600 bg-blue-50 dark:bg-blue-950';
+                    // Calculate years until replacement for color coding
+                    const yearsUntil = insight.predictedDate 
+                      ? (new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 365)
+                      : null;
+                    
+                    // Color coding based on urgency: Red (0-2 years), Yellow (3-5 years), Green (5+ years)
+                    let urgencyColor = 'text-green-600 border-green-600 bg-green-50 dark:bg-green-950';
+                    let cardBorderColor = 'border-l-4 border-l-green-500';
+                    
+                    if (yearsUntil !== null) {
+                      if (yearsUntil <= 2) {
+                        urgencyColor = 'text-red-600 border-red-600 bg-red-50 dark:bg-red-950';
+                        cardBorderColor = 'border-l-4 border-l-red-500';
+                      } else if (yearsUntil <= 5) {
+                        urgencyColor = 'text-yellow-600 border-yellow-600 bg-yellow-50 dark:bg-yellow-950';
+                        cardBorderColor = 'border-l-4 border-l-yellow-500';
+                      }
+                    }
 
                     return (
-                      <Card key={insight.id} className="hover:shadow-lg transition-shadow" data-testid={`card-insight-${insight.id}`}>
+                      <Card key={insight.id} className={`hover:shadow-lg transition-shadow ${cardBorderColor}`} data-testid={`card-insight-${insight.id}`}>
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
