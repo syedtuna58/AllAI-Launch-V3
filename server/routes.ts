@@ -4,8 +4,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService } from "./objectStorage";
 import { db } from "./db";
-import { users, organizationMembers } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, organizationMembers, vendors } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { 
   insertOrganizationSchema,
   insertOwnershipEntitySchema,
