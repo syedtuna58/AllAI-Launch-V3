@@ -1211,6 +1211,7 @@ export default function Maintenance() {
 
           {/* Maya AI Assistant */}
           <PropertyAssistant 
+            key={activeTab}
             context={activeTab === "predictive" ? "predictive-maintenance" : "maintenance"}
             exampleQuestions={activeTab === "predictive" ? [
               "Which equipment is most likely to fail soon?",
