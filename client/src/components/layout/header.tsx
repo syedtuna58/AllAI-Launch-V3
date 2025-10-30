@@ -16,7 +16,7 @@ import { RoleSwitcher } from "@/components/role-switcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useDevMode } from "@/contexts/DevModeContext";
 import { useLocation } from "wouter";
-import { Search, Plus, Settings, DollarSign, Building, Wrench, Users, Calendar, Home, Star, Command, TrendingUp, Inbox } from "lucide-react";
+import { Search, Plus, Settings, DollarSign, Building, Wrench, Users, Calendar, Home, Star, TrendingUp, Inbox, Sparkles } from "lucide-react";
 import type { Property, OwnershipEntity, Unit } from "@shared/schema";
 
 interface HeaderProps {
@@ -199,9 +199,10 @@ export default function Header({ title }: HeaderProps) {
                   size="sm"
                   onClick={() => setShowCommandPalette(true)}
                   data-testid="button-command-palette"
+                  className="gap-1"
                 >
-                  <Command className="h-4 w-4 mr-2" />
-                  <span className="text-xs text-muted-foreground">⌘K</span>
+                  <Search className="h-4 w-4" />
+                  <Sparkles className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
