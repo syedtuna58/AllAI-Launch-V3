@@ -151,6 +151,8 @@ export default function Maintenance() {
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [viewingProposalsCase, setViewingProposalsCase] = useState<SmartCase | null>(null);
   const [showProposalsDialog, setShowProposalsDialog] = useState(false);
+  const [selectedInsight, setSelectedInsight] = useState<PredictiveInsight | null>(null);
+  const [showInsightDialog, setShowInsightDialog] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -696,9 +698,9 @@ export default function Maintenance() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Maintenance" />
         
-        <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "maintenance" | "predictive")} className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "maintenance" | "predictive")} className="flex-1 flex flex-col overflow-hidden">
+          <div className="px-6 pt-6 pb-4 bg-muted/30 border-b">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="maintenance" data-testid="tab-maintenance">
                 <Wrench className="h-4 w-4 mr-2" />
                 Maintenance
@@ -708,8 +710,10 @@ export default function Maintenance() {
                 Predictive Maintenance
               </TabsTrigger>
             </TabsList>
+          </div>
 
-            <TabsContent value="maintenance" className="mt-0">
+          <main className="flex-1 overflow-auto p-6 bg-muted/30">
+            <TabsContent value="maintenance" className="mt-0 h-full">
               {/* Maya AI Assistant */}
               <PropertyAssistant 
                 key="maintenance"
@@ -2380,7 +2384,7 @@ export default function Maintenance() {
       )}
             </TabsContent>
 
-            <TabsContent value="predictive" className="mt-0">
+            <TabsContent value="predictive" className="mt-0 h-full">
               {/* Maya AI Assistant */}
               <PropertyAssistant 
                 key="predictive"
@@ -2538,7 +2542,15 @@ export default function Maintenance() {
                     }
 
                     return (
-                      <Card key={insight.id} className={`hover:shadow-lg transition-shadow ${cardBorderColor}`} data-testid={`card-insight-${insight.id}`}>
+                      <Card 
+                        key={insight.id} 
+                        className={`hover:shadow-lg transition-shadow cursor-pointer ${cardBorderColor}`} 
+                        data-testid={`card-insight-${insight.id}`}
+                        onClick={() => {
+                          setSelectedInsight(insight);
+                          setShowInsightDialog(true);
+                        }}
+                      >
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -2606,8 +2618,8 @@ export default function Maintenance() {
                 </div>
               )}
             </TabsContent>
-          </Tabs>
-        </main>
+          </main>
+        </Tabs>
       </div>
 
       {/* Predictive Insights Banner */}
@@ -2658,6 +2670,112 @@ export default function Maintenance() {
               </CardContent>
             </Card>
           )}
+
+      {/* Insight Detail Dialog */}
+      <Dialog open={showInsightDialog} onOpenChange={setShowInsightDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-insight-detail">
+          {selectedInsight && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedInsight.prediction}</DialogTitle>
+                <CardDescription className="mt-2">
+                  {properties?.find(p => p.id === selectedInsight.propertyId)?.name || 
+                   `${properties?.find(p => p.id === selectedInsight.propertyId)?.street}, ${properties?.find(p => p.id === selectedInsight.propertyId)?.city}`}
+                  {selectedInsight.unitId && ` • Unit ${units?.find(u => u.id === selectedInsight.unitId)?.unitNumber}`}
+                </CardDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 mt-4">
+                {/* Key Details */}
+                <div className="grid grid-cols-2 gap-4">
+                  {selectedInsight.equipmentType && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Equipment Type</p>
+                      <p className="text-lg font-semibold">{selectedInsight.equipmentType.replace(/_/g, ' ').toUpperCase()}</p>
+                    </div>
+                  )}
+                  {selectedInsight.confidence && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Confidence</p>
+                      <p className="text-lg font-semibold">{Math.round(Number(selectedInsight.confidence) * 100)}%</p>
+                    </div>
+                  )}
+                  {selectedInsight.predictedDate && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Expected Date</p>
+                      <p className="text-lg font-semibold">{format(new Date(selectedInsight.predictedDate), 'MMM d, yyyy')}</p>
+                    </div>
+                  )}
+                  {selectedInsight.estimatedCost && (
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Estimated Cost</p>
+                      <p className="text-lg font-semibold">${Number(selectedInsight.estimatedCost).toLocaleString()}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Reasoning */}
+                {selectedInsight.reasoning && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <Target className="h-4 w-4" />
+                      Analysis
+                    </h3>
+                    <p className="text-sm text-muted-foreground bg-muted p-4 rounded-lg">{selectedInsight.reasoning}</p>
+                  </div>
+                )}
+
+                {/* Recommendations */}
+                {selectedInsight.recommendations && selectedInsight.recommendations.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      Recommendations
+                    </h3>
+                    <ul className="space-y-2">
+                      {selectedInsight.recommendations.map((rec, index) => (
+                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span>{rec}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Data Points */}
+                {selectedInsight.basedOnDataPoints && (
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
+                    Based on {selectedInsight.basedOnDataPoints} data point{selectedInsight.basedOnDataPoints !== 1 ? 's' : ''}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button 
+                    onClick={() => {
+                      setSelectedPropertyId(selectedInsight.propertyId || '');
+                      setShowEquipmentModal(true);
+                      setShowInsightDialog(false);
+                    }}
+                    data-testid="button-manage-equipment-dialog"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Manage Equipment
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setShowInsightDialog(false)}
+                    data-testid="button-close-insight-dialog"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Equipment Management Modal */}
       {properties && properties.length > 0 && (
