@@ -1043,379 +1043,6 @@ export default function Maintenance() {
               </Dialog>
             </div>
           </div>
-            </TabsContent>
-
-            <TabsContent value="predictive" className="mt-0">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Predictive Maintenance</h1>
-                  <p className="text-muted-foreground">Equipment replacement predictions and insights</p>
-                </div>
-                <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-manage-equipment">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Manage Equipment
-                </Button>
-              </div>
-
-              {/* Filters */}
-              <div className="flex items-center gap-3 mb-6">
-                <Select value={predictivePropertyFilter} onValueChange={setPredictivePropertyFilter}>
-                  <SelectTrigger className="w-52" data-testid="select-predictive-property-filter">
-                    <SelectValue placeholder="All Properties" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Properties</SelectItem>
-                    {properties?.map((property) => (
-                      <SelectItem key={property.id} value={property.id}>
-                        {property.name || `${property.street}, ${property.city}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={predictiveEquipmentTypeFilter} onValueChange={setPredictiveEquipmentTypeFilter}>
-                  <SelectTrigger className="w-52" data-testid="select-equipment-type-filter">
-                    <SelectValue placeholder="All Equipment Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Equipment Types</SelectItem>
-                    <SelectItem value="hvac">HVAC</SelectItem>
-                    <SelectItem value="water_heater">Water Heater</SelectItem>
-                    <SelectItem value="boiler">Boiler</SelectItem>
-                    <SelectItem value="roof">Roof</SelectItem>
-                    <SelectItem value="appliance">Appliance</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={predictiveEntityFilter} onValueChange={setPredictiveEntityFilter}>
-                  <SelectTrigger className="w-44" data-testid="select-predictive-entity-filter">
-                    <SelectValue placeholder="All Entities" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Entities</SelectItem>
-                    {entities?.map((entity) => (
-                      <SelectItem key={entity.id} value={entity.id}>
-                        {entity.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Predictive Insights Cards */}
-              {insightsLoading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading predictions...</p>
-                </div>
-              ) : filteredInsights.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No Predictions Available</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Add equipment to your properties to start generating predictive maintenance insights
-                    </p>
-                    <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-add-equipment">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Equipment
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredInsights.map((insight) => {
-                    const property = properties?.find(p => p.id === insight.propertyId);
-                    const unit = units?.find(u => u.id === insight.unitId);
-                    const daysUntil = insight.predictedDate 
-                      ? Math.ceil((new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                      : null;
-                    
-                    const urgencyColor = daysUntil !== null && daysUntil < 90 
-                      ? 'text-red-600 border-red-600 bg-red-50 dark:bg-red-950' 
-                      : daysUntil !== null && daysUntil < 180 
-                      ? 'text-orange-600 border-orange-600 bg-orange-50 dark:bg-orange-950'
-                      : 'text-blue-600 border-blue-600 bg-blue-50 dark:bg-blue-950';
-
-                    return (
-                      <Card key={insight.id} className="hover:shadow-lg transition-shadow" data-testid={`card-insight-${insight.id}`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className={urgencyColor}>
-                                  {insight.equipmentType?.replace(/_/g, ' ').toUpperCase()}
-                                </Badge>
-                                {insight.confidence && (
-                                  <Badge variant="outline" className="text-muted-foreground">
-                                    {Math.round(Number(insight.confidence) * 100)}% confidence
-                                  </Badge>
-                                )}
-                              </div>
-                              <CardTitle className="text-base">{insight.prediction}</CardTitle>
-                              <CardDescription className="mt-1">
-                                {property?.name || `${property?.street}, ${property?.city}`}
-                                {unit && ` • ${unit.unitNumber}`}
-                              </CardDescription>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {insight.predictedDate && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-muted-foreground">
-                                Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
-                                {daysUntil !== null && ` (${daysUntil} days)`}
-                              </span>
-                            </div>
-                          )}
-                          {insight.estimatedCost && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">
-                                ${Number(insight.estimatedCost).toLocaleString()}
-                              </span>
-                              <span className="text-muted-foreground">estimated cost</span>
-                            </div>
-                          )}
-                          {insight.basedOnDataPoints && (
-                            <div className="text-xs text-muted-foreground">
-                              Based on {insight.basedOnDataPoints} data point{insight.basedOnDataPoints !== 1 ? 's' : ''}
-                            </div>
-                          )}
-                          <div className="pt-2 border-t">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedPropertyId(insight.propertyId || '');
-                                setShowEquipmentModal(true);
-                              }}
-                              data-testid={`button-manage-equipment-${insight.id}`}
-                            >
-                              <Settings className="h-4 w-4 mr-2" />
-                              Manage Equipment
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          {/* Maya AI Assistant */}
-          <PropertyAssistant 
-            key={activeTab}
-            context={activeTab === "predictive" ? "predictive-maintenance" : "maintenance"}
-            exampleQuestions={activeTab === "predictive" ? [
-              "Which equipment is most likely to fail soon?",
-              "What's the total cost of upcoming replacements?",
-              "Which property has the highest equipment risk?",
-              "What equipment should I budget for this year?"
-            ] : [
-              "What maintenance is overdue or urgent?",
-              "Which property needs the most attention?",
-              "Any recurring maintenance patterns I should address?",
-              "What repairs are costing me the most?"
-            ]}
-            onCreateCase={(caseData) => {
-              // Validate case data
-              if (!caseData?.property || !caseData?.unit) {
-                toast({
-                  title: "Incomplete Information",
-                  description: "Maya needs property and unit information to create the case. Please provide these details.",
-                  variant: "destructive",
-                });
-                return;
-              }
-
-              // Fuzzy matching helper function
-              const fuzzyMatch = (search: string, target: string): number => {
-                const searchLower = search.toLowerCase().trim();
-                const targetLower = target.toLowerCase().trim();
-                
-                // Empty search string = no match (prevents accidental matches)
-                if (!searchLower || searchLower.length === 0) return 0;
-                if (!targetLower || targetLower.length === 0) return 0;
-                
-                // Exact match = 100%
-                if (searchLower === targetLower) return 100;
-                
-                // Contains match = 80%
-                if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
-                
-                // Word overlap
-                const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
-                const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
-                const overlap = searchWords.filter(w => targetWords.includes(w)).length;
-                if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
-                
-                return 0;
-              };
-
-              // Require non-empty property/unit names before matching
-              const normalizedPropertyName = caseData.property?.trim() || '';
-              if (!normalizedPropertyName) {
-                toast({
-                  title: "Missing Property",
-                  description: "Please specify which property this maintenance issue is for.",
-                  variant: "destructive",
-                });
-                return;
-              }
-
-              // Find best property match using fuzzy matching
-              const propertyMatches = (properties || []).map(p => ({
-                property: p,
-                score: fuzzyMatch(normalizedPropertyName, p.name || '')
-              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
-              
-              const bestPropertyMatch = propertyMatches[0];
-              
-              // If no good property match found, can't proceed
-              if (!bestPropertyMatch || bestPropertyMatch.score < 60) {
-                toast({
-                  title: "Could Not Find Property",
-                  description: `Could not match "${caseData.property}" to your properties. Please create the case manually.`,
-                  variant: "destructive",
-                });
-                
-                // Pre-fill the form and open it for manual entry
-                form.reset({
-                  title: caseData.title || "",
-                  description: caseData.description || "",
-                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                  category: caseData.category || "",
-                  createReminder: false
-                });
-                setShowCaseForm(true);
-                return;
-              }
-
-              const property = bestPropertyMatch.property;
-
-              // Require non-empty unit name before matching
-              const normalizedUnitName = caseData.unit?.trim() || '';
-              if (!normalizedUnitName) {
-                toast({
-                  title: "Missing Unit",
-                  description: "Please specify which unit this maintenance issue is for.",
-                  variant: "destructive",
-                });
-                return;
-              }
-
-              // Find best unit match using fuzzy matching within the property
-              const propertyUnits = (units || []).filter(u => u.propertyId === property.id);
-              const unitMatches = propertyUnits.map(u => ({
-                unit: u,
-                score: fuzzyMatch(normalizedUnitName, u.label || '')
-              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
-
-              const bestUnitMatch = unitMatches[0];
-
-              // Validate we found matching unit in the property
-              if (!bestUnitMatch || bestUnitMatch.score < 60) {
-                toast({
-                  title: "Could Not Find Unit",
-                  description: `Could not match "${caseData.unit}" to units in ${property.name}. Please create the case manually.`,
-                  variant: "destructive",
-                });
-                
-                // Pre-fill the form and open it for manual entry
-                form.reset({
-                  title: caseData.title || "",
-                  description: caseData.description || "",
-                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                  category: caseData.category || "",
-                  createReminder: false
-                });
-                setShowCaseForm(true);
-                return;
-              }
-
-              const unit = bestUnitMatch.unit;
-
-              // Create the case with validated IDs
-              const newCaseData = {
-                title: caseData.title || "Maintenance Request",
-                description: caseData.description || "",
-                propertyId: property.id,
-                unitId: unit.id,
-                priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                category: caseData.category || "",
-                createReminder: false
-              };
-
-              createCaseMutation.mutate(newCaseData);
-              
-              // Show match confidence if not 100%
-              const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
-              const matchMessage = isExactMatch 
-                ? `Creating maintenance request for ${property.name}, ${unit.label}...`
-                : `Matched to ${property.name}, ${unit.label}. Creating request...`;
-              
-              toast({
-                title: "Creating Case",
-                description: matchMessage,
-              });
-            }}
-          />
-
-          {/* Predictive Insights Banner */}
-          {insights.length > 0 && (
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 mb-6" data-testid="card-insights-banner">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-blue-600" />
-                    <CardTitle>Predictive Maintenance Insights</CardTitle>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setCurrentView('insights')}
-                    data-testid="button-view-all-insights-banner"
-                  >
-                    View All Insights
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {[...insights]
-                    .sort((a, b) => parseFloat(b.confidence || '0') - parseFloat(a.confidence || '0'))
-                    .slice(0, 3)
-                    .map((insight) => (
-                      <div 
-                        key={insight.id} 
-                        className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg"
-                        data-testid={`insight-banner-${insight.id}`}
-                      >
-                        <Target className="h-4 w-4 mt-1 text-blue-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium line-clamp-2">{insight.prediction}</p>
-                          {insight.predictedDate && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
-                            </p>
-                          )}
-                          <Badge variant="outline" className="text-xs mt-2">
-                            {Math.round(parseFloat(insight.confidence ?? '0') * 100)}% confidence
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Summary Bar and View Toggle */}
           <div className="bg-background border rounded-lg p-4 mb-6">
@@ -2401,8 +2028,6 @@ export default function Maintenance() {
               </CardContent>
             </Card>
           )}
-        </main>
-      </div>
       
       {/* Case Detail Dialog */}
       <Dialog open={showCaseDialog} onOpenChange={setShowCaseDialog}>
@@ -2623,6 +2248,381 @@ export default function Maintenance() {
           </DialogContent>
         </Dialog>
       )}
+            </TabsContent>
+
+            <TabsContent value="predictive" className="mt-0">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">Predictive Maintenance</h1>
+                  <p className="text-muted-foreground">Equipment replacement predictions and insights</p>
+                </div>
+                <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-manage-equipment">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Equipment
+                </Button>
+              </div>
+
+              {/* Filters */}
+              <div className="flex items-center gap-3 mb-6">
+                <Select value={predictivePropertyFilter} onValueChange={setPredictivePropertyFilter}>
+                  <SelectTrigger className="w-52" data-testid="select-predictive-property-filter">
+                    <SelectValue placeholder="All Properties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties</SelectItem>
+                    {properties?.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.name || `${property.street}, ${property.city}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={predictiveEquipmentTypeFilter} onValueChange={setPredictiveEquipmentTypeFilter}>
+                  <SelectTrigger className="w-52" data-testid="select-equipment-type-filter">
+                    <SelectValue placeholder="All Equipment Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Equipment Types</SelectItem>
+                    <SelectItem value="hvac">HVAC</SelectItem>
+                    <SelectItem value="water_heater">Water Heater</SelectItem>
+                    <SelectItem value="boiler">Boiler</SelectItem>
+                    <SelectItem value="roof">Roof</SelectItem>
+                    <SelectItem value="appliance">Appliance</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={predictiveEntityFilter} onValueChange={setPredictiveEntityFilter}>
+                  <SelectTrigger className="w-44" data-testid="select-predictive-entity-filter">
+                    <SelectValue placeholder="All Entities" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Entities</SelectItem>
+                    {entities?.map((entity) => (
+                      <SelectItem key={entity.id} value={entity.id}>
+                        {entity.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Predictive Insights Cards */}
+              {insightsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading predictions...</p>
+                </div>
+              ) : filteredInsights.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Predictions Available</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Add equipment to your properties to start generating predictive maintenance insights
+                    </p>
+                    <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-add-equipment">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Equipment
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredInsights.map((insight) => {
+                    const property = properties?.find(p => p.id === insight.propertyId);
+                    const unit = units?.find(u => u.id === insight.unitId);
+                    const daysUntil = insight.predictedDate 
+                      ? Math.ceil((new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                      : null;
+                    
+                    const urgencyColor = daysUntil !== null && daysUntil < 90 
+                      ? 'text-red-600 border-red-600 bg-red-50 dark:bg-red-950' 
+                      : daysUntil !== null && daysUntil < 180 
+                      ? 'text-orange-600 border-orange-600 bg-orange-50 dark:bg-orange-950'
+                      : 'text-blue-600 border-blue-600 bg-blue-50 dark:bg-blue-950';
+
+                    return (
+                      <Card key={insight.id} className="hover:shadow-lg transition-shadow" data-testid={`card-insight-${insight.id}`}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className={urgencyColor}>
+                                  {insight.equipmentType?.replace(/_/g, ' ').toUpperCase()}
+                                </Badge>
+                                {insight.confidence && (
+                                  <Badge variant="outline" className="text-muted-foreground">
+                                    {Math.round(Number(insight.confidence) * 100)}% confidence
+                                  </Badge>
+                                )}
+                              </div>
+                              <CardTitle className="text-base">{insight.prediction}</CardTitle>
+                              <CardDescription className="mt-1">
+                                {property?.name || `${property?.street}, ${property?.city}`}
+                                {unit && ` • ${unit.unitNumber}`}
+                              </CardDescription>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {insight.predictedDate && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
+                                {daysUntil !== null && ` (${daysUntil} days)`}
+                              </span>
+                            </div>
+                          )}
+                          {insight.estimatedCost && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <DollarSign className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold">
+                                ${Number(insight.estimatedCost).toLocaleString()}
+                              </span>
+                              <span className="text-muted-foreground">estimated cost</span>
+                            </div>
+                          )}
+                          {insight.basedOnDataPoints && (
+                            <div className="text-xs text-muted-foreground">
+                              Based on {insight.basedOnDataPoints} data point{insight.basedOnDataPoints !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                          <div className="pt-2 border-t">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="w-full"
+                              onClick={() => {
+                                setSelectedPropertyId(insight.propertyId || '');
+                                setShowEquipmentModal(true);
+                              }}
+                              data-testid={`button-manage-equipment-${insight.id}`}
+                            >
+                              <Settings className="h-4 w-4 mr-2" />
+                              Manage Equipment
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+
+          {/* Maya AI Assistant */}
+          <PropertyAssistant 
+            key={activeTab}
+            context={activeTab === "predictive" ? "predictive-maintenance" : "maintenance"}
+            exampleQuestions={activeTab === "predictive" ? [
+              "Which equipment is most likely to fail soon?",
+              "What's the total cost of upcoming replacements?",
+              "Which property has the highest equipment risk?",
+              "What equipment should I budget for this year?"
+            ] : [
+              "What maintenance is overdue or urgent?",
+              "Which property needs the most attention?",
+              "Any recurring maintenance patterns I should address?",
+              "What repairs are costing me the most?"
+            ]}
+            onCreateCase={(caseData) => {
+              // Validate case data
+              if (!caseData?.property || !caseData?.unit) {
+                toast({
+                  title: "Incomplete Information",
+                  description: "Maya needs property and unit information to create the case. Please provide these details.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Fuzzy matching helper function
+              const fuzzyMatch = (search: string, target: string): number => {
+                const searchLower = search.toLowerCase().trim();
+                const targetLower = target.toLowerCase().trim();
+                
+                // Empty search string = no match (prevents accidental matches)
+                if (!searchLower || searchLower.length === 0) return 0;
+                if (!targetLower || targetLower.length === 0) return 0;
+                
+                // Exact match = 100%
+                if (searchLower === targetLower) return 100;
+                
+                // Contains match = 80%
+                if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
+                
+                // Word overlap
+                const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+                const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
+                const overlap = searchWords.filter(w => targetWords.includes(w)).length;
+                if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
+                
+                return 0;
+              };
+
+              // Require non-empty property/unit names before matching
+              const normalizedPropertyName = caseData.property?.trim() || '';
+              if (!normalizedPropertyName) {
+                toast({
+                  title: "Missing Property",
+                  description: "Please specify which property this maintenance issue is for.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Find best property match using fuzzy matching
+              const propertyMatches = (properties || []).map(p => ({
+                property: p,
+                score: fuzzyMatch(normalizedPropertyName, p.name || '')
+              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
+              
+              const bestPropertyMatch = propertyMatches[0];
+              
+              // If no good property match found, can't proceed
+              if (!bestPropertyMatch || bestPropertyMatch.score < 60) {
+                toast({
+                  title: "Could Not Find Property",
+                  description: `Could not match "${caseData.property}" to your properties. Please create the case manually.`,
+                  variant: "destructive",
+                });
+                
+                // Pre-fill the form and open it for manual entry
+                form.reset({
+                  title: caseData.title || "",
+                  description: caseData.description || "",
+                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                  category: caseData.category || "",
+                  createReminder: false
+                });
+                setShowCaseForm(true);
+                return;
+              }
+
+              const property = bestPropertyMatch.property;
+
+              // Require non-empty unit name before matching
+              const normalizedUnitName = caseData.unit?.trim() || '';
+              if (!normalizedUnitName) {
+                toast({
+                  title: "Missing Unit",
+                  description: "Please specify which unit this maintenance issue is for.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Find best unit match using fuzzy matching within the property
+              const propertyUnits = (units || []).filter(u => u.propertyId === property.id);
+              const unitMatches = propertyUnits.map(u => ({
+                unit: u,
+                score: fuzzyMatch(normalizedUnitName, u.label || '')
+              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
+
+              const bestUnitMatch = unitMatches[0];
+
+              // Validate we found matching unit in the property
+              if (!bestUnitMatch || bestUnitMatch.score < 60) {
+                toast({
+                  title: "Could Not Find Unit",
+                  description: `Could not match "${caseData.unit}" to units in ${property.name}. Please create the case manually.`,
+                  variant: "destructive",
+                });
+                
+                // Pre-fill the form and open it for manual entry
+                form.reset({
+                  title: caseData.title || "",
+                  description: caseData.description || "",
+                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                  category: caseData.category || "",
+                  createReminder: false
+                });
+                setShowCaseForm(true);
+                return;
+              }
+
+              const unit = bestUnitMatch.unit;
+
+              // Create the case with validated IDs
+              const newCaseData = {
+                title: caseData.title || "Maintenance Request",
+                description: caseData.description || "",
+                propertyId: property.id,
+                unitId: unit.id,
+                priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                category: caseData.category || "",
+                createReminder: false
+              };
+
+              createCaseMutation.mutate(newCaseData);
+              
+              // Show match confidence if not 100%
+              const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
+              const matchMessage = isExactMatch 
+                ? `Creating maintenance request for ${property.name}, ${unit.label}...`
+                : `Matched to ${property.name}, ${unit.label}. Creating request...`;
+              
+              toast({
+                title: "Creating Case",
+                description: matchMessage,
+              });
+            }}
+          />
+
+          {/* Predictive Insights Banner */}
+          {insights.length > 0 && (
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 mb-6" data-testid="card-insights-banner">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    <CardTitle>Predictive Maintenance Insights</CardTitle>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setCurrentView('insights')}
+                    data-testid="button-view-all-insights-banner"
+                  >
+                    View All Insights
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {[...insights]
+                    .sort((a, b) => parseFloat(b.confidence || '0') - parseFloat(a.confidence || '0'))
+                    .slice(0, 3)
+                    .map((insight) => (
+                      <div 
+                        key={insight.id} 
+                        className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg"
+                        data-testid={`insight-banner-${insight.id}`}
+                      >
+                        <Target className="h-4 w-4 mt-1 text-blue-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium line-clamp-2">{insight.prediction}</p>
+                          {insight.predictedDate && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
+                            </p>
+                          )}
+                          <Badge variant="outline" className="text-xs mt-2">
+                            {Math.round(parseFloat(insight.confidence ?? '0') * 100)}% confidence
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
       {/* Equipment Management Modal */}
       {properties && properties.length > 0 && (
