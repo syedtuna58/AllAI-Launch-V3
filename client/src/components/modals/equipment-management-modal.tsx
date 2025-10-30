@@ -203,7 +203,7 @@ export default function EquipmentManagementModal({
       for (const existing of existingEquipmentForMutation) {
         const stillSelected = selectedEquipment.find(eq => eq.type === existing.equipmentType);
         if (!stillSelected) {
-          await apiRequest(`/api/equipment/${existing.id}`, 'DELETE');
+          await apiRequest('DELETE', `/api/equipment/${existing.id}`);
         }
       }
 
@@ -220,10 +220,10 @@ export default function EquipmentManagementModal({
 
         if (existing) {
           // Update existing
-          await apiRequest(`/api/equipment/${existing.id}`, 'PUT', payload);
+          await apiRequest('PUT', `/api/equipment/${existing.id}`, payload);
         } else {
           // Create new
-          await apiRequest(`/api/properties/${propertyIdForMutation}/equipment`, 'POST', payload);
+          await apiRequest('POST', `/api/properties/${propertyIdForMutation}/equipment`, payload);
         }
       }
       
@@ -234,7 +234,7 @@ export default function EquipmentManagementModal({
       await queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
       
       // Trigger insights regeneration
-      await apiRequest('/api/predictive-insights/generate', 'POST');
+      await apiRequest('POST', '/api/predictive-insights/generate');
       
       toast({
         title: "Equipment saved",
