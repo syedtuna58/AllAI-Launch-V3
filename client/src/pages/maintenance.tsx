@@ -680,6 +680,106 @@ export default function Maintenance() {
             </TabsList>
 
             <TabsContent value="maintenance" className="mt-0">
+              {/* Maya AI Assistant */}
+              <PropertyAssistant 
+                key="maintenance"
+                context="maintenance"
+                exampleQuestions={[
+                  "What maintenance is overdue or urgent?",
+                  "Which property needs the most attention?",
+                  "Any recurring maintenance patterns I should address?",
+                  "What repairs are costing me the most?"
+                ]}
+                onCreateCase={(caseData) => {
+                  // Validate case data
+                  if (!caseData?.property || !caseData?.unit) {
+                    toast({
+                      title: "Incomplete Information",
+                      description: "Maya needs property and unit information to create the case. Please provide these details.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  // Fuzzy matching helper function
+                  const fuzzyMatch = (search: string, target: string): number => {
+                    const searchLower = search.toLowerCase().trim();
+                    const targetLower = target.toLowerCase().trim();
+                    
+                    if (!searchLower || searchLower.length === 0) return 0;
+                    if (!targetLower || targetLower.length === 0) return 0;
+                    if (searchLower === targetLower) return 100;
+                    if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
+                    
+                    const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+                    const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
+                    const overlap = searchWords.filter(w => targetWords.includes(w)).length;
+                    if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
+                    
+                    return 0;
+                  };
+
+                  const bestPropertyMatch = properties?.reduce((best, prop) => {
+                    const nameScore = fuzzyMatch(caseData.property, prop.name || '');
+                    const addressScore = fuzzyMatch(caseData.property, `${prop.street}, ${prop.city}`);
+                    const score = Math.max(nameScore, addressScore);
+                    return score > best.score ? { property: prop, score } : best;
+                  }, { property: null as Property | null, score: 0 });
+
+                  if (!bestPropertyMatch?.property || bestPropertyMatch.score < 50) {
+                    toast({
+                      title: "Property Not Found",
+                      description: `Could not find a property matching "${caseData.property}". Please create the case manually.`,
+                      variant: "destructive",
+                    });
+                    setShowCaseForm(true);
+                    return;
+                  }
+
+                  const property = bestPropertyMatch.property;
+                  const propertyUnits = units?.filter(u => u.propertyId === property.id) || [];
+
+                  const bestUnitMatch = propertyUnits.reduce((best, unit) => {
+                    const score = fuzzyMatch(caseData.unit, unit.label || '');
+                    return score > best.score ? { unit, score } : best;
+                  }, { unit: null as Unit | null, score: 0 });
+
+                  if (!bestUnitMatch?.unit || bestUnitMatch.score < 50) {
+                    toast({
+                      title: "Unit Not Found",
+                      description: `Could not find a unit matching "${caseData.unit}" in ${property.name}. Please create the case manually.`,
+                      variant: "destructive",
+                    });
+                    setShowCaseForm(true);
+                    return;
+                  }
+
+                  const unit = bestUnitMatch.unit;
+
+                  const newCaseData = {
+                    title: caseData.title || "Maintenance Request",
+                    description: caseData.description || "",
+                    propertyId: property.id,
+                    unitId: unit.id,
+                    priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                    category: caseData.category || "",
+                    createReminder: false
+                  };
+
+                  createCaseMutation.mutate(newCaseData);
+                  
+                  const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
+                  const matchMessage = isExactMatch 
+                    ? `Creating maintenance request for ${property.name}, ${unit.label}...`
+                    : `Matched to ${property.name}, ${unit.label}. Creating request...`;
+                  
+                  toast({
+                    title: "Creating Case",
+                    description: matchMessage,
+                  });
+                }}
+              />
+
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Smart Cases</h1>
@@ -2251,6 +2351,25 @@ export default function Maintenance() {
             </TabsContent>
 
             <TabsContent value="predictive" className="mt-0">
+              {/* Maya AI Assistant */}
+              <PropertyAssistant 
+                key="predictive"
+                context="predictive-maintenance"
+                exampleQuestions={[
+                  "Which equipment is most likely to fail soon?",
+                  "What's the total cost of upcoming replacements?",
+                  "Which property has the highest equipment risk?",
+                  "What equipment should I budget for this year?"
+                ]}
+                onCreateCase={(caseData) => {
+                  toast({
+                    title: "Feature Not Available",
+                    description: "Case creation from predictive insights is not yet available.",
+                    variant: "destructive",
+                  });
+                }}
+              />
+
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h1 className="text-2xl font-bold text-foreground">Predictive Maintenance</h1>
@@ -2414,165 +2533,6 @@ export default function Maintenance() {
             </TabsContent>
           </Tabs>
         </main>
-
-        {/* Maya AI Assistant */}
-        <PropertyAssistant 
-            key={activeTab}
-            context={activeTab === "predictive" ? "predictive-maintenance" : "maintenance"}
-            exampleQuestions={activeTab === "predictive" ? [
-              "Which equipment is most likely to fail soon?",
-              "What's the total cost of upcoming replacements?",
-              "Which property has the highest equipment risk?",
-              "What equipment should I budget for this year?"
-            ] : [
-              "What maintenance is overdue or urgent?",
-              "Which property needs the most attention?",
-              "Any recurring maintenance patterns I should address?",
-              "What repairs are costing me the most?"
-            ]}
-            onCreateCase={(caseData) => {
-              // Validate case data
-              if (!caseData?.property || !caseData?.unit) {
-                toast({
-                  title: "Incomplete Information",
-                  description: "Maya needs property and unit information to create the case. Please provide these details.",
-                  variant: "destructive",
-                });
-                return;
-              }
-
-              // Fuzzy matching helper function
-              const fuzzyMatch = (search: string, target: string): number => {
-                const searchLower = search.toLowerCase().trim();
-                const targetLower = target.toLowerCase().trim();
-                
-                // Empty search string = no match (prevents accidental matches)
-                if (!searchLower || searchLower.length === 0) return 0;
-                if (!targetLower || targetLower.length === 0) return 0;
-                
-                // Exact match = 100%
-                if (searchLower === targetLower) return 100;
-                
-                // Contains match = 80%
-                if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
-                
-                // Word overlap
-                const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
-                const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
-                const overlap = searchWords.filter(w => targetWords.includes(w)).length;
-                if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
-                
-                return 0;
-              };
-
-              // Require non-empty property/unit names before matching
-              const normalizedPropertyName = caseData.property?.trim() || '';
-              if (!normalizedPropertyName) {
-                toast({
-                  title: "Missing Property",
-                  description: "Please specify which property this maintenance issue is for.",
-                  variant: "destructive",
-                });
-                return;
-              }
-
-              // Find best property match using fuzzy matching
-              const propertyMatches = (properties || []).map(p => ({
-                property: p,
-                score: fuzzyMatch(normalizedPropertyName, p.name || '')
-              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
-              
-              const bestPropertyMatch = propertyMatches[0];
-              
-              // If no good property match found, can't proceed
-              if (!bestPropertyMatch || bestPropertyMatch.score < 60) {
-                toast({
-                  title: "Could Not Find Property",
-                  description: `Could not match "${caseData.property}" to your properties. Please create the case manually.`,
-                  variant: "destructive",
-                });
-                
-                // Pre-fill the form and open it for manual entry
-                form.reset({
-                  title: caseData.title || "",
-                  description: caseData.description || "",
-                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                  category: caseData.category || "",
-                  createReminder: false
-                });
-                setShowCaseForm(true);
-                return;
-              }
-
-              const property = bestPropertyMatch.property;
-
-              // Require non-empty unit name before matching
-              const normalizedUnitName = caseData.unit?.trim() || '';
-              if (!normalizedUnitName) {
-                toast({
-                  title: "Missing Unit",
-                  description: "Please specify which unit this maintenance issue is for.",
-                  variant: "destructive",
-                });
-                return;
-              }
-
-              // Find best unit match using fuzzy matching within the property
-              const propertyUnits = (units || []).filter(u => u.propertyId === property.id);
-              const unitMatches = propertyUnits.map(u => ({
-                unit: u,
-                score: fuzzyMatch(normalizedUnitName, u.label || '')
-              })).filter(m => m.score >= 60).sort((a, b) => b.score - a.score);
-
-              const bestUnitMatch = unitMatches[0];
-
-              // Validate we found matching unit in the property
-              if (!bestUnitMatch || bestUnitMatch.score < 60) {
-                toast({
-                  title: "Could Not Find Unit",
-                  description: `Could not match "${caseData.unit}" to units in ${property.name}. Please create the case manually.`,
-                  variant: "destructive",
-                });
-                
-                // Pre-fill the form and open it for manual entry
-                form.reset({
-                  title: caseData.title || "",
-                  description: caseData.description || "",
-                  priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                  category: caseData.category || "",
-                  createReminder: false
-                });
-                setShowCaseForm(true);
-                return;
-              }
-
-              const unit = bestUnitMatch.unit;
-
-              // Create the case with validated IDs
-              const newCaseData = {
-                title: caseData.title || "Maintenance Request",
-                description: caseData.description || "",
-                propertyId: property.id,
-                unitId: unit.id,
-                priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                category: caseData.category || "",
-                createReminder: false
-              };
-
-              createCaseMutation.mutate(newCaseData);
-              
-              // Show match confidence if not 100%
-              const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
-              const matchMessage = isExactMatch 
-                ? `Creating maintenance request for ${property.name}, ${unit.label}...`
-                : `Matched to ${property.name}, ${unit.label}. Creating request...`;
-              
-              toast({
-                title: "Creating Case",
-                description: matchMessage,
-              });
-            }}
-          />
       </div>
 
       {/* Predictive Insights Banner */}
