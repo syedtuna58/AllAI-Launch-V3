@@ -2414,9 +2414,10 @@ export default function Maintenance() {
             </TabsContent>
           </Tabs>
         </main>
+      </div>
 
-        {/* Maya AI Assistant */}
-        <PropertyAssistant 
+      {/* Maya AI Assistant */}
+      <PropertyAssistant 
             key={activeTab}
             context={activeTab === "predictive" ? "predictive-maintenance" : "maintenance"}
             exampleQuestions={activeTab === "predictive" ? [
@@ -2622,7 +2623,6 @@ export default function Maintenance() {
               </CardContent>
             </Card>
           )}
-      </div>
 
       {/* Equipment Management Modal */}
       {properties && properties.length > 0 && (
