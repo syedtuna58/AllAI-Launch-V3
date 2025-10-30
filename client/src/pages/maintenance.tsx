@@ -1367,11 +1367,8 @@ export default function Maintenance() {
             }}
           />
 
-          {/* Maintenance Tab Content - Only show on Maintenance tab */}
-          {activeTab === "maintenance" && (
-            <>
-              {/* Predictive Insights Banner */}
-              {insights.length > 0 && (
+          {/* Predictive Insights Banner */}
+          {insights.length > 0 && (
             <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 mb-6" data-testid="card-insights-banner">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -2625,8 +2622,6 @@ export default function Maintenance() {
           </DialogContent>
         </Dialog>
       )}
-            </>
-          )}
 
       {/* Equipment Management Modal */}
       {properties && properties.length > 0 && (
