@@ -199,10 +199,8 @@ export default function Header({ title }: HeaderProps) {
                   size="sm"
                   onClick={() => setShowCommandPalette(true)}
                   data-testid="button-command-palette"
-                  className="gap-1"
                 >
-                  <Search className="h-4 w-4" />
-                  <Sparkles className="h-3 w-3" />
+                  <Sparkles className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
