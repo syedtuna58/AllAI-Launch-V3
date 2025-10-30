@@ -2622,55 +2622,6 @@ export default function Maintenance() {
         </Tabs>
       </div>
 
-      {/* Predictive Insights Banner */}
-          {insights.length > 0 && (
-            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 mb-6" data-testid="card-insights-banner">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-blue-600" />
-                    <CardTitle>Predictive Maintenance Insights</CardTitle>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setCurrentView('insights')}
-                    data-testid="button-view-all-insights-banner"
-                  >
-                    View All Insights
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {[...insights]
-                    .sort((a, b) => parseFloat(b.confidence || '0') - parseFloat(a.confidence || '0'))
-                    .slice(0, 3)
-                    .map((insight) => (
-                      <div 
-                        key={insight.id} 
-                        className="flex items-start gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg"
-                        data-testid={`insight-banner-${insight.id}`}
-                      >
-                        <Target className="h-4 w-4 mt-1 text-blue-600 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium line-clamp-2">{insight.prediction}</p>
-                          {insight.predictedDate && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
-                            </p>
-                          )}
-                          <Badge variant="outline" className="text-xs mt-2">
-                            {Math.round(parseFloat(insight.confidence ?? '0') * 100)}% confidence
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
       {/* Insight Detail Dialog */}
       <Dialog open={showInsightDialog} onOpenChange={setShowInsightDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-insight-detail">
