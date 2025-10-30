@@ -8,11 +8,23 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, AlertCircle, Wrench } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Equipment, Property } from "@shared/schema";
+
+// Extended property type that includes ownership information
+type PropertyWithOwnerships = Property & {
+  status?: "Active" | "Archived";
+  ownerships?: Array<{
+    entityId: string;
+    entityName?: string;
+    entityType?: string;
+    percent: number;
+  }>;
+};
 
 interface EquipmentDefinition {
   type: string;
@@ -33,7 +45,7 @@ interface EquipmentFormData {
 interface EquipmentManagementModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  property: Property;
+  property?: Property;
 }
 
 const currentYear = new Date().getFullYear();
@@ -46,16 +58,46 @@ export default function EquipmentManagementModal({
   const { toast } = useToast();
   const [useClimateAdjustment, setUseClimateAdjustment] = useState(true);
   const [equipmentData, setEquipmentData] = useState<Record<string, EquipmentFormData>>({});
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>(property?.id || '');
+
+  // Fetch all properties for the dropdown
+  const { data: properties = [] } = useQuery<PropertyWithOwnerships[]>({
+    queryKey: ['/api/properties'],
+    enabled: open,
+  });
+
+  // Update selected property when property prop changes or when properties load
+  useEffect(() => {
+    if (property?.id) {
+      setSelectedPropertyId(property.id);
+    } else if (properties.length > 0 && !selectedPropertyId) {
+      setSelectedPropertyId(properties[0].id);
+    }
+  }, [property?.id, properties]);
+
+  // Reset climate adjustment and migration state when property changes
+  useEffect(() => {
+    if (selectedPropertyId) {
+      if (existingEquipment.length === 0) {
+        setUseClimateAdjustment(true);
+      }
+      // Reset migration mutation so it can run for this property if needed
+      migrateMutation.reset();
+    }
+  }, [selectedPropertyId]);
+
+  // Get the currently selected property object
+  const currentProperty = properties.find(p => p.id === selectedPropertyId);
 
   // Fetch equipment catalog
   const { data: catalog = [] } = useQuery<EquipmentDefinition[]>({
     queryKey: ['/api/equipment-catalog'],
   });
 
-  // Fetch existing equipment for this property
+  // Fetch existing equipment for the selected property
   const { data: existingEquipment = [], isLoading } = useQuery<Equipment[]>({
-    queryKey: ['/api/properties', property.id, 'equipment'],
-    enabled: open,
+    queryKey: ['/api/properties', selectedPropertyId, 'equipment'],
+    enabled: open && !!selectedPropertyId,
   });
 
   // Migration mutation to import existing property equipment data
@@ -70,7 +112,7 @@ export default function EquipmentManagementModal({
           description: `Successfully imported ${data.importedCount} equipment items from your properties.`,
         });
         // Refresh equipment data for this property
-        await queryClient.invalidateQueries({ queryKey: ['/api/properties', property.id, 'equipment'] });
+        await queryClient.invalidateQueries({ queryKey: ['/api/properties', selectedPropertyId, 'equipment'] });
         // Trigger predictive insights generation
         await apiRequest('/api/predictive-insights/generate', 'POST');
         // Refresh predictions
@@ -87,14 +129,14 @@ export default function EquipmentManagementModal({
     },
   });
 
-  // Auto-migrate on first load if no equipment exists yet
+  // Auto-migrate on first load if no equipment exists yet and we have a valid property selected
   useEffect(() => {
-    if (open && !isLoading && existingEquipment.length === 0 && !migrateMutation.isPending && !migrateMutation.isSuccess) {
+    if (open && selectedPropertyId && !isLoading && existingEquipment.length === 0 && !migrateMutation.isPending && !migrateMutation.isSuccess) {
       migrateMutation.mutate();
     }
-  }, [open, isLoading, existingEquipment.length]);
+  }, [open, selectedPropertyId, isLoading, existingEquipment.length]);
 
-  // Initialize form data when existing equipment loads
+  // Initialize form data when existing equipment loads or property changes
   useEffect(() => {
     if (existingEquipment.length > 0 && catalog.length > 0) {
       const initialData: Record<string, EquipmentFormData> = {};
@@ -127,7 +169,7 @@ export default function EquipmentManagementModal({
       });
 
       setEquipmentData(initialData);
-    } else if (catalog.length > 0 && Object.keys(equipmentData).length === 0) {
+    } else if (catalog.length > 0) {
       // Initialize with defaults if no existing equipment
       const initialData: Record<string, EquipmentFormData> = {};
       
@@ -142,14 +184,23 @@ export default function EquipmentManagementModal({
 
       setEquipmentData(initialData);
     }
-  }, [existingEquipment, catalog]);
+  }, [existingEquipment, catalog, selectedPropertyId]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Guard against empty property ID
+      if (!selectedPropertyId) {
+        throw new Error('No property selected');
+      }
+
+      // Capture property ID and equipment data at mutation start to prevent race conditions if user changes selector mid-save
+      const propertyIdForMutation = selectedPropertyId;
+      const existingEquipmentForMutation = [...existingEquipment];
+
       const selectedEquipment = Object.values(equipmentData).filter(eq => eq.selected);
       
       // Delete removed equipment
-      for (const existing of existingEquipment) {
+      for (const existing of existingEquipmentForMutation) {
         const stillSelected = selectedEquipment.find(eq => eq.type === existing.equipmentType);
         if (!stillSelected) {
           await apiRequest(`/api/equipment/${existing.id}`, 'DELETE');
@@ -158,7 +209,7 @@ export default function EquipmentManagementModal({
 
       // Create or update selected equipment
       for (const eq of selectedEquipment) {
-        const existing = existingEquipment.find(e => e.equipmentType === eq.type);
+        const existing = existingEquipmentForMutation.find(e => e.equipmentType === eq.type);
         
         const payload = {
           equipmentType: eq.type,
@@ -172,12 +223,14 @@ export default function EquipmentManagementModal({
           await apiRequest(`/api/equipment/${existing.id}`, 'PUT', payload);
         } else {
           // Create new
-          await apiRequest(`/api/properties/${property.id}/equipment`, 'POST', payload);
+          await apiRequest(`/api/properties/${propertyIdForMutation}/equipment`, 'POST', payload);
         }
       }
+      
+      return propertyIdForMutation;
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['/api/properties', property.id, 'equipment'] });
+    onSuccess: async (propertyIdForMutation) => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/properties', propertyIdForMutation, 'equipment'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
       
       // Trigger insights regeneration
@@ -191,9 +244,10 @@ export default function EquipmentManagementModal({
       onOpenChange(false);
     },
     onError: (error) => {
+      console.error('Equipment save error:', error);
       toast({
         title: "Error",
-        description: "Failed to save equipment. Please try again.",
+        description: `Failed to save equipment: ${error instanceof Error ? error.message : 'Please try again.'}`,
         variant: "destructive",
       });
     },
@@ -259,13 +313,34 @@ export default function EquipmentManagementModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wrench className="h-5 w-5" />
-            Equipment Tracking - {property.name}
+            Equipment Tracking
           </DialogTitle>
           <DialogDescription>
             Track equipment at this property to receive predictive maintenance insights.
             We'll estimate replacement dates using industry-standard lifespans.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Property Selector */}
+        <div className="space-y-2">
+          <Label htmlFor="property-select">Property</Label>
+          <Select 
+            value={selectedPropertyId} 
+            onValueChange={setSelectedPropertyId}
+            disabled={saveMutation.isPending}
+          >
+            <SelectTrigger id="property-select" data-testid="select-property">
+              <SelectValue placeholder="Select a property" />
+            </SelectTrigger>
+            <SelectContent>
+              {properties.map(prop => (
+                <SelectItem key={prop.id} value={prop.id} data-testid={`property-option-${prop.id}`}>
+                  {prop.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
@@ -283,7 +358,7 @@ export default function EquipmentManagementModal({
                 <div>
                   <Label className="text-sm font-medium">Climate Adjustment</Label>
                   <p className="text-xs text-muted-foreground">
-                    Adjust lifespans for {property.state} climate (e.g., shorter roof life in cold states)
+                    Adjust lifespans for {currentProperty?.state || 'your'} climate (e.g., shorter roof life in cold states)
                   </p>
                 </div>
               </div>
@@ -372,7 +447,7 @@ export default function EquipmentManagementModal({
               </Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || !selectedPropertyId}
                 data-testid="button-save-equipment"
               >
                 {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
