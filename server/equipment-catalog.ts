@@ -26,7 +26,7 @@ export const EQUIPMENT_CATALOG: EquipmentDefinition[] = [
     displayName: 'Roof/Shingles',
     category: 'critical',
     defaultLifespanYears: 18,
-    lifespanRange: { min: 18, max: 25 },
+    lifespanRange: { min: 10, max: 50 },
     climateAdjustment: { cold: -2, hot: -1 },
     description: 'Asphalt shingles - failures can cause water damage',
   },
