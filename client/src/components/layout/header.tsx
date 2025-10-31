@@ -160,9 +160,6 @@ export default function Header({ title }: HeaderProps) {
               </TooltipProvider>
             </div>
           )}
-
-          {/* Role Switcher */}
-          {user && <RoleSwitcher />}
           
           {/* Command Palette Button */}
           <TooltipProvider>
@@ -182,6 +179,9 @@ export default function Header({ title }: HeaderProps) {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {/* Role Switcher */}
+          {user && <RoleSwitcher />}
           
           {/* Notifications Bell */}
           <NotificationDropdown />
