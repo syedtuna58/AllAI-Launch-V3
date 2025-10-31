@@ -294,13 +294,35 @@ export default function EquipmentManagementModal({
   };
 
   const updateCustomDisplayName = (type: string, displayName: string) => {
-    setEquipmentData(prev => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
+    const oldData = equipmentData[type];
+    if (!oldData) return;
+    
+    // Create new type from display name (convert to lowercase snake_case)
+    const newType = displayName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    
+    // If type hasn't changed meaningfully, just update the display name
+    if (newType === type || !newType) {
+      setEquipmentData(prev => ({
+        ...prev,
+        [type]: {
+          ...prev[type],
+          customDisplayName: displayName,
+        },
+      }));
+      return;
+    }
+    
+    // Update both the key and the type
+    setEquipmentData(prev => {
+      const newData = { ...prev };
+      delete newData[type];
+      newData[newType] = {
+        ...oldData,
+        type: newType,
         customDisplayName: displayName,
-      },
-    }));
+      };
+      return newData;
+    });
   };
 
   const addCustomEquipment = () => {
@@ -544,7 +566,7 @@ export default function EquipmentManagementModal({
                                       <Label className="text-xs text-muted-foreground mb-1 block">Equipment Name</Label>
                                       <div className="flex items-center gap-2">
                                         <Input
-                                          value={eq.customDisplayName || ''}
+                                          value={eq.customDisplayName || eq.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                           onChange={(e) => updateCustomDisplayName(type, e.target.value)}
                                           placeholder="Enter equipment name"
                                           className="flex-1"
