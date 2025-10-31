@@ -436,59 +436,29 @@ export default function EquipmentManagementModal({
                                         {/* Lifespan Section */}
                                         <div className="space-y-2">
                                           <div className="flex items-center justify-between text-xs">
-                                            <span className="font-medium">Lifespan</span>
+                                            <span className="font-medium">Lifespan (years)</span>
                                             <span className="text-muted-foreground">Default: {item.defaultLifespanYears}y</span>
                                           </div>
                                           <div className="flex items-center gap-2">
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-8 w-8 p-0"
-                                              onClick={() => {
-                                                const current = eq.customLifespan || item.defaultLifespanYears;
-                                                const newValue = Math.max(item.lifespanRange.min, current - 1);
-                                                updateCustomLifespan(item.type, newValue);
-                                              }}
-                                              data-testid={`button-decrease-lifespan-${item.type}`}
-                                            >
-                                              −
-                                            </Button>
                                             <Input
                                               type="number"
-                                              min={item.lifespanRange.min}
-                                              max={item.lifespanRange.max}
+                                              min={1}
                                               value={eq.customLifespan || item.defaultLifespanYears}
                                               onChange={(e) => {
                                                 const val = parseInt(e.target.value);
-                                                if (!isNaN(val) && val >= item.lifespanRange.min && val <= item.lifespanRange.max) {
+                                                if (!isNaN(val) && val >= 1) {
                                                   updateCustomLifespan(item.type, val);
                                                 }
                                               }}
-                                              className="h-8 text-center"
+                                              className="h-9"
                                               data-testid={`input-lifespan-${item.type}`}
                                             />
-                                            <span className="text-xs text-muted-foreground whitespace-nowrap">years</span>
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-8 w-8 p-0"
-                                              onClick={() => {
-                                                const current = eq.customLifespan || item.defaultLifespanYears;
-                                                const newValue = Math.min(item.lifespanRange.max, current + 1);
-                                                updateCustomLifespan(item.type, newValue);
-                                              }}
-                                              data-testid={`button-increase-lifespan-${item.type}`}
-                                            >
-                                              +
-                                            </Button>
                                             {eq.customLifespan && eq.customLifespan !== item.defaultLifespanYears && (
                                               <Button
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700"
+                                                className="h-9 px-3 text-xs text-blue-600 hover:text-blue-700"
                                                 onClick={() => updateCustomLifespan(item.type, undefined)}
                                                 data-testid={`button-reset-lifespan-${item.type}`}
                                               >
@@ -497,7 +467,7 @@ export default function EquipmentManagementModal({
                                             )}
                                           </div>
                                           <div className="text-xs text-muted-foreground">
-                                            Range: {item.lifespanRange.min}-{item.lifespanRange.max}y
+                                            Suggested range: {item.lifespanRange.min}-{item.lifespanRange.max}y
                                           </div>
                                         </div>
                                       </div>
