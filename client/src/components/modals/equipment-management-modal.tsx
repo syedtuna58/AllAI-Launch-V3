@@ -226,14 +226,21 @@ export default function EquipmentManagementModal({
 
       // Create or update selected equipment
       for (const eq of selectedEquipment) {
+        // For custom equipment, convert display name to database format
+        let equipmentType = eq.type;
+        if (eq.isCustom && eq.customDisplayName) {
+          equipmentType = eq.customDisplayName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || eq.type;
+        }
+        
         // For custom equipment that was renamed, find by originalType
         const existing = existingEquipmentForMutation.find(e => 
-          e.equipmentType === eq.type || 
+          e.equipmentType === equipmentType || 
+          e.equipmentType === eq.type ||
           (eq.originalType && e.equipmentType === eq.originalType)
         );
         
         const payload = {
-          equipmentType: eq.type,
+          equipmentType: equipmentType,
           installYear: eq.installYear,
           customLifespanYears: eq.customLifespan,
           useClimateAdjustment,
@@ -305,36 +312,14 @@ export default function EquipmentManagementModal({
   };
 
   const updateCustomDisplayName = (type: string, displayName: string) => {
-    const oldData = equipmentData[type];
-    if (!oldData) return;
-    
-    // Create new type from display name (convert to lowercase snake_case)
-    const newType = displayName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    
-    // If type hasn't changed meaningfully, just update the display name
-    if (newType === type || !newType) {
-      setEquipmentData(prev => ({
-        ...prev,
-        [type]: {
-          ...prev[type],
-          customDisplayName: displayName,
-        },
-      }));
-      return;
-    }
-    
-    // Update both the key and the type
-    setEquipmentData(prev => {
-      const newData = { ...prev };
-      delete newData[type];
-      newData[newType] = {
-        ...oldData,
-        type: newType,
+    // Just update the display name - we'll convert to database format on save
+    setEquipmentData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
         customDisplayName: displayName,
-        originalType: oldData.originalType || type, // Keep original type for updates
-      };
-      return newData;
-    });
+      },
+    }));
   };
 
   const addCustomEquipment = () => {
@@ -580,7 +565,7 @@ export default function EquipmentManagementModal({
                                         <Input
                                           value={eq.customDisplayName || eq.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                           onChange={(e) => updateCustomDisplayName(type, e.target.value)}
-                                          placeholder="Enter equipment name"
+                                          placeholder="e.g., Solar Panels, Generator, Pool Heater"
                                           className="flex-1"
                                           data-testid={`input-custom-name-${type}`}
                                         />
