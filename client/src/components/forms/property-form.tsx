@@ -924,60 +924,45 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   />
                 </div>
 
-                {/* Equipment Tracking Section */}
-                <div className="mt-6">
-                  <h4 className="font-medium text-sm mb-3 flex items-center space-x-2">
-                    <span>Equipment Tracking (Optional)</span>
-                  </h4>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Track appliances and systems for maintenance reminders and warranty management.
-                  </p>
-                  
-                  {/* HVAC - Compact Layout */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-sm font-medium text-muted-foreground">HVAC System</h5>
-                      {(form.watch("defaultUnit.hvacBrand") || form.watch("defaultUnit.hvacModel") || form.watch("defaultUnit.hvacYear")) && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            form.setValue("defaultUnit.hvacBrand", "");
-                            form.setValue("defaultUnit.hvacModel", "");
-                            form.setValue("defaultUnit.hvacYear", undefined);
-                            form.setValue("defaultUnit.hvacLifetime", undefined);
-                            form.setValue("defaultUnit.hvacReminder", false);
-                          }}
-                          data-testid="button-clear-hvac"
-                        >
-                          Clear HVAC
-                        </Button>
-                      )}
+                {/* Equipment Tracking */}
+                <div className="mt-6 space-y-3 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-sm">Equipment Tracking</h4>
+                      <p className="text-xs text-muted-foreground mt-1">Track HVAC, appliances, and systems for this unit</p>
                     </div>
-                    <div className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-3">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.hvacBrand"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Brand</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="Carrier" 
-                                  {...field}
-                                  data-testid="input-unit-hvac-brand"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setOpenEquipmentModal(true);
+                      }}
+                      data-testid="button-add-unit-equipment"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Equipment
+                    </Button>
+                  </div>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="defaultUnit.notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unit Notes (Optional)</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Notes about this unit..." 
+                          {...field}
+                          data-testid="textarea-unit-notes" 
                         />
-                      </div>
-                      
-                      <div className="col-span-3">
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                         <FormField
                           control={form.control}
                           name="defaultUnit.hvacModel"
