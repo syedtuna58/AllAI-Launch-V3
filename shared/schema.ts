@@ -1254,7 +1254,6 @@ export const equipment = pgTable("equipment", {
   useClimateAdjustment: boolean("use_climate_adjustment").default(true),
   
   // Optional details
-  purchasePrice: decimal("purchase_price", { precision: 10, scale: 2 }), // Cost for replacement predictions
   condition: varchar("condition"), // excellent, good, fair, poor
   notes: text("notes"),
   
