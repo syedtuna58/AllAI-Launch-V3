@@ -2608,7 +2608,7 @@ export default function Maintenance() {
                               <Clock className="h-4 w-4 text-muted-foreground" />
                               <span className="text-muted-foreground">
                                 Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
-                                {daysUntil !== null && ` (${daysUntil} days)`}
+                                {daysUntil !== null && ` (${formatDaysToRelativeTime(daysUntil)})`}
                               </span>
                             </div>
                           )}
