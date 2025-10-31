@@ -143,6 +143,12 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
     queryKey: ['/api/properties', propertyId, 'equipment'],
     enabled: !!propertyId,
   });
+  
+  // Fetch equipment catalog for display names and default lifespans
+  const { data: equipmentCatalog = [] } = useQuery<Array<{type: string; displayName: string; defaultLifespanYears: number}>>({
+    queryKey: ['/api/equipment-catalog'],
+    enabled: !!propertyId && linkedEquipment.length > 0,
+  });
 
   const form = useForm<z.infer<typeof propertySchema>>({
     resolver: zodResolver(propertySchema),
@@ -1957,15 +1963,17 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   {linkedEquipment.length > 0 ? (
                     <div className="space-y-2">
                       {linkedEquipment.map((equipment) => {
+                        const catalogItem = equipmentCatalog.find(cat => cat.type === equipment.equipmentType);
                         const age = new Date().getFullYear() - equipment.installYear;
-                        const yearsRemaining = (equipment.customLifespan || equipment.defaultLifespan) - age;
+                        const lifespan = equipment.customLifespanYears || catalogItem?.defaultLifespanYears || 10;
+                        const yearsRemaining = lifespan - age;
                         const statusColor = yearsRemaining <= 2 ? 'text-red-600' : yearsRemaining <= 5 ? 'text-yellow-600' : 'text-green-600';
                         
                         return (
                           <div key={equipment.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-sm">
                             <div className="flex items-center gap-2">
                               <Wrench className="h-3 w-3 text-muted-foreground" />
-                              <span className="font-medium">{equipment.displayName}</span>
+                              <span className="font-medium">{catalogItem?.displayName || equipment.equipmentType}</span>
                               <span className="text-muted-foreground">({equipment.installYear})</span>
                             </div>
                             <span className={`text-xs font-medium ${statusColor}`}>
