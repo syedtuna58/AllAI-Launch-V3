@@ -32,6 +32,33 @@ import { TimePicker15Min } from "@/components/ui/time-picker-15min";
 import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
 
+// Helper function to convert days to human-friendly relative time
+function formatDaysToRelativeTime(days: number): string {
+  if (days === 0) return "today";
+  
+  const absoluteDays = Math.abs(days);
+  const isOverdue = days < 0;
+  
+  // Convert to months or years for better readability
+  if (absoluteDays < 60) {
+    // Less than 2 months - show in months
+    const months = Math.round(absoluteDays / 30);
+    if (months === 0) {
+      return isOverdue ? `overdue by ${absoluteDays} ${absoluteDays === 1 ? 'day' : 'days'}` : `in ${absoluteDays} ${absoluteDays === 1 ? 'day' : 'days'}`;
+    }
+    return isOverdue ? `overdue by ${months} ${months === 1 ? 'month' : 'months'}` : `in ${months} ${months === 1 ? 'month' : 'months'}`;
+  } else {
+    // 2 months or more - show in years
+    const years = Math.round(absoluteDays / 365);
+    if (years === 0) {
+      // Between 2 months and 1 year
+      const months = Math.round(absoluteDays / 30);
+      return isOverdue ? `overdue by ${months} months` : `in ${months} months`;
+    }
+    return isOverdue ? `overdue by ${years} ${years === 1 ? 'year' : 'years'}` : `in ${years} ${years === 1 ? 'year' : 'years'}`;
+  }
+}
+
 // Predefined maintenance categories
 // Error Boundary for Visualization Components
 interface ErrorBoundaryProps {
