@@ -411,11 +411,12 @@ export default function EquipmentManagementModal({
                                     </div>
 
                                     {eq?.selected && (
-                                      <div className="mt-3 space-y-4">
+                                      <div className="mt-3 grid grid-cols-2 gap-4">
+                                        {/* Install Year Section */}
                                         <div className="space-y-2">
                                           <div className="flex items-center justify-between text-xs">
-                                            <span>Install Year: {eq.installYear}</span>
-                                            <span className="text-muted-foreground">{age} years old</span>
+                                            <span className="font-medium">Install Year: {eq.installYear}</span>
+                                            <span className="text-muted-foreground">{age}y old</span>
                                           </div>
                                           <Slider
                                             value={[eq.installYear]}
@@ -428,32 +429,71 @@ export default function EquipmentManagementModal({
                                           />
                                         </div>
                                         
+                                        {/* Lifespan Section */}
                                         <div className="space-y-2">
                                           <div className="flex items-center justify-between text-xs">
-                                            <span>Lifespan: ~{eq.customLifespan || item.defaultLifespanYears} years</span>
+                                            <span className="font-medium">Lifespan</span>
+                                            <span className="text-muted-foreground">Default: {item.defaultLifespanYears}y</span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-8 w-8 p-0"
+                                              onClick={() => {
+                                                const current = eq.customLifespan || item.defaultLifespanYears;
+                                                const newValue = Math.max(item.lifespanRange.min, current - 1);
+                                                updateCustomLifespan(item.type, newValue);
+                                              }}
+                                              data-testid={`button-decrease-lifespan-${item.type}`}
+                                            >
+                                              −
+                                            </Button>
+                                            <Input
+                                              type="number"
+                                              min={item.lifespanRange.min}
+                                              max={item.lifespanRange.max}
+                                              value={eq.customLifespan || item.defaultLifespanYears}
+                                              onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                if (!isNaN(val) && val >= item.lifespanRange.min && val <= item.lifespanRange.max) {
+                                                  updateCustomLifespan(item.type, val);
+                                                }
+                                              }}
+                                              className="h-8 text-center"
+                                              data-testid={`input-lifespan-${item.type}`}
+                                            />
+                                            <span className="text-xs text-muted-foreground whitespace-nowrap">years</span>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-8 w-8 p-0"
+                                              onClick={() => {
+                                                const current = eq.customLifespan || item.defaultLifespanYears;
+                                                const newValue = Math.min(item.lifespanRange.max, current + 1);
+                                                updateCustomLifespan(item.type, newValue);
+                                              }}
+                                              data-testid={`button-increase-lifespan-${item.type}`}
+                                            >
+                                              +
+                                            </Button>
                                             {eq.customLifespan && eq.customLifespan !== item.defaultLifespanYears && (
-                                              <button
+                                              <Button
                                                 type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700"
                                                 onClick={() => updateCustomLifespan(item.type, undefined)}
-                                                className="text-blue-600 hover:text-blue-700 underline"
+                                                data-testid={`button-reset-lifespan-${item.type}`}
                                               >
-                                                Reset to default
-                                              </button>
+                                                Reset
+                                              </Button>
                                             )}
                                           </div>
-                                          <Slider
-                                            value={[eq.customLifespan || item.defaultLifespanYears]}
-                                            onValueChange={(value) => updateCustomLifespan(item.type, value[0])}
-                                            min={item.lifespanRange.min}
-                                            max={item.lifespanRange.max}
-                                            step={1}
-                                            className="w-full"
-                                            data-testid={`slider-lifespan-${item.type}`}
-                                          />
-                                          <div className="flex justify-between text-xs text-muted-foreground">
-                                            <span>{item.lifespanRange.min}y</span>
-                                            <span className="text-center">Default: {item.defaultLifespanYears}y</span>
-                                            <span>{item.lifespanRange.max}y</span>
+                                          <div className="text-xs text-muted-foreground">
+                                            Range: {item.lifespanRange.min}-{item.lifespanRange.max}y
                                           </div>
                                         </div>
                                       </div>
