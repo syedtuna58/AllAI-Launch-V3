@@ -1980,13 +1980,14 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   )}
                 </div>
               )}
-              
-              <div className="space-y-1">
-                <h5 className="text-sm font-medium text-muted-foreground">Legacy Building Systems (Optional)</h5>
-                <p className="text-xs text-muted-foreground">These fields are for backward compatibility. We recommend using "Add Equipment" above for better tracking.</p>
-              </div>
-              
-              {/* Central HVAC System */}
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
+
+
+        {/* Financial Information Section - Combines Property Value and Mortgage */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h5 className="text-sm font-medium text-muted-foreground">Central HVAC/Air System</h5>
