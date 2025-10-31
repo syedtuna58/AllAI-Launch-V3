@@ -479,7 +479,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
         <div className="pt-2 pb-4">
           <h3 className="text-sm font-medium text-muted-foreground">All Optional</h3>
         </div>
-        
+
         {/* Basic Details Section */}
         <Collapsible open={openBasicDetails} onOpenChange={setOpenBasicDetails}>
           <Card className="border-blue-200 dark:border-blue-800">
@@ -564,454 +564,6 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
           </Card>
         </Collapsible>
 
-        {/* HOA Information Section */}
-        <Collapsible open={openHOA} onOpenChange={setOpenHOA}>
-          <Card className="border-blue-200 dark:border-blue-800">
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <CardTitle className="text-base font-medium">HOA Information</CardTitle>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${openHOA ? 'rotate-180' : ''}`} />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Homeowners association details</p>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4 pt-0">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="hoaName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>HOA Name</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Sunset HOA" 
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            data-testid="input-property-hoa-name" 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="hoaContact"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>HOA Contact</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="(555) 123-4567" 
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            data-testid="input-property-hoa-contact" 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-
-        {/* Building Equipment Section - Show only for buildings */}
-        {(form.watch("type") === "Residential Building" || form.watch("type") === "Commercial Building") && (
-          <Collapsible open={openEquipment} onOpenChange={setOpenEquipment}>
-            <Card className="border-blue-200 dark:border-blue-800">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <CardTitle className="text-base font-medium">Predictive Maintenance & Equipment</CardTitle>
-                    </div>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${openEquipment ? 'rotate-180' : ''}`} />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Track central building systems for predictive insights</p>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-6 pt-0">
-              {/* Central HVAC System */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h5 className="text-sm font-medium text-muted-foreground">Central HVAC/Air System</h5>
-                  {(form.watch("buildingHvacBrand") || form.watch("buildingHvacModel") || form.watch("buildingHvacYear")) && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => {
-                        form.setValue("buildingHvacBrand", "");
-                        form.setValue("buildingHvacModel", "");
-                        form.setValue("buildingHvacYear", undefined);
-                        form.setValue("buildingHvacLifetime", undefined);
-                        form.setValue("buildingHvacReminder", false);
-                        form.setValue("buildingHvacLocation", "");
-                      }}
-                      data-testid="button-clear-building-hvac"
-                    >
-                      Clear Central HVAC
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-3">
-                    <FormField
-                      control={form.control}
-                      name="buildingHvacBrand"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Brand</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Carrier" 
-                              {...field}
-                              data-testid="input-building-hvac-brand"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-3">
-                    <FormField
-                      control={form.control}
-                      name="buildingHvacModel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Model</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="24ABC6" 
-                              {...field}
-                              data-testid="input-building-hvac-model"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="buildingHvacYear"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Year</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              placeholder="2020" 
-                              {...field}
-                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                              data-testid="input-building-hvac-year"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="buildingHvacLifetime"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Lifetime (yrs)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              placeholder="15" 
-                              {...field}
-                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                              data-testid="input-building-hvac-lifetime"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="buildingHvacLocation"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Location</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Roof, basement, etc." 
-                              {...field}
-                              data-testid="input-building-hvac-location"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  {form.watch("buildingHvacLifetime") && (
-                    <div className="col-span-12">
-                      <FormField
-                        control={form.control}
-                        name="buildingHvacReminder"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                data-testid="checkbox-building-hvac-reminder"
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="text-xs">
-                                📅 1yr reminder
-                              </FormLabel>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Central Water System */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h5 className="text-sm font-medium text-muted-foreground">Central Water/Boiler System</h5>
-                  {(form.watch("buildingWaterBrand") || form.watch("buildingWaterModel") || form.watch("buildingWaterYear")) && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => {
-                        form.setValue("buildingWaterBrand", "");
-                        form.setValue("buildingWaterModel", "");
-                        form.setValue("buildingWaterYear", undefined);
-                        form.setValue("buildingWaterLifetime", undefined);
-                        form.setValue("buildingWaterReminder", false);
-                        form.setValue("buildingWaterLocation", "");
-                      }}
-                      data-testid="button-clear-building-water"
-                    >
-                      Clear Central Water
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-3">
-                    <FormField
-                      control={form.control}
-                      name="buildingWaterBrand"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Brand</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Rheem" 
-                              {...field}
-                              data-testid="input-building-water-brand"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-3">
-                    <FormField
-                      control={form.control}
-                      name="buildingWaterModel"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Model</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="G12-40" 
-                              {...field}
-                              data-testid="input-building-water-model"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="buildingWaterYear"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Year</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              placeholder="2020" 
-                              {...field}
-                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                              data-testid="input-building-water-year"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="buildingWaterLifetime"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Lifetime (yrs)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              placeholder="12" 
-                              {...field}
-                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                              data-testid="input-building-water-lifetime"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <FormField
-                      control={form.control}
-                      name="buildingWaterLocation"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">Location</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="Basement, utility room, etc." 
-                              {...field}
-                              data-testid="input-building-water-location"
-                              className="h-8 text-sm"
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  {form.watch("buildingWaterLifetime") && (
-                    <div className="col-span-12">
-                      <FormField
-                        control={form.control}
-                        name="buildingWaterReminder"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value}
-                                onCheckedChange={field.onChange}
-                                data-testid="checkbox-building-water-reminder"
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                              <FormLabel className="text-xs">
-                                📅 1yr reminder
-                              </FormLabel>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Other Building Systems */}
-              <div className="space-y-3">
-                <h5 className="text-sm font-medium text-muted-foreground">Other Building Systems</h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="buildingWaterShutoff"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Water Shut-off Location</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Street side, basement, etc." 
-                            {...field}
-                            data-testid="input-building-water-shutoff"
-                            className="h-8 text-sm"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="buildingElectricalPanel"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Electrical Panel Location</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="Basement, utility room, etc." 
-                            {...field}
-                            data-testid="input-building-electrical-panel"
-                            className="h-8 text-sm"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-                  {/* Building Equipment Notes */}
-                  <FormField
-                    control={form.control}
-                    name="buildingEquipmentNotes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Building Equipment Notes</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Additional building systems, elevator details, security systems, roof info, etc." 
-                            {...field}
-                            data-testid="textarea-building-equipment-notes"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
 
         {/* Property Ownership Section */}
         <Collapsible open={openOwnership} onOpenChange={setOpenOwnership}>
@@ -1123,573 +675,6 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
           </Card>
         </Collapsible>
 
-        {/* Financial Information Section - Combines Property Value and Mortgage */}
-        <Collapsible open={openFinancial} onOpenChange={setOpenFinancial}>
-          <Card className="border-blue-200 dark:border-blue-800">
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <CardTitle className="text-base font-medium">Financial Information</CardTitle>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${openFinancial ? 'rotate-180' : ''}`} />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Property value, mortgages, and financial tracking</p>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-6 pt-0">
-                {/* Property Value Subsection */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-muted-foreground">Property Value</h4>
-            <FormField
-              control={form.control}
-              name="propertyValue"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {form.watch("type")?.includes("Building") ? "Total Building Value" : "Property Value"}
-                  </FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        placeholder="500,000"
-                        className="pl-9"
-                        key={`property-value-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : (initialData?.propertyValue ? Number(initialData.propertyValue).toLocaleString() : "")}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                            
-                            // Auto-fill purchase price for NEW properties only
-                            if (!initialData && numericValue && !form.getValues('purchasePrice')) {
-                              form.setValue('purchasePrice', numericValue, { shouldDirty: true });
-                            }
-                          }
-                        }}
-                        data-testid="input-property-value"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Auto Appreciation Section */}
-            <FormField
-              control={form.control}
-              name="autoAppreciation"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      data-testid="checkbox-auto-appreciation"
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      Enable Automatic Yearly Appreciation
-                    </FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically increase property value by a set percentage each year starting one year from today.
-                    </p>
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {/* Appreciation Rate Input */}
-            {form.watch("autoAppreciation") && (
-              <FormField
-                control={form.control}
-                name="appreciationRate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Annual Appreciation Rate</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="50"
-                          step="0.5"
-                          placeholder="3.5"
-                          className="pr-8"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          data-testid="input-appreciation-rate"
-                        />
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                      </div>
-                    </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      Property value will increase by this percentage annually. Enter in 0.5% increments (e.g., 3.5 for 3.5%).
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-          </div>
-
-          {/* Mortgage & Financing Subsection */}
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="text-sm font-medium text-muted-foreground">Mortgage & Financing</h4>
-
-            {/* Monthly Mortgage */}
-            <FormField
-              control={form.control}
-              name="monthlyMortgage"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monthly Mortgage Payment</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="2,500"
-                        className="pl-9"
-                        key={`monthly-mortgage-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : ""}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-monthly-mortgage"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Total monthly payment (principal + interest + PMI). Will auto-create recurring expense.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Interest Rate */}
-            <FormField
-              control={form.control}
-              name="interestRate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Interest Rate</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="5.25"
-                        className="pr-8"
-                        key={`interest-rate-${(initialData as any)?.id || 'new'}`}
-                        value={field.value !== undefined ? String(field.value) : ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Allow empty, digits, and decimal point
-                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                            // Just store the raw value to allow typing decimals
-                            field.onChange(value === '' ? undefined : value);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value;
-                          if (value && value !== '.') {
-                            const numericValue = parseFloat(value);
-                            if (!isNaN(numericValue)) {
-                              field.onChange(numericValue);
-                            }
-                          } else {
-                            field.onChange(undefined);
-                          }
-                        }}
-                        data-testid="input-interest-rate"
-                      />
-                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Annual interest rate for calculations and year-end tax adjustments.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Mortgage Payment Start Date */}
-            <FormField
-              control={form.control}
-              name="mortgageStartDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>First Payment Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      value={field.value ? 
-                        (field.value instanceof Date ? 
-                          field.value.toISOString().split('T')[0] : 
-                          new Date(field.value).toISOString().split('T')[0]
-                        ) : ''}
-                      onChange={(e) => {
-                        const newDate = e.target.value ? new Date(e.target.value + 'T00:00:00.000Z') : undefined;
-                        console.log('🗓️ Mortgage start date changed:', { 
-                          inputValue: e.target.value, 
-                          newDate,
-                          previousValue: field.value 
-                        });
-                        field.onChange(newDate);
-                      }}
-                      data-testid="input-mortgage-start-date"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    When should recurring mortgage expenses start being generated? Defaults to next month if left empty.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="my-6 border-t border-muted-foreground/20" />
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground font-medium">Secondary Mortgage (Optional)</p>
-              <p className="text-xs text-muted-foreground">Add a second mortgage if your property has multiple loans</p>
-            </div>
-
-            {/* Secondary Monthly Mortgage */}
-            <FormField
-              control={form.control}
-              name="monthlyMortgage2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Secondary Monthly Payment</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="1,000"
-                        className="pl-9"
-                        key={`monthly-mortgage-2-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : ""}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-monthly-mortgage-2"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Second mortgage monthly payment (HELOC, bridge loan, etc.). Will auto-create recurring expense.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Secondary Interest Rate */}
-            <FormField
-              control={form.control}
-              name="interestRate2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Secondary Interest Rate</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="6.75"
-                        className="pr-8"
-                        key={`interest-rate-2-${(initialData as any)?.id || 'new'}`}
-                        value={field.value !== undefined ? String(field.value) : ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Allow empty, digits, and decimal point
-                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                            // Just store the raw value to allow typing decimals
-                            field.onChange(value === '' ? undefined : value);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value;
-                          if (value && value !== '.') {
-                            const numericValue = parseFloat(value);
-                            if (!isNaN(numericValue)) {
-                              field.onChange(numericValue);
-                            }
-                          } else {
-                            field.onChange(undefined);
-                          }
-                        }}
-                        data-testid="input-interest-rate-2"
-                      />
-                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Annual interest rate for second mortgage calculations and tax adjustments.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Secondary Mortgage Start Date */}
-            <FormField
-              control={form.control}
-              name="mortgageStartDate2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Secondary First Payment Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      value={field.value ? 
-                        (field.value instanceof Date ? 
-                          field.value.toISOString().split('T')[0] : 
-                          new Date(field.value).toISOString().split('T')[0]
-                        ) : ''}
-                      onChange={(e) => {
-                        const newDate = e.target.value ? new Date(e.target.value) : undefined;
-                        console.log('🗓️ Secondary mortgage start date changed:', { 
-                          inputValue: e.target.value, 
-                          newDate,
-                          previousValue: field.value 
-                        });
-                        field.onChange(newDate);
-                      }}
-                      data-testid="input-mortgage-start-date-2"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    When should secondary mortgage expenses start? Defaults to next month if left empty.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="my-6 border-t border-muted-foreground/20" />
-
-            {/* Purchase Price */}
-            <FormField
-              control={form.control}
-              name="purchasePrice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Purchase Price</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="500000"
-                        className="pl-9"
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                        data-testid="input-purchase-price"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Total property purchase price. Auto-fills with property value above. <strong>Edit this if you purchased at a different price than current value.</strong>
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Down Payment */}
-            <FormField
-              control={form.control}
-              name="downPayment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Down Payment & Cash Invested</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="100,000"
-                        className="pl-9"
-                        key={`down-payment-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : ""}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-down-payment"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Total cash invested (down payment + closing costs). Used for cash-on-cash return calculations.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Acquisition Date */}
-            <FormField
-              control={form.control}
-              name="acquisitionDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Acquisition Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                      onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                      data-testid="input-acquisition-date"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Date property was acquired. Used for partial-year calculations and mortgage payment start.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Property Sale Subsection */}
-          <div className="space-y-4 pt-4 border-t">
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Property Sale</h4>
-              <Badge variant="outline" className="text-xs">Optional</Badge>
-            </div>
-            {/* Sale Date */}
-            <FormField
-              control={form.control}
-              name="saleDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sale Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                      onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                      data-testid="input-sale-date"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Date property was sold. Mortgage calculations will end on this date.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Sale Price */}
-            <FormField
-              control={form.control}
-              name="salePrice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sale Price</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="750,000"
-                        className="pl-9"
-                        key={`sale-price-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : (initialData?.salePrice ? Number(initialData.salePrice).toLocaleString() : "")}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-sale-price"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Gross sale price. Used for calculating capital gains/losses.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </CardContent>
-      </CollapsibleContent>
-    </Card>
-  </Collapsible>
 
         {/* Unit Setup Section */}
         <Collapsible open={openUnits} onOpenChange={setOpenUnits}>
@@ -2931,6 +1916,1027 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
         </CollapsibleContent>
       </Card>
     </Collapsible>
+
+        {/* Building Equipment Section - Show only for buildings */}
+        {(form.watch("type") === "Residential Building" || form.watch("type") === "Commercial Building") && (
+          <Collapsible open={openEquipment} onOpenChange={setOpenEquipment}>
+            <Card className="border-blue-200 dark:border-blue-800">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <CardTitle className="text-base font-medium">Predictive Maintenance & Equipment</CardTitle>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${openEquipment ? 'rotate-180' : ''}`} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Track central building systems for predictive insights</p>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-6 pt-0">
+              {/* Central HVAC System */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-medium text-muted-foreground">Central HVAC/Air System</h5>
+                  {(form.watch("buildingHvacBrand") || form.watch("buildingHvacModel") || form.watch("buildingHvacYear")) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        form.setValue("buildingHvacBrand", "");
+                        form.setValue("buildingHvacModel", "");
+                        form.setValue("buildingHvacYear", undefined);
+                        form.setValue("buildingHvacLifetime", undefined);
+                        form.setValue("buildingHvacReminder", false);
+                        form.setValue("buildingHvacLocation", "");
+                      }}
+                      data-testid="button-clear-building-hvac"
+                    >
+                      Clear Central HVAC
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacBrand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Brand</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Carrier" 
+                              {...field}
+                              data-testid="input-building-hvac-brand"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacModel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Model</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="24ABC6" 
+                              {...field}
+                              data-testid="input-building-hvac-model"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacYear"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Year</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="2020" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-hvac-year"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacLifetime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Lifetime (yrs)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="15" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-hvac-lifetime"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacLocation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Location</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Roof, basement, etc." 
+                              {...field}
+                              data-testid="input-building-hvac-location"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {form.watch("buildingHvacLifetime") && (
+                    <div className="col-span-12">
+                      <FormField
+                        control={form.control}
+                        name="buildingHvacReminder"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="checkbox-building-hvac-reminder"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-xs">
+                                📅 1yr reminder
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Central Water System */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-medium text-muted-foreground">Central Water/Boiler System</h5>
+                  {(form.watch("buildingWaterBrand") || form.watch("buildingWaterModel") || form.watch("buildingWaterYear")) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        form.setValue("buildingWaterBrand", "");
+                        form.setValue("buildingWaterModel", "");
+                        form.setValue("buildingWaterYear", undefined);
+                        form.setValue("buildingWaterLifetime", undefined);
+                        form.setValue("buildingWaterReminder", false);
+                        form.setValue("buildingWaterLocation", "");
+                      }}
+                      data-testid="button-clear-building-water"
+                    >
+                      Clear Central Water
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterBrand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Brand</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Rheem" 
+                              {...field}
+                              data-testid="input-building-water-brand"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterModel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Model</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="G12-40" 
+                              {...field}
+                              data-testid="input-building-water-model"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterYear"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Year</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="2020" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-water-year"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterLifetime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Lifetime (yrs)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="12" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-water-lifetime"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterLocation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Location</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Basement, utility room, etc." 
+                              {...field}
+                              data-testid="input-building-water-location"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {form.watch("buildingWaterLifetime") && (
+                    <div className="col-span-12">
+                      <FormField
+                        control={form.control}
+                        name="buildingWaterReminder"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="checkbox-building-water-reminder"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-xs">
+                                📅 1yr reminder
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Other Building Systems */}
+              <div className="space-y-3">
+                <h5 className="text-sm font-medium text-muted-foreground">Other Building Systems</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="buildingWaterShutoff"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Water Shut-off Location</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Street side, basement, etc." 
+                            {...field}
+                            data-testid="input-building-water-shutoff"
+                            className="h-8 text-sm"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="buildingElectricalPanel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Electrical Panel Location</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Basement, utility room, etc." 
+                            {...field}
+                            data-testid="input-building-electrical-panel"
+                            className="h-8 text-sm"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+                  {/* Building Equipment Notes */}
+                  <FormField
+                    control={form.control}
+                    name="buildingEquipmentNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Building Equipment Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Additional building systems, elevator details, security systems, roof info, etc." 
+                            {...field}
+                            data-testid="textarea-building-equipment-notes"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
+
+
+        {/* Financial Information Section - Combines Property Value and Mortgage */}
+        <Collapsible open={openFinancial} onOpenChange={setOpenFinancial}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">Financial Information</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openFinancial ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Property value, mortgages, and financial tracking</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-6 pt-0">
+                {/* Property Value Subsection */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Property Value</h4>
+            <FormField
+              control={form.control}
+              name="propertyValue"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {form.watch("type")?.includes("Building") ? "Total Building Value" : "Property Value"}
+                  </FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        type="text"
+                        placeholder="500,000"
+                        className="pl-9"
+                        key={`property-value-${(initialData as any)?.id || 'new'}`}
+                        value={field.value ? Number(field.value).toLocaleString() : (initialData?.propertyValue ? Number(initialData.propertyValue).toLocaleString() : "")}
+                        onChange={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          field.onChange(numericValue);
+                        }}
+                        onBlur={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          if (!isNaN(numericValue || 0)) {
+                            field.onChange(numericValue);
+                            if (numericValue) {
+                              e.target.value = numericValue.toLocaleString();
+                            }
+                            
+                            // Auto-fill purchase price for NEW properties only
+                            if (!initialData && numericValue && !form.getValues('purchasePrice')) {
+                              form.setValue('purchasePrice', numericValue, { shouldDirty: true });
+                            }
+                          }
+                        }}
+                        data-testid="input-property-value"
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Auto Appreciation Section */}
+            <FormField
+              control={form.control}
+              name="autoAppreciation"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="checkbox-auto-appreciation"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Enable Automatic Yearly Appreciation
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Automatically increase property value by a set percentage each year starting one year from today.
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {/* Appreciation Rate Input */}
+            {form.watch("autoAppreciation") && (
+              <FormField
+                control={form.control}
+                name="appreciationRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Annual Appreciation Rate</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="50"
+                          step="0.5"
+                          placeholder="3.5"
+                          className="pr-8"
+                          {...field}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          data-testid="input-appreciation-rate"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                      </div>
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Property value will increase by this percentage annually. Enter in 0.5% increments (e.g., 3.5 for 3.5%).
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
+
+          {/* Mortgage & Financing Subsection */}
+          <div className="space-y-4 pt-4 border-t">
+            <h4 className="text-sm font-medium text-muted-foreground">Mortgage & Financing</h4>
+
+            {/* Monthly Mortgage */}
+            <FormField
+              control={form.control}
+              name="monthlyMortgage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Monthly Mortgage Payment</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="2,500"
+                        className="pl-9"
+                        key={`monthly-mortgage-${(initialData as any)?.id || 'new'}`}
+                        value={field.value ? Number(field.value).toLocaleString() : ""}
+                        onChange={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          field.onChange(numericValue);
+                        }}
+                        onBlur={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          if (!isNaN(numericValue || 0)) {
+                            field.onChange(numericValue);
+                            if (numericValue) {
+                              e.target.value = numericValue.toLocaleString();
+                            }
+                          }
+                        }}
+                        data-testid="input-monthly-mortgage"
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Total monthly payment (principal + interest + PMI). Will auto-create recurring expense.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Interest Rate */}
+            <FormField
+              control={form.control}
+              name="interestRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Interest Rate</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="5.25"
+                        className="pr-8"
+                        key={`interest-rate-${(initialData as any)?.id || 'new'}`}
+                        value={field.value !== undefined ? String(field.value) : ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow empty, digits, and decimal point
+                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                            // Just store the raw value to allow typing decimals
+                            field.onChange(value === '' ? undefined : value);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value;
+                          if (value && value !== '.') {
+                            const numericValue = parseFloat(value);
+                            if (!isNaN(numericValue)) {
+                              field.onChange(numericValue);
+                            }
+                          } else {
+                            field.onChange(undefined);
+                          }
+                        }}
+                        data-testid="input-interest-rate"
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Annual interest rate for calculations and year-end tax adjustments.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Mortgage Payment Start Date */}
+            <FormField
+              control={form.control}
+              name="mortgageStartDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>First Payment Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      value={field.value ? 
+                        (field.value instanceof Date ? 
+                          field.value.toISOString().split('T')[0] : 
+                          new Date(field.value).toISOString().split('T')[0]
+                        ) : ''}
+                      onChange={(e) => {
+                        const newDate = e.target.value ? new Date(e.target.value + 'T00:00:00.000Z') : undefined;
+                        console.log('🗓️ Mortgage start date changed:', { 
+                          inputValue: e.target.value, 
+                          newDate,
+                          previousValue: field.value 
+                        });
+                        field.onChange(newDate);
+                      }}
+                      data-testid="input-mortgage-start-date"
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    When should recurring mortgage expenses start being generated? Defaults to next month if left empty.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="my-6 border-t border-muted-foreground/20" />
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground font-medium">Secondary Mortgage (Optional)</p>
+              <p className="text-xs text-muted-foreground">Add a second mortgage if your property has multiple loans</p>
+            </div>
+
+            {/* Secondary Monthly Mortgage */}
+            <FormField
+              control={form.control}
+              name="monthlyMortgage2"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Secondary Monthly Payment</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="1,000"
+                        className="pl-9"
+                        key={`monthly-mortgage-2-${(initialData as any)?.id || 'new'}`}
+                        value={field.value ? Number(field.value).toLocaleString() : ""}
+                        onChange={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          field.onChange(numericValue);
+                        }}
+                        onBlur={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          if (!isNaN(numericValue || 0)) {
+                            field.onChange(numericValue);
+                            if (numericValue) {
+                              e.target.value = numericValue.toLocaleString();
+                            }
+                          }
+                        }}
+                        data-testid="input-monthly-mortgage-2"
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Second mortgage monthly payment (HELOC, bridge loan, etc.). Will auto-create recurring expense.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Secondary Interest Rate */}
+            <FormField
+              control={form.control}
+              name="interestRate2"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Secondary Interest Rate</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="6.75"
+                        className="pr-8"
+                        key={`interest-rate-2-${(initialData as any)?.id || 'new'}`}
+                        value={field.value !== undefined ? String(field.value) : ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          // Allow empty, digits, and decimal point
+                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                            // Just store the raw value to allow typing decimals
+                            field.onChange(value === '' ? undefined : value);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const value = e.target.value;
+                          if (value && value !== '.') {
+                            const numericValue = parseFloat(value);
+                            if (!isNaN(numericValue)) {
+                              field.onChange(numericValue);
+                            }
+                          } else {
+                            field.onChange(undefined);
+                          }
+                        }}
+                        data-testid="input-interest-rate-2"
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Annual interest rate for second mortgage calculations and tax adjustments.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Secondary Mortgage Start Date */}
+            <FormField
+              control={form.control}
+              name="mortgageStartDate2"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Secondary First Payment Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      value={field.value ? 
+                        (field.value instanceof Date ? 
+                          field.value.toISOString().split('T')[0] : 
+                          new Date(field.value).toISOString().split('T')[0]
+                        ) : ''}
+                      onChange={(e) => {
+                        const newDate = e.target.value ? new Date(e.target.value) : undefined;
+                        console.log('🗓️ Secondary mortgage start date changed:', { 
+                          inputValue: e.target.value, 
+                          newDate,
+                          previousValue: field.value 
+                        });
+                        field.onChange(newDate);
+                      }}
+                      data-testid="input-mortgage-start-date-2"
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    When should secondary mortgage expenses start? Defaults to next month if left empty.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="my-6 border-t border-muted-foreground/20" />
+
+            {/* Purchase Price */}
+            <FormField
+              control={form.control}
+              name="purchasePrice"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Total Purchase Price</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="500000"
+                        className="pl-9"
+                        {...field}
+                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        data-testid="input-purchase-price"
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Total property purchase price. Auto-fills with property value above. <strong>Edit this if you purchased at a different price than current value.</strong>
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Down Payment */}
+            <FormField
+              control={form.control}
+              name="downPayment"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Down Payment & Cash Invested</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="100,000"
+                        className="pl-9"
+                        key={`down-payment-${(initialData as any)?.id || 'new'}`}
+                        value={field.value ? Number(field.value).toLocaleString() : ""}
+                        onChange={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          field.onChange(numericValue);
+                        }}
+                        onBlur={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          if (!isNaN(numericValue || 0)) {
+                            field.onChange(numericValue);
+                            if (numericValue) {
+                              e.target.value = numericValue.toLocaleString();
+                            }
+                          }
+                        }}
+                        data-testid="input-down-payment"
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Total cash invested (down payment + closing costs). Used for cash-on-cash return calculations.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Acquisition Date */}
+            <FormField
+              control={form.control}
+              name="acquisitionDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Acquisition Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      {...field}
+                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                      onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
+                      data-testid="input-acquisition-date"
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Date property was acquired. Used for partial-year calculations and mortgage payment start.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Property Sale Subsection */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-medium text-muted-foreground">Property Sale</h4>
+              <Badge variant="outline" className="text-xs">Optional</Badge>
+            </div>
+            {/* Sale Date */}
+            <FormField
+              control={form.control}
+              name="saleDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sale Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      {...field}
+                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                      onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
+                      data-testid="input-sale-date"
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Date property was sold. Mortgage calculations will end on this date.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Sale Price */}
+            <FormField
+              control={form.control}
+              name="salePrice"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sale Price</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="750,000"
+                        className="pl-9"
+                        key={`sale-price-${(initialData as any)?.id || 'new'}`}
+                        value={field.value ? Number(field.value).toLocaleString() : (initialData?.salePrice ? Number(initialData.salePrice).toLocaleString() : "")}
+                        onChange={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          field.onChange(numericValue);
+                        }}
+                        onBlur={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                          if (!isNaN(numericValue || 0)) {
+                            field.onChange(numericValue);
+                            if (numericValue) {
+                              e.target.value = numericValue.toLocaleString();
+                            }
+                          }
+                        }}
+                        data-testid="input-sale-price"
+                      />
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Gross sale price. Used for calculating capital gains/losses.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </CardContent>
+      </CollapsibleContent>
+    </Card>
+  </Collapsible>
+
+
+        {/* HOA Information Section */}
+        <Collapsible open={openHOA} onOpenChange={setOpenHOA}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">HOA Information</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openHOA ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Homeowners association details</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="hoaName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>HOA Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Sunset HOA" 
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            data-testid="input-property-hoa-name" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="hoaContact"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>HOA Contact</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="(555) 123-4567" 
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            data-testid="input-property-hoa-contact" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+
 
         <div className="flex justify-end space-x-2">
           <Button 
