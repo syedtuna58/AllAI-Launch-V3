@@ -924,45 +924,60 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   />
                 </div>
 
-                {/* Equipment Tracking */}
-                <div className="mt-6 space-y-3 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-sm">Equipment Tracking</h4>
-                      <p className="text-xs text-muted-foreground mt-1">Track HVAC, appliances, and systems for this unit</p>
+                {/* Equipment Tracking Section */}
+                <div className="mt-6">
+                  <h4 className="font-medium text-sm mb-3 flex items-center space-x-2">
+                    <span>Equipment Tracking (Optional)</span>
+                  </h4>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Track appliances and systems for maintenance reminders and warranty management.
+                  </p>
+                  
+                  {/* HVAC - Compact Layout */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-sm font-medium text-muted-foreground">HVAC System</h5>
+                      {(form.watch("defaultUnit.hvacBrand") || form.watch("defaultUnit.hvacModel") || form.watch("defaultUnit.hvacYear")) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            form.setValue("defaultUnit.hvacBrand", "");
+                            form.setValue("defaultUnit.hvacModel", "");
+                            form.setValue("defaultUnit.hvacYear", undefined);
+                            form.setValue("defaultUnit.hvacLifetime", undefined);
+                            form.setValue("defaultUnit.hvacReminder", false);
+                          }}
+                          data-testid="button-clear-hvac"
+                        >
+                          Clear HVAC
+                        </Button>
+                      )}
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setOpenEquipmentModal(true);
-                      }}
-                      data-testid="button-add-unit-equipment"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Equipment
-                    </Button>
-                  </div>
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="defaultUnit.notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Unit Notes (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Notes about this unit..." 
-                          {...field}
-                          data-testid="textarea-unit-notes" 
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-3">
+                        <FormField
+                          control={form.control}
+                          name="defaultUnit.hvacBrand"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">Brand</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  placeholder="Carrier" 
+                                  {...field}
+                                  data-testid="input-unit-hvac-brand"
+                                  className="h-8 text-sm"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      </div>
+                      
+                      <div className="col-span-3">
                         <FormField
                           control={form.control}
                           name="defaultUnit.hvacModel"
@@ -1965,11 +1980,378 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   )}
                 </div>
               )}
+              
+              <div className="space-y-1">
+                <h5 className="text-sm font-medium text-muted-foreground">Legacy Building Systems (Optional)</h5>
+                <p className="text-xs text-muted-foreground">These fields are for backward compatibility. We recommend using "Add Equipment" above for better tracking.</p>
+              </div>
+              
+              {/* Central HVAC System */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-medium text-muted-foreground">Central HVAC/Air System</h5>
+                  {(form.watch("buildingHvacBrand") || form.watch("buildingHvacModel") || form.watch("buildingHvacYear")) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        form.setValue("buildingHvacBrand", "");
+                        form.setValue("buildingHvacModel", "");
+                        form.setValue("buildingHvacYear", undefined);
+                        form.setValue("buildingHvacLifetime", undefined);
+                        form.setValue("buildingHvacReminder", false);
+                        form.setValue("buildingHvacLocation", "");
+                      }}
+                      data-testid="button-clear-building-hvac"
+                    >
+                      Clear Central HVAC
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacBrand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Brand</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Carrier" 
+                              {...field}
+                              data-testid="input-building-hvac-brand"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacModel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Model</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="24ABC6" 
+                              {...field}
+                              data-testid="input-building-hvac-model"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacYear"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Year</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="2020" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-hvac-year"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacLifetime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Lifetime (yrs)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="15" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-hvac-lifetime"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingHvacLocation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Location</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Roof, basement, etc." 
+                              {...field}
+                              data-testid="input-building-hvac-location"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {form.watch("buildingHvacLifetime") && (
+                    <div className="col-span-12">
+                      <FormField
+                        control={form.control}
+                        name="buildingHvacReminder"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="checkbox-building-hvac-reminder"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-xs">
+                                📅 1yr reminder
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Central Water System */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-sm font-medium text-muted-foreground">Central Water/Boiler System</h5>
+                  {(form.watch("buildingWaterBrand") || form.watch("buildingWaterModel") || form.watch("buildingWaterYear")) && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        form.setValue("buildingWaterBrand", "");
+                        form.setValue("buildingWaterModel", "");
+                        form.setValue("buildingWaterYear", undefined);
+                        form.setValue("buildingWaterLifetime", undefined);
+                        form.setValue("buildingWaterReminder", false);
+                        form.setValue("buildingWaterLocation", "");
+                      }}
+                      data-testid="button-clear-building-water"
+                    >
+                      Clear Central Water
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterBrand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Brand</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Rheem" 
+                              {...field}
+                              data-testid="input-building-water-brand"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterModel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Model</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="G12-40" 
+                              {...field}
+                              data-testid="input-building-water-model"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterYear"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Year</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="2020" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-water-year"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterLifetime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Lifetime (yrs)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              placeholder="12" 
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                              data-testid="input-building-water-lifetime"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <FormField
+                      control={form.control}
+                      name="buildingWaterLocation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Location</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="Basement, utility room, etc." 
+                              {...field}
+                              data-testid="input-building-water-location"
+                              className="h-8 text-sm"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {form.watch("buildingWaterLifetime") && (
+                    <div className="col-span-12">
+                      <FormField
+                        control={form.control}
+                        name="buildingWaterReminder"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                data-testid="checkbox-building-water-reminder"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-xs">
+                                📅 1yr reminder
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Other Building Systems */}
+              <div className="space-y-3">
+                <h5 className="text-sm font-medium text-muted-foreground">Other Building Systems</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="buildingWaterShutoff"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Water Shut-off Location</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Street side, basement, etc." 
+                            {...field}
+                            data-testid="input-building-water-shutoff"
+                            className="h-8 text-sm"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="buildingElectricalPanel"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Electrical Panel Location</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Basement, utility room, etc." 
+                            {...field}
+                            data-testid="input-building-electrical-panel"
+                            className="h-8 text-sm"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+                  {/* Building Equipment Notes */}
+                  <FormField
+                    control={form.control}
+                    name="buildingEquipmentNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Building Equipment Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Additional building systems, elevator details, security systems, roof info, etc." 
+                            {...field}
+                            data-testid="textarea-building-equipment-notes"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </CollapsibleContent>
             </Card>
           </Collapsible>
         )}
+
 
         {/* Financial Information Section - Combines Property Value and Mortgage */}
         <Collapsible open={openFinancial} onOpenChange={setOpenFinancial}>
