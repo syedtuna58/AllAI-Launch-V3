@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Minus, Building2, Home, Wrench, DollarSign, TrendingDown } from "lucide-react";
+import { Plus, Minus, Building2, Home, Wrench, DollarSign, TrendingDown, ChevronDown, Info, Users, Calendar } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { OwnershipEntity } from "@shared/schema";
 import { formatNumberWithCommas, removeCommas } from "@/lib/formatters";
 
@@ -125,6 +126,13 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   const [showCreateEntity, setShowCreateEntity] = useState(false);
   const [newEntityName, setNewEntityName] = useState("");
   const [newEntityType, setNewEntityType] = useState<"Individual" | "LLC" | "Partnership" | "Corporation">("Individual");
+  
+  const [openBasicDetails, setOpenBasicDetails] = useState(false);
+  const [openEquipment, setOpenEquipment] = useState(false);
+  const [openFinancial, setOpenFinancial] = useState(false);
+  const [openHOA, setOpenHOA] = useState(false);
+  const [openOwnership, setOpenOwnership] = useState(false);
+  const [openUnits, setOpenUnits] = useState(false);
   
 
 
@@ -287,75 +295,92 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Property Name</FormLabel>
-              <FormControl>
-                <Input 
-                  placeholder="e.g., Sunset Apartments" 
-                  value={field.value || ""}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  data-testid="input-property-name" 
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Home className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold" data-testid="text-property-form-title">
+              {initialData ? "Edit Property" : "Add New Property"}
+            </h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Set up your property with basic details. Optional sections help with predictive maintenance and financial tracking.
+          </p>
+        </div>
 
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Property Type</FormLabel>
-              <Select onValueChange={(value) => {
-                field.onChange(value);
-                // Only run this logic for user-initiated changes, not during form initialization
-                if (!initialData) {
-                  // Automatically enable multiple units for building types
-                  if (value === "Residential Building" || value === "Commercial Building") {
-                    form.setValue("createDefaultUnit", true); // Buildings always have units
-                    form.setValue("hasMultipleUnits", true);
-                    // Initialize with 2 units by default
-                    const currentCount = form.getValues("numberOfUnits") || 2;
-                    form.setValue("numberOfUnits", Math.max(currentCount, 2));
-                    generateUnits(Math.max(currentCount, 2));
-                  } else {
-                    // For single-unit properties, create a default unit so leases can reference it
-                    form.setValue("createDefaultUnit", true);
-                    form.setValue("hasMultipleUnits", false);
-                    form.setValue("numberOfUnits", 1);
-                    form.setValue("units", []);
-                  }
-                }
-              }} defaultValue={field.value}>
+        {/* Required Fields Section */}
+        <div className="space-y-4 pb-4 border-b">
+          <h3 className="text-sm font-medium text-muted-foreground">Required Information</h3>
+          
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Property Name</FormLabel>
                 <FormControl>
-                  <SelectTrigger data-testid="select-property-type">
-                    <SelectValue placeholder="Select property type" />
-                  </SelectTrigger>
+                  <Input 
+                    placeholder="e.g., Sunset Apartments" 
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    data-testid="input-property-name" 
+                  />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="Single Family">Single Family</SelectItem>
-                  <SelectItem value="Condo">Condo</SelectItem>
-                  <SelectItem value="Townhome">Townhome</SelectItem>
-                  <SelectItem value="Residential Building">Residential Building (multiple units)</SelectItem>
-                  <SelectItem value="Commercial Unit">Commercial Unit</SelectItem>
-                  <SelectItem value="Commercial Building">Commercial Building (multiple units)</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Property Type</FormLabel>
+                <Select onValueChange={(value) => {
+                  field.onChange(value);
+                  // Only run this logic for user-initiated changes, not during form initialization
+                  if (!initialData) {
+                    // Automatically enable multiple units for building types
+                    if (value === "Residential Building" || value === "Commercial Building") {
+                      form.setValue("createDefaultUnit", true); // Buildings always have units
+                      form.setValue("hasMultipleUnits", true);
+                      // Initialize with 2 units by default
+                      const currentCount = form.getValues("numberOfUnits") || 2;
+                      form.setValue("numberOfUnits", Math.max(currentCount, 2));
+                      generateUnits(Math.max(currentCount, 2));
+                    } else {
+                      // For single-unit properties, create a default unit so leases can reference it
+                      form.setValue("createDefaultUnit", true);
+                      form.setValue("hasMultipleUnits", false);
+                      form.setValue("numberOfUnits", 1);
+                      form.setValue("units", []);
+                    }
+                  }
+                }} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-property-type">
+                      <SelectValue placeholder="Select property type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Single Family">Single Family</SelectItem>
+                    <SelectItem value="Condo">Condo</SelectItem>
+                    <SelectItem value="Townhome">Townhome</SelectItem>
+                    <SelectItem value="Residential Building">Residential Building (multiple units)</SelectItem>
+                    <SelectItem value="Commercial Unit">Commercial Unit</SelectItem>
+                    <SelectItem value="Commercial Building">Commercial Building (multiple units)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="street"
@@ -419,146 +444,198 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="zipCode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>ZIP Code</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="12345" 
-                    value={field.value || ""}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    data-testid="input-property-zip" 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="yearBuilt"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Year Built</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    placeholder="2020" 
-                    {...field}
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                    data-testid="input-property-year"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="sqft"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Square Feet</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number" 
-                    placeholder="1,200" 
-                    {...field}
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                    data-testid="input-property-sqft"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="zipCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>ZIP Code</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="12345" 
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      data-testid="input-property-zip" 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="hoaName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>HOA Name (Optional)</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="Sunset HOA" 
-                    value={field.value || ""}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    data-testid="input-property-hoa-name" 
+        {/* Collapsible Optional Sections */}
+        
+        {/* Basic Details Section */}
+        <Collapsible open={openBasicDetails} onOpenChange={setOpenBasicDetails}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">Basic Details</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openBasicDetails ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Additional property information</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="yearBuilt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Year Built</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="2020" 
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-property-year"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
-          <FormField
-            control={form.control}
-            name="hoaContact"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>HOA Contact (Optional)</FormLabel>
-                <FormControl>
-                  <Input 
-                    placeholder="(555) 123-4567" 
-                    value={field.value || ""}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    data-testid="input-property-hoa-contact" 
+                  <FormField
+                    control={form.control}
+                    name="sqft"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Square Feet</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="1,200" 
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-property-sqft"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                </div>
 
-        <FormField
-          control={form.control}
-          name="notes"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Notes (Optional)</FormLabel>
-              <FormControl>
-                <Textarea 
-                  placeholder="Additional notes about this property..." 
-                  value={field.value || ""}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  name={field.name}
-                  data-testid="textarea-property-notes" 
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Additional notes about this property..." 
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          data-testid="textarea-property-notes" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* HOA Information Section */}
+        <Collapsible open={openHOA} onOpenChange={setOpenHOA}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">HOA Information</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openHOA ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Homeowners association details</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="hoaName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>HOA Name</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Sunset HOA" 
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            data-testid="input-property-hoa-name" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="hoaContact"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>HOA Contact</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="(555) 123-4567" 
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            data-testid="input-property-hoa-contact" 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Building Equipment Section - Show only for buildings */}
         {(form.watch("type") === "Residential Building" || form.watch("type") === "Commercial Building") && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Wrench className="h-5 w-5" />
-                <span>Building Equipment (Optional)</span>
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Track central building systems and equipment for maintenance and warranty management.
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <Collapsible open={openEquipment} onOpenChange={setOpenEquipment}>
+            <Card className="border-blue-200 dark:border-blue-800">
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <CardTitle className="text-base font-medium">Predictive Maintenance & Equipment</CardTitle>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${openEquipment ? 'rotate-180' : ''}`} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Track central building systems for predictive insights</p>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-6 pt-0">
               {/* Central HVAC System */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -902,39 +979,49 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                 </div>
               </div>
 
-              {/* Building Equipment Notes */}
-              <FormField
-                control={form.control}
-                name="buildingEquipmentNotes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Building Equipment Notes</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Additional building systems, elevator details, security systems, roof info, etc." 
-                        {...field}
-                        data-testid="textarea-building-equipment-notes"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+                  {/* Building Equipment Notes */}
+                  <FormField
+                    control={form.control}
+                    name="buildingEquipmentNotes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Building Equipment Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Additional building systems, elevator details, security systems, roof info, etc." 
+                            {...field}
+                            data-testid="textarea-building-equipment-notes"
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         )}
 
         {/* Property Ownership Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Building2 className="h-5 w-5" />
-              <span>Property Ownership</span>
-              <Badge variant="outline">
-                Total: {calculateTotalPercent().toFixed(1)}%
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <Collapsible open={openOwnership} onOpenChange={setOpenOwnership}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">Ownership Structure</CardTitle>
+                    <Badge variant="outline" className="text-xs">
+                      Total: {calculateTotalPercent().toFixed(1)}%
+                    </Badge>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openOwnership ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Manage ownership entities and percentages</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
             {fields.map((field, index) => (
               <div key={field.id} className="flex items-end space-x-2 p-3 border rounded-lg">
                 <FormField
@@ -1015,26 +1102,36 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
               Add Co-Owner
             </Button>
             
-            {calculateTotalPercent() !== 100 && (
-              <p className="text-sm text-destructive">
-                Ownership percentages must add up to 100%
-              </p>
-            )}
-          </CardContent>
-        </Card>
+                {calculateTotalPercent() !== 100 && (
+                  <p className="text-sm text-destructive">
+                    Ownership percentages must add up to 100%
+                  </p>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
-        {/* Property Value Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <DollarSign className="h-5 w-5" />
-              <span>Property Value (Optional)</span>
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Set the total value for {form.watch("type")?.includes("Building") ? "the entire building" : "this property"}. This helps calculate portfolio value by ownership percentage.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        {/* Financial Information Section - Combines Property Value and Mortgage */}
+        <Collapsible open={openFinancial} onOpenChange={setOpenFinancial}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">Financial Information</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openFinancial ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Property value, mortgages, and financial tracking</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-6 pt-0">
+                {/* Property Value Subsection */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Property Value</h4>
             <FormField
               control={form.control}
               name="propertyValue"
@@ -1138,21 +1235,11 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                 )}
               />
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Mortgage & Financing Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Building2 className="h-5 w-5" />
-              <span>Mortgage & Financing (Optional)</span>
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Track mortgage details for cash-on-cash analysis and automatic recurring expenses. Interest allocation can be adjusted at year-end for tax reporting.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          {/* Mortgage & Financing Subsection */}
+          <div className="space-y-4 pt-4 border-t">
+            <h4 className="text-sm font-medium text-muted-foreground">Mortgage & Financing</h4>
 
             {/* Monthly Mortgage */}
             <FormField
@@ -1512,22 +1599,14 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Property Sale Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <TrendingDown className="h-5 w-5" />
-              <span>Property Sale</span>
-              <Badge variant="outline">Optional</Badge>
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Record property sale information to end mortgage calculations and track gains/losses
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          {/* Property Sale Subsection */}
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-medium text-muted-foreground">Property Sale</h4>
+              <Badge variant="outline" className="text-xs">Optional</Badge>
+            </div>
             {/* Sale Date */}
             <FormField
               control={form.control}
@@ -1595,21 +1674,29 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </CollapsibleContent>
+    </Card>
+  </Collapsible>
 
         {/* Unit Setup Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Home className="h-5 w-5" />
-              <span>Unit Setup</span>
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Units help you manage tenants, rent collection, and maintenance more effectively.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <Collapsible open={openUnits} onOpenChange={setOpenUnits}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Home className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">Unit Setup</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openUnits ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Manage tenants, rent collection, and maintenance by unit</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
             {/* Only show checkbox for single-unit properties */}
             {form.watch("type") !== "Residential Building" && form.watch("type") !== "Commercial Building" && (
               <FormField
@@ -2830,7 +2917,9 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
               </div>
             )}
           </CardContent>
-        </Card>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
 
         <div className="flex justify-end space-x-2">
           <Button 
