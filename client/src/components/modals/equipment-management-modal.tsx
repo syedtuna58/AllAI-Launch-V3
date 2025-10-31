@@ -44,6 +44,8 @@ interface EquipmentFormData {
   isCustom?: boolean; // Flag to identify custom equipment
   originalType?: string; // Track original type for updates when name changes
   replacementCost?: number; // Optional estimated replacement cost
+  manufacturer?: string; // Brand/manufacturer name
+  model?: string; // Model number/name
 }
 
 interface EquipmentManagementModalProps {
@@ -172,6 +174,8 @@ export default function EquipmentManagementModal({
           customDisplayName: friendlyName,
           originalType: eq.equipmentType, // Track original for updates
           replacementCost: eq.replacementCost ? parseFloat(eq.replacementCost as any) : undefined, // Parse decimal to number
+          manufacturer: eq.manufacturer ?? undefined,
+          model: eq.model ?? undefined,
         };
       });
 
@@ -247,6 +251,8 @@ export default function EquipmentManagementModal({
           customLifespanYears: eq.customLifespan,
           useClimateAdjustment,
           replacementCost: eq.replacementCost,
+          manufacturer: eq.manufacturer,
+          model: eq.model,
         };
 
         if (existing) {
@@ -331,6 +337,26 @@ export default function EquipmentManagementModal({
       [type]: {
         ...prev[type],
         replacementCost: cost,
+      },
+    }));
+  };
+
+  const updateManufacturer = (type: string, manufacturer: string) => {
+    setEquipmentData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        manufacturer: manufacturer || undefined,
+      },
+    }));
+  };
+
+  const updateModel = (type: string, model: string) => {
+    setEquipmentData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        model: model || undefined,
       },
     }));
   };
@@ -488,62 +514,88 @@ export default function EquipmentManagementModal({
                                     </div>
 
                                     {eq?.selected && (
-                                      <div className="mt-3 grid grid-cols-2 gap-4">
-                                        {/* Install Year Section */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center justify-between text-xs">
-                                            <span className="font-medium">Install Year: {eq.installYear}</span>
-                                            <span className="text-muted-foreground">{age}y old</span>
+                                      <>
+                                        <div className="mt-3 grid grid-cols-2 gap-4">
+                                          {/* Install Year Section */}
+                                          <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span className="font-medium">Install Year: {eq.installYear}</span>
+                                              <span className="text-muted-foreground">{age}y old</span>
+                                            </div>
+                                            <Slider
+                                              value={[eq.installYear]}
+                                              onValueChange={(value) => updateInstallYear(item.type, value[0])}
+                                              min={1980}
+                                              max={currentYear}
+                                              step={1}
+                                              className="w-full"
+                                              data-testid={`slider-year-${item.type}`}
+                                            />
                                           </div>
-                                          <Slider
-                                            value={[eq.installYear]}
-                                            onValueChange={(value) => updateInstallYear(item.type, value[0])}
-                                            min={1980}
-                                            max={currentYear}
-                                            step={1}
-                                            className="w-full"
-                                            data-testid={`slider-year-${item.type}`}
-                                          />
+                                          
+                                          {/* Lifespan Section */}
+                                          <div className="space-y-2">
+                                            <div className="flex items-center justify-between text-xs">
+                                              <span className="font-medium">Lifespan (years)</span>
+                                              <span className="text-muted-foreground">Default: {item.defaultLifespanYears}y</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <Input
+                                                type="number"
+                                                min={1}
+                                                value={eq.customLifespan || item.defaultLifespanYears}
+                                                onChange={(e) => {
+                                                  const val = parseInt(e.target.value);
+                                                  if (!isNaN(val) && val >= 1) {
+                                                    updateCustomLifespan(item.type, val);
+                                                  }
+                                                }}
+                                                className="h-9"
+                                                data-testid={`input-lifespan-${item.type}`}
+                                              />
+                                              {eq.customLifespan && eq.customLifespan !== item.defaultLifespanYears && (
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-9 px-3 text-xs text-blue-600 hover:text-blue-700"
+                                                  onClick={() => updateCustomLifespan(item.type, undefined)}
+                                                  data-testid={`button-reset-lifespan-${item.type}`}
+                                                >
+                                                  Reset
+                                                </Button>
+                                              )}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                              Suggested range: {item.lifespanRange.min}-{item.lifespanRange.max}y
+                                            </div>
+                                          </div>
                                         </div>
                                         
-                                        {/* Lifespan Section */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center justify-between text-xs">
-                                            <span className="font-medium">Lifespan (years)</span>
-                                            <span className="text-muted-foreground">Default: {item.defaultLifespanYears}y</span>
-                                          </div>
-                                          <div className="flex items-center gap-2">
+                                        {/* Manufacturer and Model Section */}
+                                        <div className="mt-3 grid grid-cols-2 gap-4">
+                                          <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Manufacturer (optional)</Label>
                                             <Input
-                                              type="number"
-                                              min={1}
-                                              value={eq.customLifespan || item.defaultLifespanYears}
-                                              onChange={(e) => {
-                                                const val = parseInt(e.target.value);
-                                                if (!isNaN(val) && val >= 1) {
-                                                  updateCustomLifespan(item.type, val);
-                                                }
-                                              }}
+                                              placeholder="e.g., Carrier, Rheem"
+                                              value={eq.manufacturer || ''}
+                                              onChange={(e) => updateManufacturer(item.type, e.target.value)}
                                               className="h-9"
-                                              data-testid={`input-lifespan-${item.type}`}
+                                              data-testid={`input-manufacturer-${item.type}`}
                                             />
-                                            {eq.customLifespan && eq.customLifespan !== item.defaultLifespanYears && (
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-9 px-3 text-xs text-blue-600 hover:text-blue-700"
-                                                onClick={() => updateCustomLifespan(item.type, undefined)}
-                                                data-testid={`button-reset-lifespan-${item.type}`}
-                                              >
-                                                Reset
-                                              </Button>
-                                            )}
                                           </div>
-                                          <div className="text-xs text-muted-foreground">
-                                            Suggested range: {item.lifespanRange.min}-{item.lifespanRange.max}y
+                                          <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Model (optional)</Label>
+                                            <Input
+                                              placeholder="e.g., 24ABC6"
+                                              value={eq.model || ''}
+                                              onChange={(e) => updateModel(item.type, e.target.value)}
+                                              className="h-9"
+                                              data-testid={`input-model-${item.type}`}
+                                            />
                                           </div>
                                         </div>
-                                      </div>
+                                      </>
                                     )}
                                   </div>
                                 </div>
@@ -633,6 +685,30 @@ export default function EquipmentManagementModal({
                                             data-testid={`input-lifespan-${type}`}
                                           />
                                         </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Manufacturer and Model Section */}
+                                    <div className="mt-3 grid grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Manufacturer (optional)</Label>
+                                        <Input
+                                          placeholder="e.g., Carrier, Rheem"
+                                          value={eq.manufacturer || ''}
+                                          onChange={(e) => updateManufacturer(type, e.target.value)}
+                                          className="h-9"
+                                          data-testid={`input-manufacturer-${type}`}
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Model (optional)</Label>
+                                        <Input
+                                          placeholder="e.g., 24ABC6"
+                                          value={eq.model || ''}
+                                          onChange={(e) => updateModel(type, e.target.value)}
+                                          className="h-9"
+                                          data-testid={`input-model-${type}`}
+                                        />
                                       </div>
                                     </div>
                                     
