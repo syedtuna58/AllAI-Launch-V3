@@ -1380,7 +1380,9 @@ export const insertChannelMessageSchema = createInsertSchema(channelMessages).om
 export const insertEquipmentFailureSchema = createInsertSchema(equipmentFailures).omit({ id: true, createdAt: true });
 export const insertPredictiveInsightSchema = createInsertSchema(predictiveInsights).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertChannelSettingsSchema = createInsertSchema(channelSettings).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEquipmentSchema = createInsertSchema(equipment).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  replacementCost: z.union([z.string(), z.number()]).optional().transform(val => val !== undefined && val !== null ? String(val) : undefined)
+});
 
 // Omnichannel types
 export type ChannelMessage = typeof channelMessages.$inferSelect;
