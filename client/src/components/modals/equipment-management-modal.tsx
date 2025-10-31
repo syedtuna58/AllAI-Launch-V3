@@ -43,6 +43,7 @@ interface EquipmentFormData {
   customDisplayName?: string; // For custom equipment not in catalog
   isCustom?: boolean; // Flag to identify custom equipment
   originalType?: string; // Track original type for updates when name changes
+  replacementCost?: number; // Optional estimated replacement cost
 }
 
 interface EquipmentManagementModalProps {
@@ -170,6 +171,7 @@ export default function EquipmentManagementModal({
           isCustom: !isInCatalog,
           customDisplayName: friendlyName,
           originalType: eq.equipmentType, // Track original for updates
+          replacementCost: eq.replacementCost ? parseFloat(eq.replacementCost as any) : undefined, // Parse decimal to number
         };
       });
 
@@ -244,6 +246,7 @@ export default function EquipmentManagementModal({
           installYear: eq.installYear,
           customLifespanYears: eq.customLifespan,
           useClimateAdjustment,
+          replacementCost: eq.replacementCost,
         };
 
         if (existing) {
@@ -318,6 +321,16 @@ export default function EquipmentManagementModal({
       [type]: {
         ...prev[type],
         customDisplayName: displayName,
+      },
+    }));
+  };
+
+  const updateReplacementCost = (type: string, cost: number | undefined) => {
+    setEquipmentData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        replacementCost: cost,
       },
     }));
   };
@@ -620,6 +633,44 @@ export default function EquipmentManagementModal({
                                             data-testid={`input-lifespan-${type}`}
                                           />
                                         </div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Replacement Cost Section (Optional) */}
+                                    <div className="mt-3">
+                                      <Label className="text-xs text-muted-foreground mb-1 block">
+                                        Replacement Cost (optional)
+                                      </Label>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground">$</span>
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          step={100}
+                                          value={eq.replacementCost || ''}
+                                          onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            updateReplacementCost(type, isNaN(val) || e.target.value === '' ? undefined : val);
+                                          }}
+                                          placeholder="e.g., 5000"
+                                          className="h-9"
+                                          data-testid={`input-replacement-cost-${type}`}
+                                        />
+                                        {eq.replacementCost && (
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-9 px-3 text-xs text-blue-600 hover:text-blue-700"
+                                            onClick={() => updateReplacementCost(type, undefined)}
+                                            data-testid={`button-clear-cost-${type}`}
+                                          >
+                                            Clear
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        Used for predictive cost estimates
                                       </div>
                                     </div>
                                   </div>

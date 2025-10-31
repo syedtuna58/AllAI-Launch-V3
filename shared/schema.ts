@@ -1252,6 +1252,7 @@ export const equipment = pgTable("equipment", {
   // Lifespan management
   customLifespanYears: integer("custom_lifespan_years"), // Override default if set
   useClimateAdjustment: boolean("use_climate_adjustment").default(true),
+  replacementCost: decimal("replacement_cost", { precision: 12, scale: 2 }), // Optional estimated replacement cost
   
   // Optional details
   condition: varchar("condition"), // excellent, good, fair, poor

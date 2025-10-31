@@ -108,6 +108,11 @@ export class PredictiveAnalyticsEngine {
         ? 'custom'
         : definition.category;
 
+      // Use custom replacement cost if provided, otherwise estimate
+      const replacementCost = eq.replacementCost 
+        ? parseFloat(eq.replacementCost as any) 
+        : this.estimateReplacementCost(eq.equipmentType);
+
       const prediction = {
         orgId,
         insightType: 'equipment_failure',
@@ -117,7 +122,7 @@ export class PredictiveAnalyticsEngine {
         prediction: `${displayName} at ${property.name} ${statusText}. Installed in ${eq.installYear}, typical lifespan is ${lifespan} years.`,
         confidence: clampedConfidence.toFixed(2),
         predictedDate: new Date(replacementYear, 0, 1),
-        estimatedCost: this.estimateReplacementCost(eq.equipmentType),
+        estimatedCost: replacementCost.toString(),
         basedOnDataPoints: 0, // Industry average, not historical data
         reasoning: `${description}. Based on ${isCustomEquipment ? 'custom' : 'industry-standard'} lifespan of ${eq.customLifespanYears || definition?.defaultLifespanYears} years${eq.useClimateAdjustment ? ' with climate adjustment for ' + property.state : ''}. Equipment is currently ${age} years old.`,
         recommendations: this.getRecommendationsForEquipment(category, remainingYears),
