@@ -540,24 +540,27 @@ export default function EquipmentManagementModal({
                               <CardContent className="p-4">
                                 <div className="flex items-start gap-3">
                                   <div className="flex-1">
-                                    <div className="flex items-center justify-between mb-2">
-                                      <Input
-                                        value={eq.customDisplayName || ''}
-                                        onChange={(e) => updateCustomDisplayName(type, e.target.value)}
-                                        placeholder="Equipment name"
-                                        className="font-medium max-w-xs"
-                                        data-testid={`input-custom-name-${type}`}
-                                      />
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeCustomEquipment(type)}
-                                        className="text-red-600 hover:text-red-700"
-                                        data-testid={`button-remove-${type}`}
-                                      >
-                                        Remove
-                                      </Button>
+                                    <div className="mb-3">
+                                      <Label className="text-xs text-muted-foreground mb-1 block">Equipment Name</Label>
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          value={eq.customDisplayName || ''}
+                                          onChange={(e) => updateCustomDisplayName(type, e.target.value)}
+                                          placeholder="Enter equipment name"
+                                          className="flex-1"
+                                          data-testid={`input-custom-name-${type}`}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => removeCustomEquipment(type)}
+                                          className="text-red-600 hover:text-red-700"
+                                          data-testid={`button-remove-${type}`}
+                                        >
+                                          Remove
+                                        </Button>
+                                      </div>
                                     </div>
 
                                     <div className="mt-3 grid grid-cols-2 gap-4">
