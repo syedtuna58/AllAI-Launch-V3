@@ -55,7 +55,12 @@ export class PredictiveAnalyticsEngine {
       if (!property) continue;
 
       const definition = getEquipmentDefinition(eq.equipmentType);
-      if (!definition) continue;
+      
+      // Handle custom equipment (not in catalog)
+      const isCustomEquipment = !definition;
+      
+      // For custom equipment, we need a custom lifespan to make predictions
+      if (isCustomEquipment && !eq.customLifespanYears) continue;
 
       const age = currentYear - eq.installYear;
       const replacementYear = calculateReplacementYear(
@@ -90,19 +95,32 @@ export class PredictiveAnalyticsEngine {
       
       const clampedConfidence = Math.max(0.60, Math.min(0.95, confidence));
 
+      // Generate friendly display name for custom equipment
+      const displayName = isCustomEquipment 
+        ? eq.equipmentType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        : definition.displayName;
+      
+      const description = isCustomEquipment
+        ? 'Custom equipment'
+        : definition.description;
+      
+      const category = isCustomEquipment
+        ? 'custom'
+        : definition.category;
+
       const prediction = {
         orgId,
         insightType: 'equipment_failure',
         equipmentType: eq.equipmentType,
         propertyId: eq.propertyId,
         unitId: eq.unitId || undefined,
-        prediction: `${definition.displayName} at ${property.name} ${statusText}. Installed in ${eq.installYear}, typical lifespan is ${lifespan} years.`,
+        prediction: `${displayName} at ${property.name} ${statusText}. Installed in ${eq.installYear}, typical lifespan is ${lifespan} years.`,
         confidence: clampedConfidence.toFixed(2),
         predictedDate: new Date(replacementYear, 0, 1),
         estimatedCost: this.estimateReplacementCost(eq.equipmentType),
         basedOnDataPoints: 0, // Industry average, not historical data
-        reasoning: `${definition.description}. Based on industry-standard lifespan of ${definition.defaultLifespanYears} years${eq.useClimateAdjustment ? ' with climate adjustment for ' + property.state : ''}. Equipment is currently ${age} years old.`,
-        recommendations: this.getRecommendationsForEquipment(definition.category, remainingYears),
+        reasoning: `${description}. Based on ${isCustomEquipment ? 'custom' : 'industry-standard'} lifespan of ${eq.customLifespanYears || definition?.defaultLifespanYears} years${eq.useClimateAdjustment ? ' with climate adjustment for ' + property.state : ''}. Equipment is currently ${age} years old.`,
+        recommendations: this.getRecommendationsForEquipment(category, remainingYears),
       };
 
       // Check for duplicates
