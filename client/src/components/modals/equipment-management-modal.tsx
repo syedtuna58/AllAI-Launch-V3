@@ -42,6 +42,7 @@ interface EquipmentFormData {
   customLifespan?: number;
   customDisplayName?: string; // For custom equipment not in catalog
   isCustom?: boolean; // Flag to identify custom equipment
+  originalType?: string; // Track original type for updates when name changes
 }
 
 interface EquipmentManagementModalProps {
@@ -156,13 +157,19 @@ export default function EquipmentManagementModal({
       
       existingEquipment.forEach(eq => {
         const isInCatalog = catalog.some(cat => cat.type === eq.equipmentType);
+        // For custom equipment, derive a friendly display name from the type
+        const friendlyName = !isInCatalog 
+          ? eq.equipmentType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+          : undefined;
+        
         initialData[eq.equipmentType] = {
           type: eq.equipmentType,
           selected: true,
           installYear: eq.installYear,
           customLifespan: eq.customLifespanYears ?? undefined,
           isCustom: !isInCatalog,
-          customDisplayName: !isInCatalog ? eq.equipmentType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : undefined,
+          customDisplayName: friendlyName,
+          originalType: eq.equipmentType, // Track original for updates
         };
       });
 
@@ -219,7 +226,11 @@ export default function EquipmentManagementModal({
 
       // Create or update selected equipment
       for (const eq of selectedEquipment) {
-        const existing = existingEquipmentForMutation.find(e => e.equipmentType === eq.type);
+        // For custom equipment that was renamed, find by originalType
+        const existing = existingEquipmentForMutation.find(e => 
+          e.equipmentType === eq.type || 
+          (eq.originalType && e.equipmentType === eq.originalType)
+        );
         
         const payload = {
           equipmentType: eq.type,
@@ -320,6 +331,7 @@ export default function EquipmentManagementModal({
         ...oldData,
         type: newType,
         customDisplayName: displayName,
+        originalType: oldData.originalType || type, // Keep original type for updates
       };
       return newData;
     });
