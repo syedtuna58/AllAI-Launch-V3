@@ -433,6 +433,9 @@ export default function Maintenance() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
+      // Close insight detail modal if open to prevent showing stale data
+      setShowInsightDialog(false);
+      setSelectedInsight(null);
       toast({
         title: "Predictions Generated",
         description: `Successfully generated ${data.count || 0} predictions from your equipment data.`,
