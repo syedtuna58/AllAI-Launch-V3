@@ -1926,15 +1926,65 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Wrench className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <CardTitle className="text-base font-medium">Predictive Maintenance & Equipment</CardTitle>
+                      <CardTitle className="text-base font-medium">Equipment Tracking & Maintenance</CardTitle>
                     </div>
                     <ChevronDown className={`h-4 w-4 transition-transform ${openEquipment ? 'rotate-180' : ''}`} />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Track central building systems for predictive insights</p>
+                  <p className="text-xs text-muted-foreground mt-1">Add detailed equipment entries (HVAC, appliances, etc.) with purchase dates and lifespans. Syncs with maintenance tracking for predictive insights.</p>
                 </CardHeader>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-6 pt-0">
+              
+              {/* Equipment Management Section */}
+              {propertyId && (
+                <div className="space-y-3 pb-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-sm font-medium">Tracked Equipment</h5>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setOpenEquipmentModal(true)}
+                      data-testid="button-add-equipment"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Equipment
+                    </Button>
+                  </div>
+                  
+                  {linkedEquipment.length > 0 ? (
+                    <div className="space-y-2">
+                      {linkedEquipment.map((equipment) => {
+                        const age = new Date().getFullYear() - equipment.installYear;
+                        const yearsRemaining = (equipment.customLifespan || equipment.defaultLifespan) - age;
+                        const statusColor = yearsRemaining <= 2 ? 'text-red-600' : yearsRemaining <= 5 ? 'text-yellow-600' : 'text-green-600';
+                        
+                        return (
+                          <div key={equipment.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-sm">
+                            <div className="flex items-center gap-2">
+                              <Wrench className="h-3 w-3 text-muted-foreground" />
+                              <span className="font-medium">{equipment.displayName}</span>
+                              <span className="text-muted-foreground">({equipment.installYear})</span>
+                            </div>
+                            <span className={`text-xs font-medium ${statusColor}`}>
+                              {yearsRemaining > 0 ? `${yearsRemaining}y remaining` : 'Overdue'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No equipment added yet. Click "Add Equipment" to track equipment for predictive maintenance.</p>
+                  )}
+                </div>
+              )}
+              
+              <div className="space-y-1">
+                <h5 className="text-sm font-medium text-muted-foreground">Legacy Building Systems (Optional)</h5>
+                <p className="text-xs text-muted-foreground">These fields are for backward compatibility. We recommend using "Add Equipment" above for better tracking.</p>
+              </div>
+              
               {/* Central HVAC System */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -2957,5 +3007,12 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
         </div>
       </form>
     </Form>
+    
+    {/* Equipment Management Modal */}
+    <EquipmentManagementModal
+      open={openEquipmentModal}
+      onOpenChange={setOpenEquipmentModal}
+      property={propertyId ? { id: propertyId, name: form.watch("name") } as Property : undefined}
+    />
   );
 }
