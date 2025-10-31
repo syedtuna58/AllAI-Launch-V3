@@ -3,8 +3,6 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import Sidebar from '@/components/layout/sidebar';
-import Header from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -87,12 +85,8 @@ export default function Messages() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Messages" />
-        <main className="flex-1 overflow-hidden p-6">
-          <div className="h-full grid grid-cols-3 gap-6">
+    <div className="space-y-6">
+      <div className="h-[calc(100vh-300px)] grid grid-cols-3 gap-6">
             {/* Thread List */}
             <Card className="col-span-1">
               <CardHeader>
@@ -261,8 +255,6 @@ export default function Messages() {
               </div>
             </DialogContent>
           </Dialog>
-        </main>
-      </div>
     </div>
   );
 }
