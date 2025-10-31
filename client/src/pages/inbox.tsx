@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
@@ -13,9 +14,19 @@ import { format } from "date-fns";
 
 // Omnichannel component (external communications)
 function OmnichannelView() {
+  const [activeTab, setActiveTab] = useState("all");
+  
   const { data: messages = [], isLoading } = useQuery<any[]>({
     queryKey: ['/api/inbox'],
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const filter = params.get('filter');
+    if (filter && ['all', 'sms', 'email', 'voice', 'unresponded', 'responded'].includes(filter)) {
+      setActiveTab(filter);
+    }
+  }, []);
 
   const getChannelIcon = (type: string) => {
     switch (type) {
@@ -153,7 +164,7 @@ function OmnichannelView() {
         </div>
       </div>
 
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all" data-testid="tab-all">
             All ({messages.length})

@@ -36,6 +36,14 @@ export default function Reminders() {
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const filter = params.get('filter');
+    if (filter && ['due', 'due-soon', 'all', 'Overdue', 'Completed', 'Cancelled'].includes(filter)) {
+      setStatusFilter(filter);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       toast({
         title: "Unauthorized",

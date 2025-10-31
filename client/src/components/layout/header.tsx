@@ -29,7 +29,7 @@ const AVAILABLE_SHORTCUTS = [
   { id: 'revenue', label: 'Revenue', icon: DollarSign, href: '/financial?tab=revenue' },
   { id: 'taxes', label: 'Taxes', icon: Calculator, href: '/financial?tab=tax' },
   { id: 'needs-reply', label: 'Needs Reply', icon: MessageSquare, href: '/inbox?filter=unresponded' },
-  { id: 'due-soon', label: 'Due Soon', icon: Clock, href: '/reminders?filter=overdue' },
+  { id: 'due-soon', label: 'Due Soon', icon: Clock, href: '/reminders?filter=Overdue' },
 ];
 
 export default function Header({ title }: HeaderProps) {

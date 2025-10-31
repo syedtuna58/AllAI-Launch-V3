@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Receipt, DollarSign, Calculator } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
@@ -7,6 +8,16 @@ import Revenue from "./revenue";
 import Tax from "./tax";
 
 export default function Financial() {
+  const [activeTab, setActiveTab] = useState("expenses");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'expenses' || tab === 'revenue' || tab === 'tax') {
+      setActiveTab(tab);
+    }
+  }, []);
+
   return (
     <div className="flex h-screen bg-background" data-testid="page-financial">
       <Sidebar />
@@ -15,7 +26,7 @@ export default function Financial() {
         <Header title="Financial" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-          <Tabs defaultValue="expenses" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full max-w-lg grid-cols-3 mb-6">
               <TabsTrigger value="expenses" data-testid="tab-expenses">
                 <Receipt className="h-4 w-4 mr-2" />
