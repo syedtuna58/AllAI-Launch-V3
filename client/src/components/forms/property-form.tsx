@@ -12,8 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Minus, Building2, Home, Wrench, DollarSign, TrendingDown, ChevronDown, Info, Users, Calendar } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import type { OwnershipEntity } from "@shared/schema";
+import type { OwnershipEntity, Equipment, Property } from "@shared/schema";
 import { formatNumberWithCommas, removeCommas } from "@/lib/formatters";
+import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
+import { useQuery } from "@tanstack/react-query";
 
 const ownershipSchema = z.object({
   entityId: z.string().min(1, "Entity is required"),
@@ -133,8 +135,14 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   const [openHOA, setOpenHOA] = useState(false);
   const [openOwnership, setOpenOwnership] = useState(false);
   const [openUnits, setOpenUnits] = useState(false);
+  const [openEquipmentModal, setOpenEquipmentModal] = useState(false);
   
-
+  // Fetch equipment linked to this property (if editing)
+  const propertyId = (initialData as any)?.id;
+  const { data: linkedEquipment = [] } = useQuery<Equipment[]>({
+    queryKey: ['/api/properties', propertyId, 'equipment'],
+    enabled: !!propertyId,
+  });
 
   const form = useForm<z.infer<typeof propertySchema>>({
     resolver: zodResolver(propertySchema),
@@ -468,6 +476,9 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
         </div>
 
         {/* Collapsible Optional Sections */}
+        <div className="pt-2 pb-4">
+          <h3 className="text-sm font-medium text-muted-foreground">All Optional</h3>
+        </div>
         
         {/* Basic Details Section */}
         <Collapsible open={openBasicDetails} onOpenChange={setOpenBasicDetails}>
