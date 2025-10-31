@@ -302,6 +302,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   };
 
   return (
+    <>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         {/* Header */}
@@ -3014,5 +3015,6 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
       onOpenChange={setOpenEquipmentModal}
       property={propertyId ? { id: propertyId, name: form.watch("name") } as Property : undefined}
     />
+    </>
   );
 }
