@@ -22,38 +22,14 @@ const ownershipSchema = z.object({
   percent: z.number().min(0.01).max(100),
 });
 
-const applianceSchema = z.object({
-  name: z.string().optional(),
-  manufacturer: z.string().optional(),
-  model: z.string().optional(),
-  year: z.number().min(1900).max(new Date().getFullYear() + 1).optional(),
-  expectedLifetime: z.number().min(1).max(50).optional(), // years
-  alertBeforeExpiry: z.number().min(1).max(60).optional(), // months
-  notes: z.string().optional(),
-});
-
 const unitSchema = z.object({
-  label: z.string().optional(), // Make label optional for equipment-only updates
+  label: z.string().optional(),
   bedrooms: z.preprocess((val) => val === null || val === undefined || val === "" ? undefined : Number(val), z.number().optional()),
   bathrooms: z.preprocess((val) => val === null || val === undefined || val === "" ? undefined : Number(val), z.number().optional()),
   sqft: z.preprocess((val) => val === null || val === undefined || val === "" ? undefined : Number(val), z.number().optional()),
   rentAmount: z.preprocess((val) => val === null || val === undefined ? undefined : String(val), z.string().optional()),
   deposit: z.preprocess((val) => val === null || val === undefined ? undefined : String(val), z.string().optional()),
   notes: z.string().optional(),
-  // Equipment tracking (all optional)
-  hvacBrand: z.string().optional(),
-  hvacModel: z.string().optional(),
-  hvacYear: z.preprocess((val) => val === null || val === undefined || val === "" ? undefined : Number(val), z.number().min(1900).max(new Date().getFullYear() + 1).optional()),
-  hvacLifetime: z.preprocess((val) => val === null || val === undefined || val === "" ? undefined : Number(val), z.number().min(1).max(50).optional()),
-  hvacReminder: z.boolean().optional(),
-  waterHeaterBrand: z.string().optional(),
-  waterHeaterModel: z.string().optional(),
-  waterHeaterYear: z.preprocess((val) => val === null || val === undefined || val === "" ? undefined : Number(val), z.number().min(1900).max(new Date().getFullYear() + 1).optional()),
-  waterHeaterLifetime: z.preprocess((val) => val === null || val === undefined || val === "" ? undefined : Number(val), z.number().min(1).max(50).optional()),
-  waterHeaterReminder: z.boolean().optional(),
-  applianceNotes: z.string().optional(),
-  // Custom appliances
-  appliances: z.array(applianceSchema).optional().default([]),
 });
 
 const propertySchema = z.object({
@@ -176,18 +152,6 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
         rentAmount: "",
         deposit: "",
         notes: "",
-        hvacBrand: "",
-        hvacModel: "",
-        hvacYear: undefined,
-        hvacLifetime: undefined,
-        hvacReminder: false,
-        waterHeaterBrand: "",
-        waterHeaterModel: "",
-        waterHeaterYear: undefined,
-        waterHeaterLifetime: undefined,
-        waterHeaterReminder: false,
-        applianceNotes: "",
-        appliances: [],
       },
       units: [],
       ownerships: [{ entityId: "", percent: 100 }],
@@ -239,14 +203,9 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
     name: "ownerships",
   });
 
-  const { fields: unitFields, append: appendUnit, remove: removeUnit } = useFieldArray({
+  const { fields: unitFields, append: appendUnit, remove: removeUnit} = useFieldArray({
     control: form.control,
     name: "units",
-  });
-
-  const { fields: applianceFields, append: appendAppliance, remove: removeAppliance } = useFieldArray({
-    control: form.control,
-    name: "defaultUnit.appliances",
   });
 
   const calculateTotalPercent = () => {
@@ -272,18 +231,6 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
           rentAmount: "",
           deposit: "",
           notes: "",
-          hvacBrand: "",
-          hvacModel: "",
-          hvacYear: undefined,
-          hvacLifetime: undefined,
-          hvacReminder: false,
-          waterHeaterBrand: "",
-          waterHeaterModel: "",
-          waterHeaterYear: undefined,
-          waterHeaterLifetime: undefined,
-          waterHeaterReminder: false,
-          applianceNotes: "",
-          appliances: [],
         });
       }
     }
@@ -930,508 +877,30 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   />
                 </div>
 
-                {/* Equipment Tracking Section */}
-                <div className="mt-6">
-                  <h4 className="font-medium text-sm mb-3 flex items-center space-x-2">
-                    <span>Equipment Tracking (Optional)</span>
-                  </h4>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    Track appliances and systems for maintenance reminders and warranty management.
-                  </p>
-                  
-                  {/* HVAC - Compact Layout */}
-                  <div className="space-y-3">
+                {/* Equipment Management */}
+                {propertyId && (
+                  <div className="mt-6 p-4 border rounded-lg bg-muted/10">
                     <div className="flex items-center justify-between">
-                      <h5 className="text-sm font-medium text-muted-foreground">HVAC System</h5>
-                      {(form.watch("defaultUnit.hvacBrand") || form.watch("defaultUnit.hvacModel") || form.watch("defaultUnit.hvacYear")) && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            form.setValue("defaultUnit.hvacBrand", "");
-                            form.setValue("defaultUnit.hvacModel", "");
-                            form.setValue("defaultUnit.hvacYear", undefined);
-                            form.setValue("defaultUnit.hvacLifetime", undefined);
-                            form.setValue("defaultUnit.hvacReminder", false);
-                          }}
-                          data-testid="button-clear-hvac"
-                        >
-                          Clear HVAC
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-3">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.hvacBrand"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Brand</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="Carrier" 
-                                  {...field}
-                                  data-testid="input-unit-hvac-brand"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
+                      <div>
+                        <h4 className="font-medium text-sm mb-1">Equipment Tracking</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Track HVAC, water heaters, roof, appliances and more with manufacturer/model details and AI image recognition.
+                        </p>
                       </div>
-                      
-                      <div className="col-span-3">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.hvacModel"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Model</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="25HPA436A003" 
-                                  {...field}
-                                  data-testid="input-unit-hvac-model"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.hvacYear"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Year</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="1900"
-                                  max={new Date().getFullYear() + 1}
-                                  placeholder="2020" 
-                                  {...field}
-                                  onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                                  data-testid="input-unit-hvac-year"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.hvacLifetime"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Life (Yrs)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="5"
-                                  max="30"
-                                  placeholder="15" 
-                                  {...field}
-                                  onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                                  data-testid="input-unit-hvac-lifetime"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2 flex items-center">
-                        {form.watch('defaultUnit.hvacYear') && form.watch('defaultUnit.hvacLifetime') && (
-                          <FormField
-                            control={form.control}
-                            name="defaultUnit.hvacReminder"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value === true}
-                                    onCheckedChange={field.onChange}
-                                    data-testid="checkbox-hvac-reminder"
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-xs font-normal cursor-pointer">
-                                  📅 1yr reminder
-                                </FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Water Heater - Compact Layout */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-sm font-medium text-muted-foreground">Water Heater</h5>
-                      {(form.watch("defaultUnit.waterHeaterBrand") || form.watch("defaultUnit.waterHeaterModel") || form.watch("defaultUnit.waterHeaterYear")) && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            form.setValue("defaultUnit.waterHeaterBrand", "");
-                            form.setValue("defaultUnit.waterHeaterModel", "");
-                            form.setValue("defaultUnit.waterHeaterYear", undefined);
-                            form.setValue("defaultUnit.waterHeaterLifetime", undefined);
-                            form.setValue("defaultUnit.waterHeaterReminder", false);
-                          }}
-                          data-testid="button-clear-water-heater"
-                        >
-                          Clear Water Heater
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-12 gap-2 items-end">
-                      <div className="col-span-3">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.waterHeaterBrand"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Brand</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="Rheem" 
-                                  {...field}
-                                  data-testid="input-unit-water-heater-brand"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="col-span-3">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.waterHeaterModel"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Model</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="XE50M06ST45U1" 
-                                  {...field}
-                                  data-testid="input-unit-water-heater-model"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.waterHeaterYear"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Year</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="1900"
-                                  max={new Date().getFullYear() + 1}
-                                  placeholder="2018" 
-                                  {...field}
-                                  onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                                  data-testid="input-unit-water-heater-year"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2">
-                        <FormField
-                          control={form.control}
-                          name="defaultUnit.waterHeaterLifetime"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs">Life (Yrs)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="5"
-                                  max="25"
-                                  placeholder="12" 
-                                  {...field}
-                                  onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                                  data-testid="input-unit-water-heater-lifetime"
-                                  className="h-8 text-sm"
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="col-span-2 flex items-center">
-                        {form.watch('defaultUnit.waterHeaterYear') && form.watch('defaultUnit.waterHeaterLifetime') && (
-                          <FormField
-                            control={form.control}
-                            name="defaultUnit.waterHeaterReminder"
-                            render={({ field }) => (
-                              <FormItem className="flex items-center space-x-2">
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value === true}
-                                    onCheckedChange={field.onChange}
-                                    data-testid="checkbox-water-heater-reminder"
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-xs font-normal cursor-pointer">
-                                  📅 1yr reminder
-                                </FormLabel>
-                              </FormItem>
-                            )}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="defaultUnit.applianceNotes"
-                    render={({ field }) => (
-                      <FormItem className="mt-4">
-                        <FormLabel>Equipment Notes</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Additional equipment details, roof info, appliances, etc." 
-                            {...field}
-                            data-testid="textarea-unit-appliance-notes"
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {/* Custom Appliances Section */}
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-medium text-sm">Custom Appliances (Optional)</h4>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => appendAppliance({ 
-                          name: "", 
-                          manufacturer: "", 
-                          model: "", 
-                          year: undefined,
-                          expectedLifetime: undefined,
-                          alertBeforeExpiry: undefined,
-                          notes: ""
-                        })}
-                        data-testid="button-add-appliance"
+                        onClick={() => setOpenEquipmentModal(true)}
+                        data-testid="button-manage-equipment"
                       >
-                        + Add Appliance
+                        <Wrench className="h-4 w-4 mr-2" />
+                        Manage Equipment
                       </Button>
                     </div>
-                    
-                    {applianceFields.map((appliance, index) => (
-                      <div key={appliance.id} className="p-4 border rounded-lg bg-muted/10 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h5 className="font-medium text-sm">Appliance {index + 1}</h5>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeAppliance(index)}
-                            data-testid={`button-remove-appliance-${index}`}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                        
-                        {/* Single line layout for appliance details */}
-                        <div className="grid grid-cols-12 gap-2 items-end">
-                          <div className="col-span-3">
-                            <FormField
-                              control={form.control}
-                              name={`defaultUnit.appliances.${index}.name`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs">Name</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      placeholder="Refrigerator" 
-                                      {...field}
-                                      data-testid={`input-appliance-name-${index}`}
-                                      className="h-8 text-sm"
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <div className="col-span-2">
-                            <FormField
-                              control={form.control}
-                              name={`defaultUnit.appliances.${index}.manufacturer`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs">Brand</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      placeholder="GE" 
-                                      {...field}
-                                      data-testid={`input-appliance-manufacturer-${index}`}
-                                      className="h-8 text-sm"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <div className="col-span-2">
-                            <FormField
-                              control={form.control}
-                              name={`defaultUnit.appliances.${index}.model`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs">Model</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      placeholder="ABC123" 
-                                      {...field}
-                                      data-testid={`input-appliance-model-${index}`}
-                                      className="h-8 text-sm"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <div className="col-span-2">
-                            <FormField
-                              control={form.control}
-                              name={`defaultUnit.appliances.${index}.year`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs">Year</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      type="number"
-                                      min="1900"
-                                      max={new Date().getFullYear() + 1}
-                                      placeholder="2020" 
-                                      {...field}
-                                      onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                                      data-testid={`input-appliance-year-${index}`}
-                                      className="h-8 text-sm"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <div className="col-span-2">
-                            <FormField
-                              control={form.control}
-                              name={`defaultUnit.appliances.${index}.expectedLifetime`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-xs">Life (Yrs)</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      type="number"
-                                      min="1"
-                                      max="50"
-                                      placeholder="15" 
-                                      {...field}
-                                      onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                                      data-testid={`input-appliance-lifetime-${index}`}
-                                      className="h-8 text-sm"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <div className="col-span-1 flex items-center">
-                            {form.watch(`defaultUnit.appliances.${index}.year`) && 
-                             form.watch(`defaultUnit.appliances.${index}.expectedLifetime`) && (
-                              <FormField
-                                control={form.control}
-                                name={`defaultUnit.appliances.${index}.alertBeforeExpiry`}
-                                render={({ field }) => (
-                                  <FormItem className="flex items-center space-x-2">
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value === 12}
-                                        onCheckedChange={(checked) => {
-                                          field.onChange(checked ? 12 : undefined);
-                                        }}
-                                        data-testid={`checkbox-appliance-reminder-${index}`}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="text-xs font-normal cursor-pointer">
-                                      📅 1yr reminder
-                                    </FormLabel>
-                                  </FormItem>
-                                )}
-                              />
-                            )}
-                          </div>
-                        </div>
-                        
-                        <FormField
-                          control={form.control}
-                          name={`defaultUnit.appliances.${index}.notes`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Notes</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  placeholder="Additional notes about this appliance..." 
-                                  {...field}
-                                  data-testid={`textarea-appliance-notes-${index}`}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    ))}
-                    
-                    {applianceFields.length === 0 && (
-                      <p className="text-sm text-muted-foreground italic">
-                        No custom appliances added yet. Click "Add Appliance" to track specific equipment.
-                      </p>
-                    )}
                   </div>
-                </div>
+                )}
+
 
                 <FormField
                   control={form.control}
