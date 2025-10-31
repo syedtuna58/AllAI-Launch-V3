@@ -140,7 +140,10 @@ export class PredictiveAnalyticsEngine {
              p.unitId === eq.unitId
       );
 
-      if (!duplicate) {
+      if (duplicate) {
+        // Update existing prediction with new data
+        await this.storage.updatePredictiveInsight(duplicate.id, prediction);
+      } else {
         await this.storage.createPredictiveInsight(prediction);
       }
     }
@@ -264,7 +267,10 @@ export class PredictiveAnalyticsEngine {
             p => p.equipmentType === equipmentType && p.propertyId === property.id
           );
 
-          if (!duplicate) {
+          if (duplicate) {
+            // Update existing prediction with new data
+            await this.storage.updatePredictiveInsight(duplicate.id, prediction);
+          } else {
             await this.storage.createPredictiveInsight(prediction);
           }
         }
