@@ -66,25 +66,19 @@ export default function EquipmentManagementModal({
     enabled: open,
   });
 
-  // Update selected property when property prop changes or when properties load
+  // Update selected property when property prop changes
   useEffect(() => {
     if (property?.id) {
       setSelectedPropertyId(property.id);
-    } else if (properties.length > 0 && !selectedPropertyId) {
+    }
+  }, [property?.id]);
+  
+  // Set first property as default when properties load and none selected
+  useEffect(() => {
+    if (properties.length > 0 && !selectedPropertyId && !property?.id) {
       setSelectedPropertyId(properties[0].id);
     }
-  }, [property?.id, properties]);
-
-  // Reset climate adjustment and migration state when property changes
-  useEffect(() => {
-    if (selectedPropertyId) {
-      if (existingEquipment.length === 0) {
-        setUseClimateAdjustment(true);
-      }
-      // Reset migration mutation so it can run for this property if needed
-      migrateMutation.reset();
-    }
-  }, [selectedPropertyId]);
+  }, [properties.length, selectedPropertyId, property?.id]);
 
   // Get the currently selected property object
   const currentProperty = properties.find(p => p.id === selectedPropertyId);
@@ -99,6 +93,13 @@ export default function EquipmentManagementModal({
     queryKey: ['/api/properties', selectedPropertyId, 'equipment'],
     enabled: open && !!selectedPropertyId,
   });
+
+  // Reset climate adjustment when property changes and has no equipment
+  useEffect(() => {
+    if (selectedPropertyId && existingEquipment.length === 0) {
+      setUseClimateAdjustment(true);
+    }
+  }, [selectedPropertyId, existingEquipment.length]);
 
   // Migration mutation to import existing property equipment data
   const migrateMutation = useMutation({
@@ -130,11 +131,14 @@ export default function EquipmentManagementModal({
   });
 
   // Auto-migrate on first load if no equipment exists yet and we have a valid property selected
+  const migrateIsPending = migrateMutation.isPending;
+  const migrateIsSuccess = migrateMutation.isSuccess;
+  
   useEffect(() => {
-    if (open && selectedPropertyId && !isLoading && existingEquipment.length === 0 && !migrateMutation.isPending && !migrateMutation.isSuccess) {
+    if (open && selectedPropertyId && !isLoading && existingEquipment.length === 0 && !migrateIsPending && !migrateIsSuccess) {
       migrateMutation.mutate();
     }
-  }, [open, selectedPropertyId, isLoading, existingEquipment.length]);
+  }, [open, selectedPropertyId, isLoading, existingEquipment.length, migrateIsPending, migrateIsSuccess]);
 
   // Initialize form data when existing equipment loads or property changes
   useEffect(() => {
