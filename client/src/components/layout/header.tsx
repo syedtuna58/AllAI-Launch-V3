@@ -16,7 +16,7 @@ import { RoleSwitcher } from "@/components/role-switcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useDevMode } from "@/contexts/DevModeContext";
 import { useLocation } from "wouter";
-import { Search, Plus, Settings, DollarSign, Building, Wrench, Users, Calendar, Home, Star, TrendingUp, Inbox, Sparkles } from "lucide-react";
+import { Search, Plus, Settings, DollarSign, Building, Wrench, Users, Calendar, Home, Star, TrendingUp, Inbox, Sparkles, Receipt, Calculator, MessageSquare, Clock } from "lucide-react";
 import type { Property, OwnershipEntity, Unit } from "@shared/schema";
 
 interface HeaderProps {
@@ -24,14 +24,12 @@ interface HeaderProps {
 }
 
 const AVAILABLE_SHORTCUTS = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/' },
-  { id: 'inbox', label: 'Inbox', icon: Inbox, href: '/inbox' },
-  { id: 'portfolio', label: 'Portfolio', icon: Building, href: '/portfolio' },
-  { id: 'tenants', label: 'Tenants', icon: Users, href: '/tenants' },
-  { id: 'maintenance', label: 'Maintenance', icon: Wrench, href: '/maintenance' },
   { id: 'predictive-insights', label: 'Predictive Insights', icon: TrendingUp, href: '/predictive-insights' },
-  { id: 'financial', label: 'Financial', icon: DollarSign, href: '/financial' },
-  { id: 'reminders', label: 'Reminders', icon: Calendar, href: '/reminders' },
+  { id: 'expenses', label: 'Expenses', icon: Receipt, href: '/financial?tab=expenses' },
+  { id: 'revenue', label: 'Revenue', icon: DollarSign, href: '/financial?tab=revenue' },
+  { id: 'taxes', label: 'Taxes', icon: Calculator, href: '/financial?tab=tax' },
+  { id: 'needs-reply', label: 'Needs Reply', icon: MessageSquare, href: '/inbox?filter=unresponded' },
+  { id: 'due-soon', label: 'Due Soon', icon: Clock, href: '/reminders?filter=overdue' },
 ];
 
 export default function Header({ title }: HeaderProps) {
@@ -45,7 +43,7 @@ export default function Header({ title }: HeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [pinnedShortcuts, setPinnedShortcuts] = useState<string[]>(() => {
     const saved = localStorage.getItem('pinnedShortcuts');
-    return saved ? JSON.parse(saved) : ['dashboard', 'financial'];
+    return saved ? JSON.parse(saved) : ['predictive-insights', 'needs-reply', 'due-soon'];
   });
 
   // Save pinned shortcuts
@@ -160,30 +158,6 @@ export default function Header({ title }: HeaderProps) {
                   );
                 })}
               </TooltipProvider>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-testid="button-shortcuts-menu">
-                    <Star className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <div className="px-2 py-1.5 text-sm font-semibold">Quick Access</div>
-                  <DropdownMenuSeparator />
-                  {AVAILABLE_SHORTCUTS.map(shortcut => (
-                    <DropdownMenuItem
-                      key={shortcut.id}
-                      onClick={() => toggleShortcut(shortcut.id)}
-                      className="flex items-center justify-between"
-                      data-testid={`toggle-shortcut-${shortcut.id}`}
-                    >
-                      <span>{shortcut.label}</span>
-                      {pinnedShortcuts.includes(shortcut.id) && (
-                        <Star className="h-3 w-3 fill-current" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           )}
 
@@ -290,7 +264,7 @@ export default function Header({ title }: HeaderProps) {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 type="text"
-                placeholder="Search pages, actions..."
+                placeholder="Search shortcuts... (⌘K)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2"
@@ -300,32 +274,102 @@ export default function Header({ title }: HeaderProps) {
             </div>
           </div>
           <div className="max-h-96 overflow-y-auto p-2">
-            {AVAILABLE_SHORTCUTS
-              .filter(s => 
+            {(() => {
+              const filteredShortcuts = AVAILABLE_SHORTCUTS.filter(s => 
                 searchQuery === '' || 
                 s.label.toLowerCase().includes(searchQuery.toLowerCase())
-              )
-              .map(shortcut => {
-                const Icon = shortcut.icon;
-                return (
-                  <button
-                    key={shortcut.id}
-                    onClick={() => {
-                      setLocation(shortcut.href);
-                      setShowCommandPalette(false);
-                      setSearchQuery('');
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent rounded-lg transition-colors text-left"
-                    data-testid={`command-${shortcut.id}`}
-                  >
-                    <Icon className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">{shortcut.label}</span>
-                    {pinnedShortcuts.includes(shortcut.id) && (
-                      <Star className="h-3 w-3 ml-auto fill-current text-yellow-500" />
-                    )}
-                  </button>
-                );
-              })}
+              );
+              const pinned = filteredShortcuts.filter(s => pinnedShortcuts.includes(s.id));
+              const unpinned = filteredShortcuts.filter(s => !pinnedShortcuts.includes(s.id));
+              
+              return (
+                <>
+                  {pinned.length > 0 && (
+                    <>
+                      <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Pinned
+                      </div>
+                      {pinned.map(shortcut => {
+                        const Icon = shortcut.icon;
+                        return (
+                          <div key={shortcut.id} className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setLocation(shortcut.href);
+                                setShowCommandPalette(false);
+                                setSearchQuery('');
+                              }}
+                              className="flex-1 flex items-center gap-3 px-4 py-3 hover:bg-accent rounded-lg transition-colors text-left"
+                              data-testid={`command-${shortcut.id}`}
+                            >
+                              <Icon className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium">{shortcut.label}</span>
+                            </button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 mr-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleShortcut(shortcut.id);
+                              }}
+                              data-testid={`toggle-pin-${shortcut.id}`}
+                            >
+                              <Star className="h-4 w-4 fill-current text-yellow-500" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                  
+                  {pinned.length > 0 && unpinned.length > 0 && (
+                    <div className="my-2 border-t border-border" />
+                  )}
+                  
+                  {unpinned.length > 0 && (
+                    <>
+                      {pinned.length > 0 && (
+                        <div className="px-4 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          All Shortcuts
+                        </div>
+                      )}
+                      {unpinned.map(shortcut => {
+                        const Icon = shortcut.icon;
+                        return (
+                          <div key={shortcut.id} className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setLocation(shortcut.href);
+                                setShowCommandPalette(false);
+                                setSearchQuery('');
+                              }}
+                              className="flex-1 flex items-center gap-3 px-4 py-3 hover:bg-accent rounded-lg transition-colors text-left"
+                              data-testid={`command-${shortcut.id}`}
+                            >
+                              <Icon className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium">{shortcut.label}</span>
+                            </button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 mr-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleShortcut(shortcut.id);
+                              }}
+                              data-testid={`toggle-pin-${shortcut.id}`}
+                            >
+                              <Star className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
