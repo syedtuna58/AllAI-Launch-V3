@@ -273,6 +273,16 @@ export default function EquipmentManagementModal({
     }));
   };
 
+  const updateCustomLifespan = (type: string, lifespan: number | undefined) => {
+    setEquipmentData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        customLifespan: lifespan,
+      },
+    }));
+  };
+
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'critical':
@@ -401,20 +411,51 @@ export default function EquipmentManagementModal({
                                     </div>
 
                                     {eq?.selected && (
-                                      <div className="mt-3 space-y-2">
-                                        <div className="flex items-center justify-between text-xs">
-                                          <span>Install Year: {eq.installYear}</span>
-                                          <span>Lifespan: ~{item.defaultLifespanYears} years</span>
+                                      <div className="mt-3 space-y-4">
+                                        <div className="space-y-2">
+                                          <div className="flex items-center justify-between text-xs">
+                                            <span>Install Year: {eq.installYear}</span>
+                                            <span className="text-muted-foreground">{age} years old</span>
+                                          </div>
+                                          <Slider
+                                            value={[eq.installYear]}
+                                            onValueChange={(value) => updateInstallYear(item.type, value[0])}
+                                            min={1980}
+                                            max={currentYear}
+                                            step={1}
+                                            className="w-full"
+                                            data-testid={`slider-year-${item.type}`}
+                                          />
                                         </div>
-                                        <Slider
-                                          value={[eq.installYear]}
-                                          onValueChange={(value) => updateInstallYear(item.type, value[0])}
-                                          min={1980}
-                                          max={currentYear}
-                                          step={1}
-                                          className="w-full"
-                                          data-testid={`slider-year-${item.type}`}
-                                        />
+                                        
+                                        <div className="space-y-2">
+                                          <div className="flex items-center justify-between text-xs">
+                                            <span>Lifespan: ~{eq.customLifespan || item.defaultLifespanYears} years</span>
+                                            {eq.customLifespan && eq.customLifespan !== item.defaultLifespanYears && (
+                                              <button
+                                                type="button"
+                                                onClick={() => updateCustomLifespan(item.type, undefined)}
+                                                className="text-blue-600 hover:text-blue-700 underline"
+                                              >
+                                                Reset to default
+                                              </button>
+                                            )}
+                                          </div>
+                                          <Slider
+                                            value={[eq.customLifespan || item.defaultLifespanYears]}
+                                            onValueChange={(value) => updateCustomLifespan(item.type, value[0])}
+                                            min={item.lifespanRange.min}
+                                            max={item.lifespanRange.max}
+                                            step={1}
+                                            className="w-full"
+                                            data-testid={`slider-lifespan-${item.type}`}
+                                          />
+                                          <div className="flex justify-between text-xs text-muted-foreground">
+                                            <span>{item.lifespanRange.min}y</span>
+                                            <span className="text-center">Default: {item.defaultLifespanYears}y</span>
+                                            <span>{item.lifespanRange.max}y</span>
+                                          </div>
+                                        </div>
                                       </div>
                                     )}
                                   </div>
