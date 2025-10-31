@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, AlertCircle, Wrench } from "lucide-react";
+import { Loader2, AlertCircle, Wrench, Camera, Upload } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -66,6 +66,7 @@ export default function EquipmentManagementModal({
   const [equipmentData, setEquipmentData] = useState<Record<string, EquipmentFormData>>({});
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(property?.id || '');
   const [customEquipmentCounter, setCustomEquipmentCounter] = useState(0);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
 
   // Fetch all properties for the dropdown
   const { data: properties = [] } = useQuery<PropertyWithOwnerships[]>({
@@ -386,6 +387,100 @@ export default function EquipmentManagementModal({
     });
   };
 
+  const analyzeEquipmentImage = async (file: File) => {
+    setIsAnalyzingImage(true);
+    try {
+      // Convert image to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // Remove data:image/jpeg;base64, prefix
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // Call backend to analyze with OpenAI Vision
+      const result = await apiRequest<{
+        equipmentType?: string;
+        manufacturer?: string;
+        model?: string;
+        year?: number;
+        customDisplayName?: string;
+      }>('POST', '/api/equipment/analyze-image', {
+        image: base64,
+        mimeType: file.type,
+      });
+
+      if (result.equipmentType) {
+        // Check if this equipment type exists in catalog
+        const catalogItem = catalog.find(c => c.type === result.equipmentType);
+        
+        let targetType = result.equipmentType;
+        let isCustomEquipment = !catalogItem;
+        
+        // If not in catalog, create as custom equipment
+        if (isCustomEquipment) {
+          targetType = `custom_${Date.now()}_${customEquipmentCounter}`;
+          setCustomEquipmentCounter(prev => prev + 1);
+        }
+
+        // Update equipment data with recognized information
+        setEquipmentData(prev => ({
+          ...prev,
+          [targetType]: {
+            ...prev[targetType],
+            type: targetType,
+            selected: true,
+            installYear: result.year || (currentYear - 5),
+            manufacturer: result.manufacturer,
+            model: result.model,
+            isCustom: isCustomEquipment,
+            customDisplayName: result.customDisplayName || result.equipmentType,
+          },
+        }));
+
+        toast({
+          title: "Equipment Recognized!",
+          description: `Found ${result.customDisplayName || result.equipmentType}${result.manufacturer ? ` by ${result.manufacturer}` : ''}`,
+        });
+      } else {
+        toast({
+          title: "Could not identify equipment",
+          description: "Try a clearer photo or enter details manually.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Image analysis error:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Failed to analyze image. Please try again or enter details manually.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingImage(false);
+    }
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: "File too large",
+          description: "Please upload an image smaller than 5MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      analyzeEquipmentImage(file);
+    }
+    // Reset input
+    event.target.value = '';
+  };
+
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case 'critical':
@@ -453,6 +548,42 @@ export default function EquipmentManagementModal({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* AI Image Recognition */}
+        <div className="space-y-2">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageUpload}
+            className="hidden"
+            id="equipment-image-upload"
+            disabled={isAnalyzingImage || !selectedPropertyId}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => document.getElementById('equipment-image-upload')?.click()}
+            disabled={isAnalyzingImage || !selectedPropertyId}
+            data-testid="button-upload-equipment-image"
+          >
+            {isAnalyzingImage ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Analyzing Image...
+              </>
+            ) : (
+              <>
+                <Camera className="h-4 w-4 mr-2" />
+                Snap Photo to Auto-Fill Equipment Data
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            AI will recognize equipment type, brand, model, and year from your photo
+          </p>
         </div>
 
         {isLoading ? (

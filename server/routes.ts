@@ -6518,6 +6518,84 @@ Consider:
     }
   });
 
+  // Analyze equipment image with OpenAI Vision
+  app.post('/api/equipment/analyze-image', isAuthenticated, async (req: any, res) => {
+    try {
+      const { image, mimeType } = req.body;
+      
+      if (!image) {
+        return res.status(400).json({ message: "No image provided" });
+      }
+
+      // Initialize OpenAI client
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(500).json({ message: "OpenAI API key not configured" });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Call OpenAI Vision API
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `You are an expert in identifying home and building equipment. Analyze this image and identify the equipment shown. Return ONLY a JSON object with these fields:
+- equipmentType: one of these exact values: "roof", "hvac", "water_heater", "boiler", "furnace", "air_conditioner", "heat_pump", "sump_pump", "tankless_water_heater", "well_pump", "septic_system", or a descriptive name if it doesn't match any of these
+- customDisplayName: a human-friendly name (e.g., "Water Heater", "HVAC System", "Boiler")
+- manufacturer: the brand/manufacturer name if visible (e.g., "Carrier", "Rheem", "Lennox")
+- model: the model number if visible
+- year: the manufacturing or installation year if visible (as a number)
+
+If you cannot identify the equipment with confidence, return an empty object {}. Be conservative - only return data you're confident about.`,
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mimeType || 'image/jpeg'};base64,${image}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 500,
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        return res.status(500).json({ message: "No response from AI" });
+      }
+
+      // Parse the JSON response
+      let result;
+      try {
+        // Extract JSON from response (in case there's markdown formatting)
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          result = JSON.parse(jsonMatch[0]);
+        } else {
+          result = {};
+        }
+      } catch (parseError) {
+        console.error("Failed to parse AI response:", content);
+        result = {};
+      }
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error analyzing equipment image:", error);
+      res.status(500).json({ 
+        message: "Failed to analyze image", 
+        error: error?.message || "Unknown error" 
+      });
+    }
+  });
+
   // Get equipment for a property
   app.get('/api/properties/:id/equipment', isAuthenticated, async (req: any, res) => {
     try {
