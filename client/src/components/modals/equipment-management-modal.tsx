@@ -40,6 +40,8 @@ interface EquipmentFormData {
   selected: boolean;
   installYear: number;
   customLifespan?: number;
+  customDisplayName?: string; // For custom equipment not in catalog
+  isCustom?: boolean; // Flag to identify custom equipment
 }
 
 interface EquipmentManagementModalProps {
@@ -59,6 +61,7 @@ export default function EquipmentManagementModal({
   const [useClimateAdjustment, setUseClimateAdjustment] = useState(true);
   const [equipmentData, setEquipmentData] = useState<Record<string, EquipmentFormData>>({});
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(property?.id || '');
+  const [customEquipmentCounter, setCustomEquipmentCounter] = useState(0);
 
   // Fetch all properties for the dropdown
   const { data: properties = [] } = useQuery<PropertyWithOwnerships[]>({
@@ -152,11 +155,14 @@ export default function EquipmentManagementModal({
       }
       
       existingEquipment.forEach(eq => {
+        const isInCatalog = catalog.some(cat => cat.type === eq.equipmentType);
         initialData[eq.equipmentType] = {
           type: eq.equipmentType,
           selected: true,
           installYear: eq.installYear,
           customLifespan: eq.customLifespanYears ?? undefined,
+          isCustom: !isInCatalog,
+          customDisplayName: !isInCatalog ? eq.equipmentType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : undefined,
         };
       });
 
@@ -285,6 +291,41 @@ export default function EquipmentManagementModal({
         customLifespan: lifespan,
       },
     }));
+  };
+
+  const updateCustomDisplayName = (type: string, displayName: string) => {
+    setEquipmentData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        customDisplayName: displayName,
+      },
+    }));
+  };
+
+  const addCustomEquipment = () => {
+    const customType = `custom_${Date.now()}_${customEquipmentCounter}`;
+    setCustomEquipmentCounter(prev => prev + 1);
+    
+    setEquipmentData(prev => ({
+      ...prev,
+      [customType]: {
+        type: customType,
+        selected: true,
+        installYear: currentYear - 5,
+        customLifespan: 15,
+        isCustom: true,
+        customDisplayName: 'Custom Equipment',
+      },
+    }));
+  };
+
+  const removeCustomEquipment = (type: string) => {
+    setEquipmentData(prev => {
+      const newData = { ...prev };
+      delete newData[type];
+      return newData;
+    });
   };
 
   const getCategoryIcon = (category: string) => {
@@ -482,6 +523,105 @@ export default function EquipmentManagementModal({
                     </div>
                   )
                 ))}
+
+                {/* Custom Equipment Section */}
+                {Object.entries(equipmentData).some(([_, eq]) => eq.isCustom && eq.selected) && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-sm font-medium">⚪ Custom Equipment</span>
+                    </div>
+                    <div className="space-y-2">
+                      {Object.entries(equipmentData)
+                        .filter(([_, eq]) => eq.isCustom && eq.selected)
+                        .map(([type, eq]) => {
+                          const age = currentYear - eq.installYear;
+                          return (
+                            <Card key={type} className="border-primary">
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <Input
+                                        value={eq.customDisplayName || ''}
+                                        onChange={(e) => updateCustomDisplayName(type, e.target.value)}
+                                        placeholder="Equipment name"
+                                        className="font-medium max-w-xs"
+                                        data-testid={`input-custom-name-${type}`}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeCustomEquipment(type)}
+                                        className="text-red-600 hover:text-red-700"
+                                        data-testid={`button-remove-${type}`}
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
+
+                                    <div className="mt-3 grid grid-cols-2 gap-4">
+                                      {/* Install Year Section */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="font-medium">Install Year: {eq.installYear}</span>
+                                          <span className="text-muted-foreground">{age}y old</span>
+                                        </div>
+                                        <Slider
+                                          value={[eq.installYear]}
+                                          onValueChange={(value) => updateInstallYear(type, value[0])}
+                                          min={1980}
+                                          max={currentYear}
+                                          step={1}
+                                          className="w-full"
+                                          data-testid={`slider-year-${type}`}
+                                        />
+                                      </div>
+                                      
+                                      {/* Lifespan Section */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <span className="font-medium">Lifespan (years)</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Input
+                                            type="number"
+                                            min={1}
+                                            value={eq.customLifespan || 15}
+                                            onChange={(e) => {
+                                              const val = parseInt(e.target.value);
+                                              if (!isNaN(val) && val >= 1) {
+                                                updateCustomLifespan(type, val);
+                                              }
+                                            }}
+                                            className="h-9"
+                                            data-testid={`input-lifespan-${type}`}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Custom Equipment Button */}
+                <div className="mb-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addCustomEquipment}
+                    className="w-full"
+                    data-testid="button-add-custom-equipment"
+                  >
+                    + Add Custom Equipment
+                  </Button>
+                </div>
               </div>
             </ScrollArea>
 
