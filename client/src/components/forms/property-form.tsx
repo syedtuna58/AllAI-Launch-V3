@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Minus, Building2, Home, Wrench, DollarSign, TrendingDown, ChevronDown, Info, Users, Calendar } from "lucide-react";
@@ -309,11 +310,9 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                 const hasOwnershipItemErrors = errors.ownerships.some(item => item && typeof item === 'object');
                 if (hasOwnershipItemErrors) {
                   errorMessages.push("Please select an owner for each ownership entry (see Ownership Structure section)");
-                } else {
-                  errorMessages.push(errors.ownerships.message || "At least one owner must be selected (see Ownership Structure section)");
                 }
               } else {
-                errorMessages.push(errors.ownerships.message || "At least one owner must be selected (see Ownership Structure section)");
+                errorMessages.push((errors.ownerships as any).message || "At least one owner must be selected (see Ownership Structure section)");
               }
               setOpenOwnership(true); // Auto-open the ownership section
             }
@@ -536,97 +535,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
           </div>
         </div>
 
-        {/* Collapsible Optional Sections */}
-        <div className="pt-2 pb-4">
-          <h3 className="text-sm font-medium text-muted-foreground">All Optional</h3>
-        </div>
-
-        {/* Basic Details Section */}
-        <Collapsible open={openBasicDetails} onOpenChange={setOpenBasicDetails}>
-          <Card className="border-blue-200 dark:border-blue-800">
-            <CollapsibleTrigger asChild>
-              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <CardTitle className="text-base font-medium">Basic Details</CardTitle>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${openBasicDetails ? 'rotate-180' : ''}`} />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Additional property information</p>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent className="space-y-4 pt-0">
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="yearBuilt"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Year Built</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="2020" 
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-property-year"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sqft"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Square Feet</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            placeholder="1,200" 
-                            {...field}
-                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                            data-testid="input-property-sqft"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Additional notes about this property..." 
-                          value={field.value || ""}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                          name={field.name}
-                          data-testid="textarea-property-notes" 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </CollapsibleContent>
-          </Card>
-        </Collapsible>
-
-
-        {/* Property Ownership Section */}
+        {/* Property Ownership Section (Required) */}
         <Collapsible open={openOwnership} onOpenChange={setOpenOwnership}>
           <Card className="border-blue-200 dark:border-blue-800">
             <CollapsibleTrigger asChild>
@@ -736,6 +645,94 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
           </Card>
         </Collapsible>
 
+        {/* Collapsible Optional Sections */}
+        <div className="pt-2 pb-4">
+          <h3 className="text-sm font-medium text-muted-foreground">Optional but Recommended</h3>
+        </div>
+
+        {/* Basic Details Section */}
+        <Collapsible open={openBasicDetails} onOpenChange={setOpenBasicDetails}>
+          <Card className="border-blue-200 dark:border-blue-800">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <CardTitle className="text-base font-medium">Basic Details</CardTitle>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${openBasicDetails ? 'rotate-180' : ''}`} />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Additional property information</p>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="yearBuilt"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Year Built</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="2020" 
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-property-year"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="sqft"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Square Feet</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="1,200" 
+                            {...field}
+                            onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
+                            data-testid="input-property-sqft"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Additional notes about this property..." 
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          data-testid="textarea-property-notes" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
 
         {/* Unit Setup Section */}
         <Collapsible open={openUnits} onOpenChange={setOpenUnits}>
