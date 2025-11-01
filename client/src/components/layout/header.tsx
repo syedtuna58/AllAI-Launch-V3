@@ -42,7 +42,7 @@ export default function Header({ title }: HeaderProps) {
   const [showMayaPrompts, setShowMayaPrompts] = useState(false);
   const [pinnedShortcuts, setPinnedShortcuts] = useState<string[]>(() => {
     const saved = localStorage.getItem('pinnedShortcuts');
-    return saved ? JSON.parse(saved) : ['predictive-insights', 'needs-reply', 'due-soon'];
+    return saved ? JSON.parse(saved) : ['needs-reply'];
   });
 
   // Save pinned shortcuts
@@ -159,6 +159,7 @@ export default function Header({ title }: HeaderProps) {
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="h-8 bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300"
                   onClick={() => setShowMayaPrompts(true)}
                   data-testid="button-ask-maya"
                 >
