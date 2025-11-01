@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -158,6 +158,7 @@ export default function ContractorSchedulePage() {
   });
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [creatingNewTeam, setCreatingNewTeam] = useState(false);
+  const dragMutationInProgress = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -311,6 +312,7 @@ export default function ContractorSchedulePage() {
         return old.map(job => job.id === data.id ? data : job);
       });
       toast({ title: "Job updated successfully" });
+      dragMutationInProgress.current = false;
     },
     onError: (error: any, variables, context) => {
       // Rollback on error
@@ -322,6 +324,7 @@ export default function ContractorSchedulePage() {
         description: error.message,
         variant: "destructive"
       });
+      dragMutationInProgress.current = false;
     },
   });
 
@@ -407,6 +410,12 @@ export default function ContractorSchedulePage() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
+    // Prevent duplicate drag-end events from triggering multiple mutations
+    if (dragMutationInProgress.current) {
+      setActiveId(null);
+      return;
+    }
+    
     if (!over) {
       setActiveId(null);
       return;
@@ -422,6 +431,7 @@ export default function ContractorSchedulePage() {
 
     // If dropped on unscheduled area
     if (over.id === 'unscheduled') {
+      dragMutationInProgress.current = true;
       updateJobMutation.mutate({
         id: jobId,
         data: {
@@ -491,6 +501,7 @@ export default function ContractorSchedulePage() {
       }
       
       // Update job with new scheduled date - jobs dropped on time slots are not all-day
+      dragMutationInProgress.current = true;
       updateJobMutation.mutate({
         id: jobId,
         data: {
