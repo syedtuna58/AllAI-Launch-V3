@@ -1087,7 +1087,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                         )}
                       />
                     </div>
-
+                  </div>
                 ))}
               </div>
             )}
