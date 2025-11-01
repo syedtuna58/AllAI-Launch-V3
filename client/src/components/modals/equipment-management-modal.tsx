@@ -155,6 +155,22 @@ export default function EquipmentManagementModal({
 
   // Initialize form data when existing equipment loads or property changes
   useEffect(() => {
+    // In pending mode, always initialize with empty defaults from catalog
+    if (onAddPendingEquipment && catalog.length > 0) {
+      const initialData: Record<string, EquipmentFormData> = {};
+      catalog.forEach(def => {
+        initialData[def.type] = {
+          type: def.type,
+          selected: false,
+          installYear: currentYear - Math.floor(def.defaultLifespanYears / 2),
+          customLifespan: undefined,
+        };
+      });
+      setEquipmentData(initialData);
+      return; // Exit early in pending mode
+    }
+    
+    // Normal mode: load existing equipment or defaults
     if (existingEquipment.length > 0 && catalog.length > 0) {
       const initialData: Record<string, EquipmentFormData> = {};
       
@@ -198,7 +214,7 @@ export default function EquipmentManagementModal({
       });
 
       setEquipmentData(initialData);
-    } else if (catalog.length > 0) {
+    } else if (catalog.length > 0 && !isLoading) {
       // Initialize with defaults if no existing equipment
       const initialData: Record<string, EquipmentFormData> = {};
       
@@ -213,7 +229,7 @@ export default function EquipmentManagementModal({
 
       setEquipmentData(initialData);
     }
-  }, [existingEquipment, catalog, selectedPropertyId]);
+  }, [existingEquipment, catalog, selectedPropertyId, onAddPendingEquipment, isLoading]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
