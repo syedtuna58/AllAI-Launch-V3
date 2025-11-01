@@ -16,6 +16,7 @@ import type { OwnershipEntity, Equipment, Property } from "@shared/schema";
 import { formatNumberWithCommas, removeCommas } from "@/lib/formatters";
 import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const ownershipSchema = z.object({
   entityId: z.string().min(1, "Entity is required"),
@@ -101,6 +102,7 @@ interface PropertyFormProps {
 }
 
 export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, initialData }: PropertyFormProps) {
+  const { toast } = useToast();
   const [showCreateEntity, setShowCreateEntity] = useState(false);
   const [newEntityName, setNewEntityName] = useState("");
   const [newEntityType, setNewEntityType] = useState<"Individual" | "LLC" | "Partnership" | "Corporation">("Individual");
@@ -237,6 +239,18 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
     
     // Update the form with new units  
     form.setValue("units", newUnits);
+  };
+
+  const handleAddEquipment = () => {
+    if (!propertyId) {
+      toast({
+        title: "Save Property First",
+        description: "Please save the property before adding equipment. Equipment needs to be linked to a saved property.",
+        variant: "default",
+      });
+      return;
+    }
+    setOpenEquipmentModal(true);
   };
 
   const handleSubmit = (data: any) => {
@@ -888,23 +902,17 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                       <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
                         Add HVAC, water heaters, and appliances now to enable predictive maintenance tracking, automated replacement cost estimates, and lifespan monitoring.
                       </p>
-                      {propertyId ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setOpenEquipmentModal(true)}
-                          className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
-                          data-testid="button-manage-equipment"
-                        >
-                          <Wrench className="h-3 w-3 mr-1" />
-                          Manage Equipment
-                        </Button>
-                      ) : (
-                        <p className="text-xs text-blue-600 dark:text-blue-400 italic">
-                          💡 Equipment can be added after saving the property
-                        </p>
-                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddEquipment}
+                        className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+                        data-testid="button-add-equipment"
+                      >
+                        <Wrench className="h-3 w-3 mr-1" />
+                        Add Equipment
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1106,23 +1114,17 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                           <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
                             Add HVAC, water heaters, and appliances now to enable predictive maintenance tracking, automated replacement cost estimates, and lifespan monitoring.
                           </p>
-                          {propertyId ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setOpenEquipmentModal(true)}
-                              className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
-                              data-testid={`button-manage-equipment-unit-${index}`}
-                            >
-                              <Wrench className="h-3 w-3 mr-1" />
-                              Manage Equipment
-                            </Button>
-                          ) : (
-                            <p className="text-xs text-blue-600 dark:text-blue-400 italic">
-                              💡 Equipment can be added after saving the property
-                            </p>
-                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAddEquipment}
+                            className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+                            data-testid={`button-add-equipment-unit-${index}`}
+                          >
+                            <Wrench className="h-3 w-3 mr-1" />
+                            Add Equipment
+                          </Button>
                         </div>
                       </div>
                     </div>
