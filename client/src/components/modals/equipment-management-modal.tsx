@@ -53,6 +53,7 @@ interface EquipmentManagementModalProps {
   onOpenChange: (open: boolean) => void;
   property?: Property;
   onAddPendingEquipment?: (equipment: Partial<Equipment>) => void;
+  isPendingMode?: boolean;
 }
 
 const currentYear = new Date().getFullYear();
@@ -62,6 +63,7 @@ export default function EquipmentManagementModal({
   onOpenChange,
   property,
   onAddPendingEquipment,
+  isPendingMode = false,
 }: EquipmentManagementModalProps) {
   const { toast } = useToast();
   const [useClimateAdjustment, setUseClimateAdjustment] = useState(true);
@@ -84,12 +86,12 @@ export default function EquipmentManagementModal({
   }, [property?.id]);
   
   // Set first property as default when properties load and none selected
-  // BUT only if we're not in pending mode (onAddPendingEquipment present)
+  // BUT only if we're not in pending mode
   useEffect(() => {
-    if (properties.length > 0 && !selectedPropertyId && !property?.id && !onAddPendingEquipment) {
+    if (properties.length > 0 && !selectedPropertyId && !property?.id && !isPendingMode) {
       setSelectedPropertyId(properties[0].id);
     }
-  }, [properties.length, selectedPropertyId, property?.id, onAddPendingEquipment]);
+  }, [properties.length, selectedPropertyId, property?.id, isPendingMode]);
 
   // Get the currently selected property object
   const currentProperty = properties.find(p => p.id === selectedPropertyId);
@@ -101,10 +103,10 @@ export default function EquipmentManagementModal({
   });
 
   // Fetch existing equipment for the selected property
-  // In pending mode (no selectedPropertyId but has onAddPendingEquipment), don't fetch equipment
+  // In pending mode, don't fetch equipment
   const { data: existingEquipment = [], isLoading } = useQuery<Equipment[]>({
     queryKey: ['/api/properties', selectedPropertyId, 'equipment'],
-    enabled: open && !!selectedPropertyId && !onAddPendingEquipment,
+    enabled: open && !!selectedPropertyId && !isPendingMode,
   });
 
   // Reset climate adjustment when property changes and has no equipment
@@ -156,7 +158,7 @@ export default function EquipmentManagementModal({
   // Initialize form data when existing equipment loads or property changes
   useEffect(() => {
     // In pending mode, always initialize with empty defaults from catalog
-    if (onAddPendingEquipment && catalog.length > 0) {
+    if (isPendingMode && catalog.length > 0) {
       const initialData: Record<string, EquipmentFormData> = {};
       catalog.forEach(def => {
         initialData[def.type] = {
@@ -229,7 +231,7 @@ export default function EquipmentManagementModal({
 
       setEquipmentData(initialData);
     }
-  }, [existingEquipment, catalog, selectedPropertyId, onAddPendingEquipment, isLoading]);
+  }, [existingEquipment, catalog, selectedPropertyId, isLoading, isPendingMode]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -580,7 +582,7 @@ export default function EquipmentManagementModal({
         </DialogHeader>
 
         {/* Property Selector - only show when not in pending mode */}
-        {!onAddPendingEquipment ? (
+        {!isPendingMode ? (
           <div className="space-y-2">
             <Label htmlFor="property-select">Property</Label>
             <Select 
@@ -617,14 +619,14 @@ export default function EquipmentManagementModal({
             onChange={handleImageUpload}
             className="hidden"
             id="equipment-image-upload"
-            disabled={isAnalyzingImage || (!selectedPropertyId && !onAddPendingEquipment)}
+            disabled={isAnalyzingImage || (!selectedPropertyId && !isPendingMode)}
           />
           <Button
             type="button"
             variant="outline"
             className="w-full"
             onClick={() => document.getElementById('equipment-image-upload')?.click()}
-            disabled={isAnalyzingImage || (!selectedPropertyId && !onAddPendingEquipment)}
+            disabled={isAnalyzingImage || (!selectedPropertyId && !isPendingMode)}
             data-testid="button-upload-equipment-image"
           >
             {isAnalyzingImage ? (
@@ -980,7 +982,7 @@ export default function EquipmentManagementModal({
               </Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending || (!selectedPropertyId && !onAddPendingEquipment)}
+                disabled={saveMutation.isPending || (!selectedPropertyId && !isPendingMode)}
                 data-testid="button-save-equipment"
               >
                 {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}

@@ -2422,6 +2422,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
       onOpenChange={setOpenEquipmentModal}
       property={propertyId ? { id: propertyId, name: form.watch("name") } as Property : undefined}
       onAddPendingEquipment={!propertyId ? handleAddPendingEquipment : undefined}
+      isPendingMode={!propertyId}
     />
     </>
   );
