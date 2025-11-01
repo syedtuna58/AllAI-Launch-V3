@@ -97,12 +97,14 @@ export default function EquipmentManagementModal({
   // Fetch equipment catalog
   const { data: catalog = [] } = useQuery<EquipmentDefinition[]>({
     queryKey: ['/api/equipment-catalog'],
+    enabled: open,
   });
 
   // Fetch existing equipment for the selected property
+  // In pending mode (no selectedPropertyId but has onAddPendingEquipment), don't fetch equipment
   const { data: existingEquipment = [], isLoading } = useQuery<Equipment[]>({
     queryKey: ['/api/properties', selectedPropertyId, 'equipment'],
-    enabled: open && !!selectedPropertyId,
+    enabled: open && !!selectedPropertyId && !onAddPendingEquipment,
   });
 
   // Reset climate adjustment when property changes and has no equipment
@@ -962,11 +964,11 @@ export default function EquipmentManagementModal({
               </Button>
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending || !selectedPropertyId}
+                disabled={saveMutation.isPending || (!selectedPropertyId && !onAddPendingEquipment)}
                 data-testid="button-save-equipment"
               >
                 {saveMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Save Equipment
+                {onAddPendingEquipment ? 'Add Equipment' : 'Save Equipment'}
               </Button>
             </div>
           </>
