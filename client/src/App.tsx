@@ -19,6 +19,7 @@ import Maintenance from "@/pages/maintenance";
 import TenantRequest from "@/pages/tenant-request";
 import ContractorDashboard from "@/pages/contractor-dashboard";
 import ContractorAvailability from "@/pages/contractor-availability";
+import ContractorSchedule from "@/pages/contractor-schedule";
 import AdminDashboard from "@/pages/admin-dashboard";
 import TenantDashboard from "@/pages/tenant-dashboard";
 import Expenses from "@/pages/expenses";
@@ -84,6 +85,7 @@ function Router() {
           <Route path="/tenant-dashboard" component={TenantDashboard} />
           <Route path="/contractor-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
+          <Route path="/contractor-schedule" component={ContractorSchedule} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/revenue" component={Revenue} />
