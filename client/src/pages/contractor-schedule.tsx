@@ -398,9 +398,11 @@ export default function ContractorSchedulePage() {
       return;
     }
 
-    // If dropped on a day slot
-    if (over.id.toString().startsWith('day-')) {
-      const dayIndex = parseInt(over.id.toString().replace('day-', ''));
+    // If dropped on a time slot
+    if (over.id.toString().startsWith('day-') && over.id.toString().includes('-time-')) {
+      const parts = over.id.toString().split('-');
+      const dayIndex = parseInt(parts[1]);
+      const targetHour = parseInt(parts[3]);
       const targetDate = weekDays[dayIndex];
       
       // Calculate duration in milliseconds to preserve exact time components
@@ -411,62 +413,57 @@ export default function ContractorSchedulePage() {
         durationMs = originalEnd.getTime() - originalStart.getTime();
       }
       
-      // For unscheduled jobs being scheduled for the first time, set to all-day
+      // Calculate new start and end times
       let newStartDate: Date;
       let newEndDate: Date;
       
       if (!job.scheduledStartAt) {
-        // New job being scheduled - check if it's all-day or has specific times
-        if (job.isAllDay) {
-          // All-day job: span the full day(s)
-          newStartDate = startOfDay(targetDate);
-          newEndDate = endOfDay(addDays(targetDate, job.durationDays - 1));
-        } else {
-          // Non-all-day job: parse stored time preferences or use defaults
-          let startHour = 8, startMin = 0, durationMinutes = 120;
-          
-          // Try to parse time preferences from notes field
-          if (job.notes) {
-            try {
-              const parsed = JSON.parse(job.notes);
-              if (parsed.timePreferences) {
-                const [sH, sM] = parsed.timePreferences.startTime.split(':').map(Number);
-                startHour = sH;
-                startMin = sM;
-                durationMinutes = parsed.timePreferences.duration || 120;
-              }
-            } catch (e) {
-              // If notes isn't JSON or doesn't have timePreferences, use defaults
+        // New job being scheduled - use the dropped time slot
+        let durationMinutes = 120; // default 2 hours
+        
+        // Try to parse time preferences from notes field
+        if (job.notes) {
+          try {
+            const parsed = JSON.parse(job.notes);
+            if (parsed.timePreferences) {
+              durationMinutes = parsed.timePreferences.duration || 120;
             }
+          } catch (e) {
+            // If notes isn't JSON or doesn't have timePreferences, use defaults
           }
-          
-          newStartDate = new Date(targetDate);
-          newStartDate.setHours(startHour, startMin, 0, 0);
-          // For multi-day jobs, end time is on the last day at the calculated end time
+        }
+        
+        // Use the target hour from the drop zone
+        newStartDate = new Date(targetDate);
+        newStartDate.setHours(targetHour, 0, 0, 0);
+        
+        // Calculate end time based on duration
+        newEndDate = new Date(newStartDate.getTime() + durationMinutes * 60 * 1000);
+        
+        // For multi-day jobs, extend the end date
+        if (job.durationDays > 1) {
           newEndDate = new Date(addDays(newStartDate, job.durationDays - 1).getTime() + durationMinutes * 60 * 1000);
         }
       } else {
-        // Existing job being rescheduled - preserve time components by shifting the day
+        // Existing job being rescheduled - use the new time slot hour but preserve minutes and duration
         const originalStart = parseISO(job.scheduledStartAt);
-        const originalDayStart = startOfDay(originalStart);
-        const targetDayStart = startOfDay(targetDate);
+        const originalMinutes = originalStart.getMinutes();
         
-        // Calculate the time offset from start of original day
-        const timeOffset = originalStart.getTime() - originalDayStart.getTime();
+        // Set to new day and new hour, but preserve minutes
+        newStartDate = new Date(targetDate);
+        newStartDate.setHours(targetHour, originalMinutes, 0, 0);
         
-        // Apply the same time offset to the new target day
-        newStartDate = new Date(targetDayStart.getTime() + timeOffset);
-        // For all jobs, preserve the exact duration (which already includes multi-day span)
+        // Preserve the exact duration
         newEndDate = new Date(newStartDate.getTime() + durationMs);
       }
       
-      // Update job with new scheduled date, preserving exact duration
+      // Update job with new scheduled date - jobs dropped on time slots are not all-day
       updateJobMutation.mutate({
         id: jobId,
         data: {
           scheduledStartAt: newStartDate.toISOString(),
           scheduledEndAt: newEndDate.toISOString(),
-          isAllDay: job.isAllDay ?? true,
+          isAllDay: false, // Time slot scheduling is never all-day
           status: 'Scheduled',
           tenantConfirmed: false, // Manual moves require tenant confirmation
         },
@@ -1103,7 +1100,7 @@ export default function ContractorSchedulePage() {
                           return (
                             <DayColumn
                               key={index}
-                              id={`day-${index}`}
+                              dayIndex={index}
                               date={day}
                               jobs={dayJobs}
                               teams={teams}
@@ -1332,8 +1329,35 @@ function JobCard({
   );
 }
 
-function DayColumn({ id, date, jobs, teams, weekDays, calculateJobSpan, isToday, onConfirmJob, onClick }: {
-  id: string;
+function TimeSlot({ dayIndex, hour, date, isOver }: {
+  dayIndex: number;
+  hour: number;
+  date: Date;
+  isOver: boolean;
+}) {
+  const hourFormatted = hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+  
+  return (
+    <TooltipProvider>
+      <Tooltip open={isOver} delayDuration={0}>
+        <TooltipTrigger asChild>
+          <div
+            className={cn(
+              "h-[40px] border-b border-border/30 dark:border-gray-700/30 transition-colors relative",
+              isOver && "bg-primary/20 dark:bg-blue-500/20 border-primary dark:border-blue-500"
+            )}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="right" className="text-sm font-medium">
+          {format(date, 'EEE MMM d')} at {hourFormatted}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, onConfirmJob, onClick }: {
+  dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
   teams: Team[];
@@ -1348,53 +1372,100 @@ function DayColumn({ id, date, jobs, teams, weekDays, calculateJobSpan, isToday,
   onConfirmJob?: (jobId: string) => void;
   onClick?: (job: ScheduledJob) => void;
 }) {
-  const [isHovered, setIsHovered] = useState(false);
-  const { setNodeRef, isOver } = useDroppable({
-    id,
-  });
+  const hours = Array.from({ length: 15 }, (_, i) => i + 6); // 6 AM to 8 PM
+  const [hoveredTimeSlot, setHoveredTimeSlot] = useState<number | null>(null);
 
   return (
-    <TooltipProvider>
-      <Tooltip open={isHovered && isOver}>
-        <TooltipTrigger asChild>
-          <div
-            ref={setNodeRef}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            className={cn(
-              "min-h-[400px] p-2 rounded-lg border transition-colors",
-              "bg-card dark:bg-gray-800 border-border dark:border-gray-700",
-              isToday && "border-primary dark:border-blue-500 border-2",
-              isOver && "bg-primary/10 dark:bg-blue-900/20 shadow-lg"
-            )}
-            data-testid={`day-column-${id}`}
-          >
-            <div className="mb-3">
-              <p className={cn(
-                "text-sm font-medium",
-                isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
-              )}>
-                {format(date, 'EEE')}
-              </p>
-              <p className={cn(
-                "text-lg font-bold",
-                isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
-              )}>
-                {format(date, 'd')}
-              </p>
+    <div
+      className={cn(
+        "rounded-lg border relative",
+        "bg-card dark:bg-gray-800 border-border dark:border-gray-700",
+        isToday && "border-primary dark:border-blue-500 border-2"
+      )}
+      data-testid={`day-column-${dayIndex}`}
+    >
+      {/* Header */}
+      <div className="sticky top-0 z-20 bg-card dark:bg-gray-800 px-2 py-2 border-b border-border dark:border-gray-700">
+        <p className={cn(
+          "text-sm font-medium",
+          isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
+        )}>
+          {format(date, 'EEE')}
+        </p>
+        <p className={cn(
+          "text-lg font-bold",
+          isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
+        )}>
+          {format(date, 'd')}
+        </p>
+      </div>
+      
+      {/* Time slots with drop zones */}
+      <div className="relative">
+        {hours.map(hour => {
+          const slotId = `day-${dayIndex}-time-${hour}`;
+          const { setNodeRef, isOver } = useDroppable({ id: slotId });
+          
+          return (
+            <div
+              key={hour}
+              ref={setNodeRef}
+              onMouseEnter={() => setHoveredTimeSlot(hour)}
+              onMouseLeave={() => setHoveredTimeSlot(null)}
+            >
+              <TimeSlot
+                dayIndex={dayIndex}
+                hour={hour}
+                date={date}
+                isOver={isOver}
+              />
             </div>
-            <div className="space-y-1.5">
-              {jobs.map(job => {
-                const team = teams.find(t => t.id === job.teamId);
-                const spanInfo = calculateJobSpan(job, date, weekDays);
+          );
+        })}
+        
+        {/* Jobs overlay - positioned absolutely */}
+        <div className="absolute inset-0 pointer-events-none px-2">
+          <div className="relative h-full pointer-events-auto">
+            {jobs.map(job => {
+              const team = teams.find(t => t.id === job.teamId);
+              const spanInfo = calculateJobSpan(job, date, weekDays);
+              
+              if (!spanInfo.shouldRender) {
+                return null;
+              }
+              
+              // Calculate vertical position based on job time
+              let topPosition = 0;
+              let heightPx = 80; // default height
+              
+              if (job.scheduledStartAt && !job.isAllDay) {
+                const startTime = parseISO(job.scheduledStartAt);
+                const hours = startTime.getHours();
+                const minutes = startTime.getMinutes();
+                // Each hour slot is 40px, starting from hour 6
+                topPosition = (hours - 6) * 40 + (minutes / 60) * 40;
                 
-                if (!spanInfo.shouldRender) {
-                  return null;
+                // Calculate height based on duration
+                if (job.scheduledEndAt) {
+                  const endTime = parseISO(job.scheduledEndAt);
+                  const durationMs = endTime.getTime() - startTime.getTime();
+                  const durationHours = durationMs / (1000 * 60 * 60);
+                  heightPx = Math.max(40, durationHours * 40);
                 }
-                
-                return (
+              }
+              
+              return (
+                <div
+                  key={job.id}
+                  style={{ 
+                    position: 'absolute',
+                    top: `${topPosition}px`,
+                    left: 0,
+                    right: 0,
+                    height: job.scheduledStartAt && !job.isAllDay ? `${heightPx}px` : 'auto'
+                  }}
+                >
                   <JobCard
-                    key={job.id}
                     job={job}
                     team={team}
                     spanDays={spanInfo.spanDays}
@@ -1403,19 +1474,13 @@ function DayColumn({ id, date, jobs, teams, weekDays, calculateJobSpan, isToday,
                     onConfirm={onConfirmJob}
                     onClick={() => onClick?.(job)}
                   />
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-sm">
-          <p className="font-semibold">{format(date, 'EEEE, MMMM d')}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Drop job here to schedule for this day
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </div>
+      </div>
+    </div>
   );
 }
 
