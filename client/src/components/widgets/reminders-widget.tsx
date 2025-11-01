@@ -47,7 +47,7 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
             className="flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity"
             onClick={() => setLocation('/reminders')}
           >
-            <Calendar className="h-5 w-5 text-blue-600" />
+            <Clock className="h-5 w-5 text-blue-600" />
             <CardTitle className="text-base">Reminders</CardTitle>
             {overdueReminders.length > 0 && (
               <Badge variant="destructive" className="ml-2">
@@ -79,7 +79,7 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
             </div>
           ) : sortedReminders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+              <Clock className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
               <p className="text-sm text-muted-foreground">No reminders</p>
               {onCreateReminder && (
                 <Button

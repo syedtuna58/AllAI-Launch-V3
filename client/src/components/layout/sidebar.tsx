@@ -7,7 +7,7 @@ import { useDevMode } from "@/contexts/DevModeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserProfileForm from "@/components/forms/user-profile-form";
-import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, ClipboardList, MessageSquare, Calendar, TestTube2, MessageCircle, Inbox, TrendingUp } from "lucide-react";
+import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, ClipboardList, MessageSquare, Clock, TestTube2, MessageCircle, Inbox, TrendingUp } from "lucide-react";
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -23,7 +23,7 @@ export default function Sidebar() {
     { name: "Tenants", href: "/tenants", icon: Users },
     { name: "Maintenance", href: "/maintenance", icon: Wrench },
     { name: "Financial", href: "/financial", icon: DollarSign },
-    { name: "Reminders", href: "/reminders", icon: Calendar },
+    { name: "Reminders", href: "/reminders", icon: Clock },
   ];
 
   const devToolsNavigation = [
@@ -35,7 +35,7 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/contractor-dashboard", icon: Home },
     { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "My Jobs", href: "/maintenance", icon: Wrench },
-    { name: "Reminders", href: "/reminders", icon: Calendar },
+    { name: "Reminders", href: "/reminders", icon: Clock },
   ];
 
   const tenantNavigation = [
@@ -43,7 +43,7 @@ export default function Sidebar() {
     { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "Submit Request", href: "/tenant-request", icon: MessageSquare },
     { name: "My Requests", href: "/maintenance", icon: ClipboardList },
-    { name: "Reminders", href: "/reminders", icon: Calendar },
+    { name: "Reminders", href: "/reminders", icon: Clock },
   ];
 
   let navigation = currentRole === 'admin' 

@@ -63,7 +63,7 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
               className="relative"
               data-testid="button-reminders"
             >
-              <Calendar className="h-5 w-5" />
+              <Clock className="h-5 w-5" />
               {overdueCount > 0 && (
                 <Badge 
                   className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
@@ -101,7 +101,7 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
         <ScrollArea className="h-[400px]">
           {sortedReminders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+              <Clock className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-sm text-muted-foreground">No upcoming reminders</p>
               <Button
                 variant="outline"
