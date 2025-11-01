@@ -358,6 +358,8 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   };
 
   const handleSubmit = async (data: any) => {
+    console.log('📝 Form handleSubmit called with data:', data);
+    console.log('📝 Pending equipment:', pendingEquipment);
     // Convert numeric values to strings for decimal database fields
     const processedData = {
       ...data,
