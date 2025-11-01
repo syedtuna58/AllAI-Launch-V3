@@ -220,6 +220,52 @@ export default function ContractorSchedulePage() {
     });
   };
 
+  const calculateJobSpan = (job: ScheduledJob, currentDay: Date, weekDays: Date[]): {
+    shouldRender: boolean;
+    spanDays: number;
+    isFirstDay: boolean;
+    extendsBeyondWeek: boolean;
+  } => {
+    if (!job.scheduledStartAt || job.durationDays <= 1) {
+      return { shouldRender: true, spanDays: 1, isFirstDay: true, extendsBeyondWeek: false };
+    }
+
+    const jobStartDate = startOfDay(parseISO(job.scheduledStartAt));
+    const currentDayStart = startOfDay(currentDay);
+    
+    const currentDayIndex = weekDays.findIndex(d => isSameDay(d, currentDay));
+    if (currentDayIndex === -1) {
+      return { shouldRender: false, spanDays: 1, isFirstDay: false, extendsBeyondWeek: false };
+    }
+
+    const firstVisibleDay = startOfDay(weekDays[0]);
+    const lastVisibleDay = startOfDay(weekDays[weekDays.length - 1]);
+    
+    const isFirstDay = isSameDay(jobStartDate, currentDayStart);
+    const jobStartsBeforeWeek = jobStartDate < firstVisibleDay;
+    const firstDayInWeek = jobStartsBeforeWeek ? firstVisibleDay : jobStartDate;
+    
+    const shouldRender = isSameDay(currentDayStart, firstDayInWeek);
+    
+    if (!shouldRender) {
+      return { shouldRender: false, spanDays: 1, isFirstDay, extendsBeyondWeek: false };
+    }
+
+    const jobEndDate = addDays(jobStartDate, job.durationDays);
+    const daysUntilWeekEnd = weekDays.length - currentDayIndex;
+    const daysUntilJobEnd = differenceInCalendarDays(jobEndDate, currentDayStart);
+    
+    const spanDays = Math.min(daysUntilWeekEnd, daysUntilJobEnd);
+    const extendsBeyondWeek = jobEndDate > lastVisibleDay;
+
+    return {
+      shouldRender: true,
+      spanDays: Math.max(1, spanDays),
+      isFirstDay,
+      extendsBeyondWeek
+    };
+  };
+
   const getTeamColor = (teamId: string) => {
     const team = teams.find(t => t.id === teamId);
     return team?.color || '#3b82f6';
@@ -265,9 +311,9 @@ export default function ContractorSchedulePage() {
       if (!job.scheduledStartAt) {
         // New job being scheduled - check if it's all-day or has specific times
         if (job.isAllDay) {
-          // All-day job: span the full day
+          // All-day job: span the full day(s)
           newStartDate = startOfDay(targetDate);
-          newEndDate = endOfDay(targetDate);
+          newEndDate = endOfDay(addDays(targetDate, job.durationDays - 1));
         } else {
           // Non-all-day job: parse stored time preferences or use defaults
           let startHour = 8, startMin = 0, durationMinutes = 120;
@@ -289,7 +335,8 @@ export default function ContractorSchedulePage() {
           
           newStartDate = new Date(targetDate);
           newStartDate.setHours(startHour, startMin, 0, 0);
-          newEndDate = new Date(newStartDate.getTime() + durationMinutes * 60 * 1000);
+          // For multi-day jobs, end time is on the last day at the calculated end time
+          newEndDate = new Date(addDays(newStartDate, job.durationDays - 1).getTime() + durationMinutes * 60 * 1000);
         }
       } else {
         // Existing job being rescheduled - preserve time components by shifting the day
@@ -302,6 +349,7 @@ export default function ContractorSchedulePage() {
         
         // Apply the same time offset to the new target day
         newStartDate = new Date(targetDayStart.getTime() + timeOffset);
+        // For all jobs, preserve the exact duration (which already includes multi-day span)
         newEndDate = new Date(newStartDate.getTime() + durationMs);
       }
       
@@ -699,43 +747,47 @@ export default function ContractorSchedulePage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
-                      {/* Time labels column */}
-                      <div className="pr-2 border-r border-border dark:border-gray-700">
-                        <div className="h-[60px]"></div> {/* Spacer for header */}
-                        {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
-                          <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
-                            {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Day columns */}
-                      {weekDays.map((day, index) => {
-                        const dayJobs = getJobsForDay(day);
-                        const isToday = isSameDay(day, new Date());
+                    <div className="relative">
+                      <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
+                        {/* Time labels column */}
+                        <div className="pr-2 border-r border-border dark:border-gray-700">
+                          <div className="h-[60px]"></div> {/* Spacer for header */}
+                          {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
+                            <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
+                              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                            </div>
+                          ))}
+                        </div>
                         
-                        return (
-                          <DayColumn
-                            key={index}
-                            id={`day-${index}`}
-                            date={day}
-                            jobs={dayJobs}
-                            teams={teams}
-                            isToday={isToday}
-                            onConfirmJob={(jobId) => {
-                              updateJobMutation.mutate({
-                                id: jobId,
-                                data: { tenantConfirmed: true }
-                              });
-                            }}
-                            onClick={(job) => {
-                              setSelectedJob(job);
-                              setShowJobDetailsDialog(true);
-                            }}
-                          />
-                        );
-                      })}
+                        {/* Day columns */}
+                        {weekDays.map((day, index) => {
+                          const dayJobs = getJobsForDay(day);
+                          const isToday = isSameDay(day, new Date());
+                          
+                          return (
+                            <DayColumn
+                              key={index}
+                              id={`day-${index}`}
+                              date={day}
+                              jobs={dayJobs}
+                              teams={teams}
+                              weekDays={weekDays}
+                              calculateJobSpan={calculateJobSpan}
+                              isToday={isToday}
+                              onConfirmJob={(jobId) => {
+                                updateJobMutation.mutate({
+                                  id: jobId,
+                                  data: { tenantConfirmed: true }
+                                });
+                              }}
+                              onClick={(job) => {
+                                setSelectedJob(job);
+                                setShowJobDetailsDialog(true);
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -803,12 +855,18 @@ function JobCard({
   job, 
   team, 
   isDragging, 
+  spanDays = 1,
+  isFirstDay = true,
+  extendsBeyondWeek = false,
   onConfirm, 
   onClick 
 }: { 
   job: ScheduledJob; 
   team?: Team; 
   isDragging?: boolean; 
+  spanDays?: number;
+  isFirstDay?: boolean;
+  extendsBeyondWeek?: boolean;
   onConfirm?: (jobId: string) => void;
   onClick?: () => void;
 }) {
@@ -816,6 +874,8 @@ function JobCard({
     id: job.id,
   });
 
+  const isMultiDay = spanDays > 1 || extendsBeyondWeek;
+  
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
@@ -837,14 +897,22 @@ function JobCard({
 
   const backgroundColor = team?.color || '#3b82f6';
   
+  const wrapperStyle = isMultiDay && job.scheduledStartAt ? {
+    ...style,
+    width: `calc(${spanDays * 100}% + ${(spanDays - 1) * 0.5}rem)`,
+    position: 'relative' as const,
+    zIndex: 20,
+  } : style;
+  
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={wrapperStyle}
       className={cn(
-        "relative rounded-md transition-all overflow-hidden group",
+        "rounded-md transition-all overflow-hidden group",
         isDragging && "opacity-50",
-        !job.tenantConfirmed && job.scheduledStartAt && "opacity-70 border-2 border-dashed border-white/50"
+        !job.tenantConfirmed && job.scheduledStartAt && "opacity-70 border-2 border-dashed border-white/50",
+        isMultiDay ? "mb-1.5" : "mb-0"
       )}
       data-testid={`job-card-${job.id}`}
     >
@@ -852,17 +920,31 @@ function JobCard({
         {...listeners} 
         {...attributes} 
         onClick={onClick}
-        className="cursor-grab active:cursor-grabbing p-2 relative"
+        className={cn(
+          "cursor-grab active:cursor-grabbing p-2 relative",
+          isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
+        )}
         style={{ 
           backgroundColor,
-          opacity: 0.85 
+          opacity: 0.85,
+          backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}, ${backgroundColor}dd)` : undefined
         }}
       >
         <div 
           className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
         />
         
-        <div className="absolute top-1 right-1 z-10">
+        <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
+          {isMultiDay && (
+            <Badge 
+              variant="secondary" 
+              className="h-5 px-1.5 text-[10px] bg-white/20 text-white border-white/30 backdrop-blur-sm"
+              data-testid={`badge-duration-${job.id}`}
+            >
+              {job.durationDays} {job.durationDays === 1 ? 'day' : 'days'}
+              {extendsBeyondWeek && ' →'}
+            </Badge>
+          )}
           {getUrgencyIcon(job.urgency)}
         </div>
         
@@ -870,6 +952,11 @@ function JobCard({
           <p className="font-medium text-sm text-white truncate drop-shadow-sm">
             {job.title}
           </p>
+          {isMultiDay && job.address && (
+            <p className="text-xs text-white/80 truncate mt-0.5">
+              {job.address}
+            </p>
+          )}
         </div>
       </div>
       
@@ -892,11 +979,18 @@ function JobCard({
   );
 }
 
-function DayColumn({ id, date, jobs, teams, isToday, onConfirmJob, onClick }: {
+function DayColumn({ id, date, jobs, teams, weekDays, calculateJobSpan, isToday, onConfirmJob, onClick }: {
   id: string;
   date: Date;
   jobs: ScheduledJob[];
   teams: Team[];
+  weekDays: Date[];
+  calculateJobSpan: (job: ScheduledJob, currentDay: Date, weekDays: Date[]) => {
+    shouldRender: boolean;
+    spanDays: number;
+    isFirstDay: boolean;
+    extendsBeyondWeek: boolean;
+  };
   isToday: boolean;
   onConfirmJob?: (jobId: string) => void;
   onClick?: (job: ScheduledJob) => void;
@@ -939,11 +1033,20 @@ function DayColumn({ id, date, jobs, teams, isToday, onConfirmJob, onClick }: {
             <div className="space-y-1.5">
               {jobs.map(job => {
                 const team = teams.find(t => t.id === job.teamId);
+                const spanInfo = calculateJobSpan(job, date, weekDays);
+                
+                if (!spanInfo.shouldRender) {
+                  return null;
+                }
+                
                 return (
                   <JobCard
                     key={job.id}
                     job={job}
                     team={team}
+                    spanDays={spanInfo.spanDays}
+                    isFirstDay={spanInfo.isFirstDay}
+                    extendsBeyondWeek={spanInfo.extendsBeyondWeek}
                     onConfirm={onConfirmJob}
                     onClick={() => onClick?.(job)}
                   />
