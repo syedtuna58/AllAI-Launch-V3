@@ -165,20 +165,22 @@ export default function EquipmentManagementModal({
 
   // Initialize form data when existing equipment loads or property changes
   useEffect(() => {
-    // In pending mode, only initialize once (not on every render)
-    if (isPendingMode && catalog.length > 0 && !hasInitializedPendingData.current) {
-      const initialData: Record<string, EquipmentFormData> = {};
-      catalog.forEach(def => {
-        initialData[def.type] = {
-          type: def.type,
-          selected: false,
-          installYear: currentYear - Math.floor(def.defaultLifespanYears / 2),
-          customLifespan: undefined,
-        };
-      });
-      setEquipmentData(initialData);
-      hasInitializedPendingData.current = true;
-      return; // Exit early in pending mode
+    // In pending mode, only initialize once and skip all other initialization
+    if (isPendingMode) {
+      if (catalog.length > 0 && !hasInitializedPendingData.current) {
+        const initialData: Record<string, EquipmentFormData> = {};
+        catalog.forEach(def => {
+          initialData[def.type] = {
+            type: def.type,
+            selected: false,
+            installYear: currentYear - Math.floor(def.defaultLifespanYears / 2),
+            customLifespan: undefined,
+          };
+        });
+        setEquipmentData(initialData);
+        hasInitializedPendingData.current = true;
+      }
+      return; // Always exit early in pending mode to prevent re-initialization
     }
     
     // Normal mode: load existing equipment or defaults
