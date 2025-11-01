@@ -304,7 +304,12 @@ export default function ContractorSchedulePage() {
       // Return context with previous value
       return { previousJobs };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update cache with server response to ensure consistency
+      queryClient.setQueryData<ScheduledJob[]>(['/api/scheduled-jobs'], (old) => {
+        if (!old) return old;
+        return old.map(job => job.id === data.id ? data : job);
+      });
       toast({ title: "Job updated successfully" });
     },
     onError: (error: any, variables, context) => {
@@ -317,10 +322,6 @@ export default function ContractorSchedulePage() {
         description: error.message,
         variant: "destructive"
       });
-    },
-    onSettled: () => {
-      // Always refetch after error or success to ensure sync
-      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
     },
   });
 
