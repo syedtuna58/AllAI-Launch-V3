@@ -59,21 +59,31 @@ type ScheduledJob = {
   propertyId: string | null;
   scheduledStartAt: string | null;
   scheduledEndAt: string | null;
-  allDay: boolean;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  urgency: 'low' | 'medium' | 'high' | 'emergency';
+  isAllDay: boolean;
+  status: 'Unscheduled' | 'Scheduled' | 'Needs Review' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled';
+  urgency: 'Low' | 'Medium' | 'High' | 'Urgent';
   tenantConfirmed: boolean;
+  notes: string | null;
   orgId: string;
   createdAt: string;
   updatedAt: string;
 };
 
 const URGENCY_COLORS = {
-  low: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  high: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
-  emergency: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+  Low: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  Medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+  High: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  Urgent: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 };
+
+const PRESET_COLORS = [
+  { name: 'Blue', value: '#3b82f6' },
+  { name: 'Green', value: '#22c55e' },
+  { name: 'Purple', value: '#a855f7' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Pink', value: '#ec4899' },
+  { name: 'Teal', value: '#14b8a6' },
+];
 
 export default function ContractorSchedulePage() {
   const { user } = useAuth();
@@ -86,12 +96,15 @@ export default function ContractorSchedulePage() {
     title: '',
     description: '',
     teamId: '',
-    urgency: 'medium' as const,
+    urgency: 'Medium' as const,
     propertyId: null,
+    startTime: '09:00',
+    endTime: '17:00',
+    allDay: true,
   });
   const [teamFormData, setTeamFormData] = useState({
     name: '',
-    specialty: 'general' as const,
+    specialty: 'General' as const,
     color: '#3b82f6',
   });
 
@@ -116,7 +129,7 @@ export default function ContractorSchedulePage() {
       queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
       toast({ title: "Team created successfully" });
       setShowTeamDialog(false);
-      setTeamFormData({ name: '', specialty: 'general', color: '#3b82f6' });
+      setTeamFormData({ name: '', specialty: 'General', color: '#3b82f6' });
     },
     onError: (error: any) => {
       toast({
@@ -139,8 +152,11 @@ export default function ContractorSchedulePage() {
         title: '',
         description: '',
         teamId: '',
-        urgency: 'medium',
+        urgency: 'Medium',
         propertyId: null,
+        startTime: '09:00',
+        endTime: '17:00',
+        allDay: true,
       });
     },
     onError: (error: any) => {
@@ -235,9 +251,37 @@ export default function ContractorSchedulePage() {
       let newEndDate: Date;
       
       if (!job.scheduledStartAt) {
-        // New job being scheduled - set to span the full day (start to end)
-        newStartDate = startOfDay(targetDate);
-        newEndDate = endOfDay(targetDate);
+        // New job being scheduled - check if it's all-day or has specific times
+        if (job.isAllDay) {
+          // All-day job: span the full day
+          newStartDate = startOfDay(targetDate);
+          newEndDate = endOfDay(targetDate);
+        } else {
+          // Non-all-day job: parse stored time preferences or use defaults
+          let startHour = 9, startMin = 0, endHour = 17, endMin = 0;
+          
+          // Try to parse time preferences from notes field
+          if (job.notes) {
+            try {
+              const parsed = JSON.parse(job.notes);
+              if (parsed.timePreferences) {
+                const [sH, sM] = parsed.timePreferences.startTime.split(':').map(Number);
+                const [eH, eM] = parsed.timePreferences.endTime.split(':').map(Number);
+                startHour = sH;
+                startMin = sM;
+                endHour = eH;
+                endMin = eM;
+              }
+            } catch (e) {
+              // If notes isn't JSON or doesn't have timePreferences, use defaults
+            }
+          }
+          
+          newStartDate = new Date(targetDate);
+          newStartDate.setHours(startHour, startMin, 0, 0);
+          newEndDate = new Date(targetDate);
+          newEndDate.setHours(endHour, endMin, 0, 0);
+        }
       } else {
         // Existing job being rescheduled - preserve time components by shifting the day
         const originalStart = parseISO(job.scheduledStartAt);
@@ -258,8 +302,8 @@ export default function ContractorSchedulePage() {
         data: {
           scheduledStartAt: newStartDate.toISOString(),
           scheduledEndAt: newEndDate.toISOString(),
-          allDay: job.allDay ?? true,
-          status: 'scheduled',
+          isAllDay: job.isAllDay ?? true,
+          status: 'Scheduled',
           tenantConfirmed: false, // Manual moves require tenant confirmation
         },
       });
@@ -269,11 +313,29 @@ export default function ContractorSchedulePage() {
   };
 
   const handleCreateJob = () => {
+    // Store time preferences in notes field as JSON for unscheduled jobs
+    let notes = jobFormData.description || '';
+    if (!jobFormData.allDay) {
+      const timePrefs = {
+        startTime: jobFormData.startTime,
+        endTime: jobFormData.endTime,
+      };
+      notes = JSON.stringify({ timePreferences: timePrefs, description: jobFormData.description });
+    }
+    
     createJobMutation.mutate({
-      ...jobFormData,
-      status: 'scheduled',
-      allDay: false,
+      title: jobFormData.title,
+      description: jobFormData.description,
+      teamId: jobFormData.teamId,
+      urgency: jobFormData.urgency,
+      propertyId: jobFormData.propertyId,
+      status: 'Unscheduled',
+      isAllDay: jobFormData.allDay,
       tenantConfirmed: false,
+      notes: notes,
+      // Unscheduled jobs don't have start/end dates yet
+      scheduledStartAt: null,
+      scheduledEndAt: null,
     });
   };
 
@@ -348,23 +410,47 @@ export default function ContractorSchedulePage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="general">General</SelectItem>
-                          <SelectItem value="handyman">Handyman</SelectItem>
-                          <SelectItem value="hvac">HVAC</SelectItem>
-                          <SelectItem value="plumbing">Plumbing</SelectItem>
-                          <SelectItem value="electrical">Electrical</SelectItem>
+                          <SelectItem value="General">General</SelectItem>
+                          <SelectItem value="Handyman">Handyman</SelectItem>
+                          <SelectItem value="HVAC">HVAC</SelectItem>
+                          <SelectItem value="Plumbing">Plumbing</SelectItem>
+                          <SelectItem value="Electrical">Electrical</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label htmlFor="team-color">Team Color</Label>
-                      <Input
-                        id="team-color"
-                        type="color"
-                        value={teamFormData.color}
-                        onChange={(e) => setTeamFormData({ ...teamFormData, color: e.target.value })}
-                        data-testid="input-team-color"
-                      />
+                      <div className="space-y-3">
+                        <div className="flex gap-2">
+                          {PRESET_COLORS.map((color) => (
+                            <button
+                              key={color.value}
+                              type="button"
+                              className={cn(
+                                "w-10 h-10 rounded-md border-2 transition-all",
+                                teamFormData.color === color.value
+                                  ? "border-foreground dark:border-white scale-110"
+                                  : "border-transparent hover:scale-105"
+                              )}
+                              style={{ backgroundColor: color.value }}
+                              onClick={() => setTeamFormData({ ...teamFormData, color: color.value })}
+                              title={color.name}
+                              data-testid={`color-preset-${color.name.toLowerCase()}`}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="team-color-custom" className="text-sm">Custom:</Label>
+                          <Input
+                            id="team-color-custom"
+                            type="color"
+                            value={teamFormData.color}
+                            onChange={(e) => setTeamFormData({ ...teamFormData, color: e.target.value })}
+                            className="w-20 h-8"
+                            data-testid="input-team-color"
+                          />
+                        </div>
+                      </div>
                     </div>
                     <Button
                       onClick={handleCreateTeam}
@@ -441,12 +527,49 @@ export default function ContractorSchedulePage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="emergency">Emergency</SelectItem>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="Medium">Medium</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Urgent">Urgent</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="all-day"
+                          checked={jobFormData.allDay}
+                          onChange={(e) => setJobFormData({ ...jobFormData, allDay: e.target.checked })}
+                          className="rounded"
+                          data-testid="checkbox-all-day"
+                        />
+                        <Label htmlFor="all-day" className="cursor-pointer">All Day</Label>
+                      </div>
+                      {!jobFormData.allDay && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="start-time" className="text-sm">Start Time</Label>
+                            <Input
+                              id="start-time"
+                              type="time"
+                              value={jobFormData.startTime}
+                              onChange={(e) => setJobFormData({ ...jobFormData, startTime: e.target.value })}
+                              data-testid="input-start-time"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="end-time" className="text-sm">End Time</Label>
+                            <Input
+                              id="end-time"
+                              type="time"
+                              value={jobFormData.endTime}
+                              onChange={(e) => setJobFormData({ ...jobFormData, endTime: e.target.value })}
+                              data-testid="input-end-time"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <Button
                       onClick={handleCreateJob}
@@ -468,35 +591,7 @@ export default function ContractorSchedulePage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="grid grid-cols-[300px_1fr] gap-6">
-              {/* Unscheduled Jobs Sidebar */}
-              <div>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Unscheduled Jobs</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {unscheduledJobs.length === 0 ? (
-                      <p className="text-sm text-muted-foreground dark:text-gray-400">
-                        No unscheduled jobs
-                      </p>
-                    ) : (
-                      unscheduledJobs.map(job => {
-                        const team = teams.find(t => t.id === job.teamId);
-                        return (
-                          <JobCard
-                            key={job.id}
-                            job={job}
-                            team={team}
-                            isDragging={activeId === job.id}
-                          />
-                        );
-                      })
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
+            <div className="grid grid-cols-[1fr_320px] gap-6">
               {/* Weekly Calendar */}
               <div>
                 <Card>
@@ -551,6 +646,34 @@ export default function ContractorSchedulePage() {
                         );
                       })}
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Unscheduled Jobs Sidebar */}
+              <div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Unscheduled Jobs</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {unscheduledJobs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground dark:text-gray-400">
+                        No unscheduled jobs
+                      </p>
+                    ) : (
+                      unscheduledJobs.map(job => {
+                        const team = teams.find(t => t.id === job.teamId);
+                        return (
+                          <JobCard
+                            key={job.id}
+                            job={job}
+                            team={team}
+                            isDragging={activeId === job.id}
+                          />
+                        );
+                      })
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -609,6 +732,11 @@ function JobCard({ job, team, isDragging }: { job: ScheduledJob; team?: Team; is
           {team && (
             <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
               {team.name}
+            </p>
+          )}
+          {job.scheduledStartAt && !job.isAllDay && (
+            <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
+              {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt!), 'h:mm a')}
             </p>
           )}
           <div className="flex gap-1 mt-2">
