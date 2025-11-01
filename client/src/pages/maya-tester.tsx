@@ -129,6 +129,55 @@ export default function MayaTester() {
     });
   }, [conversations]);
 
+  // Check for URL prompt parameter on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const promptParam = urlParams.get('prompt');
+    
+    if (promptParam) {
+      setUserMessage(promptParam);
+      setSelectedScenario('custom');
+      
+      // Auto-send the message after a brief delay to ensure UI is ready
+      setTimeout(() => {
+        if (promptParam.trim()) {
+          const updatedConversations: Record<string, ConversationMessage[]> = {};
+          Object.keys(conversations).forEach(key => {
+            updatedConversations[key] = [
+              { role: 'user' as const, content: promptParam }
+            ];
+          });
+          setConversations(updatedConversations);
+          
+          apiRequest("POST", "/api/test-maya-conversation", {
+            userMessage: promptParam,
+            conversationHistories: {
+              empathetic: [],
+              professional: [],
+              deescalating: [],
+              casual: []
+            }
+          })
+            .then(res => res.json())
+            .then((data: { results: ConversationTestResult[] }) => {
+              const newConversations: Record<string, ConversationMessage[]> = {};
+              data.results.forEach(result => {
+                newConversations[result.strategyType] = result.conversationHistory;
+              });
+              setConversations(newConversations);
+              setUserMessage("");
+            })
+            .catch(err => {
+              console.error('Error auto-sending prompt:', err);
+            });
+          
+          // Clear the URL parameter
+          window.history.replaceState({}, '', '/maya-tester');
+        }
+      }, 300);
+    }
+  }, []);
+
   const testMutation = useMutation({
     mutationFn: async (message: string) => {
       const response = await apiRequest("POST", "/api/test-maya-conversation", {
