@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import {
@@ -44,6 +44,7 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
 type Team = {
@@ -89,6 +90,36 @@ const PRESET_COLORS = [
   { name: 'Teal', value: '#14b8a6' },
 ];
 
+const ALL_SPECIALTIES = [
+  'Appliance Repair',
+  'Carpentry',
+  'Cleaning',
+  'Concrete',
+  'Countertops',
+  'Demolition',
+  'Drywall',
+  'Electrical',
+  'Fencing',
+  'Flooring',
+  'General',
+  'Gutter',
+  'Handyman',
+  'HVAC',
+  'Insulation',
+  'Landscaping',
+  'Locksmith',
+  'Masonry',
+  'Other',
+  'Painting',
+  'Pest Control',
+  'Plumbing',
+  'Pool/Spa',
+  'Roofing',
+  'Siding',
+  'Tile',
+  'Window/Door',
+].sort();
+
 export default function ContractorSchedulePage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -103,6 +134,11 @@ export default function ContractorSchedulePage() {
     urgency: 'Low' as const,
     propertyId: null,
     address: '',
+    city: '',
+    state: '',
+    tel: '',
+    email: '',
+    contactPerson: '',
     startTime: '08:00',
     duration: 120, // in minutes (default 2 hours)
     durationDays: 1,
@@ -111,11 +147,17 @@ export default function ContractorSchedulePage() {
   const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null);
   const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [hideWeekends, setHideWeekends] = useState(true);
+  const [legendCollapsed, setLegendCollapsed] = useState(true);
+  const [addressExpanded, setAddressExpanded] = useState(false);
   const [teamFormData, setTeamFormData] = useState({
+    id: null as string | null,
     name: '',
-    specialty: 'General' as const,
+    specialty: 'General',
     color: '#3b82f6',
+    isActive: true,
   });
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [creatingNewTeam, setCreatingNewTeam] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -130,6 +172,30 @@ export default function ContractorSchedulePage() {
     queryKey: ['/api/scheduled-jobs'],
   });
 
+  const getFavoriteSpecialties = (): string[] => {
+    try {
+      const stored = localStorage.getItem('contractor-favorite-specialties');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const toggleFavoriteSpecialty = (specialty: string) => {
+    const favorites = getFavoriteSpecialties();
+    const newFavorites = favorites.includes(specialty)
+      ? favorites.filter(s => s !== specialty)
+      : [...favorites, specialty];
+    localStorage.setItem('contractor-favorite-specialties', JSON.stringify(newFavorites));
+  };
+
+  const getSortedSpecialties = () => {
+    const favorites = getFavoriteSpecialties();
+    const favoriteSpecs = ALL_SPECIALTIES.filter(s => favorites.includes(s));
+    const otherSpecs = ALL_SPECIALTIES.filter(s => !favorites.includes(s));
+    return { favoriteSpecs, otherSpecs };
+  };
+
   const createTeamMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest('POST', '/api/teams', data);
@@ -138,11 +204,32 @@ export default function ContractorSchedulePage() {
       queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
       toast({ title: "Team created successfully" });
       setShowTeamDialog(false);
-      setTeamFormData({ name: '', specialty: 'General', color: '#3b82f6' });
+      setEditingTeam(null);
+      setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
     },
     onError: (error: any) => {
       toast({
         title: "Failed to create team",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
+  const updateTeamMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest('PUT', `/api/teams/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+      toast({ title: "Team updated successfully" });
+      setShowTeamDialog(false);
+      setEditingTeam(null);
+      setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update team",
         description: error.message,
         variant: "destructive"
       });
@@ -164,6 +251,11 @@ export default function ContractorSchedulePage() {
         urgency: 'Low',
         propertyId: null,
         address: '',
+        city: '',
+        state: '',
+        tel: '',
+        email: '',
+        contactPerson: '',
         startTime: '08:00',
         duration: 120,
         durationDays: 1,
@@ -379,14 +471,32 @@ export default function ContractorSchedulePage() {
       return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
     };
     
-    // Store time preferences in notes field as JSON for unscheduled jobs
+    // Store time preferences and address details in notes field as JSON for unscheduled jobs
     let notes = jobFormData.description || '';
+    const addressDetails = {
+      address: jobFormData.address,
+      city: jobFormData.city,
+      state: jobFormData.state,
+      tel: jobFormData.tel,
+      email: jobFormData.email,
+      contactPerson: jobFormData.contactPerson,
+    };
+    
     if (!jobFormData.allDay) {
       const timePrefs = {
         startTime: jobFormData.startTime,
         duration: jobFormData.duration,
       };
-      notes = JSON.stringify({ timePreferences: timePrefs, description: jobFormData.description });
+      notes = JSON.stringify({ 
+        timePreferences: timePrefs, 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
+    } else {
+      notes = JSON.stringify({ 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
     }
     
     const payload: any = {
@@ -408,7 +518,35 @@ export default function ContractorSchedulePage() {
   };
 
   const handleCreateTeam = () => {
-    createTeamMutation.mutate(teamFormData);
+    if (editingTeam) {
+      updateTeamMutation.mutate({
+        id: editingTeam.id,
+        data: {
+          name: teamFormData.name,
+          specialty: teamFormData.specialty,
+          color: teamFormData.color,
+        }
+      });
+    } else {
+      createTeamMutation.mutate({
+        name: teamFormData.name,
+        specialty: teamFormData.specialty,
+        color: teamFormData.color,
+      });
+    }
+  };
+
+  const handleEditTeam = (team: Team) => {
+    setEditingTeam(team);
+    setCreatingNewTeam(false);
+    setTeamFormData({
+      id: team.id,
+      name: team.name,
+      specialty: team.specialty,
+      color: team.color,
+      isActive: true,
+    });
+    setShowTeamDialog(true);
   };
 
   const activeJob = activeId ? jobs.find(j => j.id === activeId) : null;
@@ -443,92 +581,197 @@ export default function ContractorSchedulePage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Dialog open={showTeamDialog} onOpenChange={setShowTeamDialog}>
+              <Dialog open={showTeamDialog} onOpenChange={(open) => {
+                setShowTeamDialog(open);
+                if (!open) {
+                  setEditingTeam(null);
+                  setCreatingNewTeam(false);
+                  setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button variant="outline" data-testid="button-add-team">
                     <Users className="mr-2 h-4 w-4" />
-                    Add Team
+                    Manage Teams
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Create New Team</DialogTitle>
+                    <DialogTitle>{editingTeam ? 'Edit Team' : 'Manage Teams'}</DialogTitle>
                     <DialogDescription>
-                      Add a new contractor team to your organization.
+                      {editingTeam ? 'Update team information.' : 'Create a new team or edit existing teams.'}
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="team-name">Team Name</Label>
-                      <Input
-                        id="team-name"
-                        value={teamFormData.name}
-                        onChange={(e) => setTeamFormData({ ...teamFormData, name: e.target.value })}
-                        placeholder="e.g., ABC Plumbing"
-                        data-testid="input-team-name"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="team-specialty">Specialty</Label>
-                      <Select
-                        value={teamFormData.specialty}
-                        onValueChange={(value: any) => setTeamFormData({ ...teamFormData, specialty: value })}
-                      >
-                        <SelectTrigger id="team-specialty" data-testid="select-team-specialty">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="General">General</SelectItem>
-                          <SelectItem value="Handyman">Handyman</SelectItem>
-                          <SelectItem value="HVAC">HVAC</SelectItem>
-                          <SelectItem value="Plumbing">Plumbing</SelectItem>
-                          <SelectItem value="Electrical">Electrical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="team-color">Team Color</Label>
-                      <div className="space-y-3">
-                        <div className="flex gap-2">
-                          {PRESET_COLORS.map((color) => (
-                            <button
-                              key={color.value}
-                              type="button"
-                              className={cn(
-                                "w-10 h-10 rounded-md border-2 transition-all",
-                                teamFormData.color === color.value
-                                  ? "border-foreground dark:border-white scale-110"
-                                  : "border-transparent hover:scale-105"
-                              )}
-                              style={{ backgroundColor: color.value }}
-                              onClick={() => setTeamFormData({ ...teamFormData, color: color.value })}
-                              title={color.name}
-                              data-testid={`color-preset-${color.name.toLowerCase()}`}
-                            />
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor="team-color-custom" className="text-sm">Custom:</Label>
-                          <Input
-                            id="team-color-custom"
-                            type="color"
-                            value={teamFormData.color}
-                            onChange={(e) => setTeamFormData({ ...teamFormData, color: e.target.value })}
-                            className="w-20 h-8"
-                            data-testid="input-team-color"
-                          />
-                        </div>
+                  
+                  {!editingTeam && !creatingNewTeam && teams.length > 0 && (
+                    <div className="space-y-2 mb-4 p-4 bg-muted dark:bg-gray-800 rounded-lg">
+                      <Label className="text-sm font-medium">Existing Teams</Label>
+                      <div className="space-y-2">
+                        {teams.map(team => (
+                          <div
+                            key={team.id}
+                            className="flex items-center justify-between p-2 bg-card dark:bg-gray-900 rounded border border-border dark:border-gray-700"
+                            data-testid={`team-item-${team.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-4 h-4 rounded"
+                                style={{ backgroundColor: team.color }}
+                              />
+                              <div>
+                                <p className="text-sm font-medium">{team.name}</p>
+                                <p className="text-xs text-muted-foreground">{team.specialty}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTeam(team)}
+                              data-testid={`button-edit-team-${team.id}`}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     </div>
+                  )}
+
+                  {(editingTeam || creatingNewTeam || teams.length === 0) && (
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="team-name">Team Name</Label>
+                        <Input
+                          id="team-name"
+                          value={teamFormData.name}
+                          onChange={(e) => setTeamFormData({ ...teamFormData, name: e.target.value })}
+                          placeholder="e.g., ABC Plumbing"
+                          data-testid="input-team-name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="team-specialty">Specialty</Label>
+                        <Select
+                          value={teamFormData.specialty}
+                          onValueChange={(value: any) => {
+                            setTeamFormData({ ...teamFormData, specialty: value });
+                            toggleFavoriteSpecialty(value);
+                          }}
+                        >
+                          <SelectTrigger id="team-specialty" data-testid="select-team-specialty">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(() => {
+                              const { favoriteSpecs, otherSpecs } = getSortedSpecialties();
+                              return (
+                                <>
+                                  {favoriteSpecs.length > 0 && (
+                                    <>
+                                      {favoriteSpecs.map(spec => (
+                                        <SelectItem key={spec} value={spec}>
+                                          <div className="flex items-center gap-2">
+                                            <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                                            {spec}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                      <div className="h-px bg-border my-1" />
+                                    </>
+                                  )}
+                                  {otherSpecs.map(spec => (
+                                    <SelectItem key={spec} value={spec}>
+                                      {spec}
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              );
+                            })()}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Selected specialties are automatically starred
+                        </p>
+                      </div>
+                      <div>
+                        <Label htmlFor="team-color">Team Color</Label>
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            {PRESET_COLORS.map((color) => (
+                              <button
+                                key={color.value}
+                                type="button"
+                                className={cn(
+                                  "w-10 h-10 rounded-md border-2 transition-all",
+                                  teamFormData.color === color.value
+                                    ? "border-foreground dark:border-white scale-110"
+                                    : "border-transparent hover:scale-105"
+                                )}
+                                style={{ backgroundColor: color.value }}
+                                onClick={() => setTeamFormData({ ...teamFormData, color: color.value })}
+                                title={color.name}
+                                data-testid={`color-preset-${color.name.toLowerCase()}`}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="team-color-custom" className="text-sm">Custom:</Label>
+                            <Input
+                              id="team-color-custom"
+                              type="color"
+                              value={teamFormData.color}
+                              onChange={(e) => setTeamFormData({ ...teamFormData, color: e.target.value })}
+                              className="w-20 h-8"
+                              data-testid="input-team-color"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {(editingTeam || creatingNewTeam) && (
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setEditingTeam(null);
+                              setCreatingNewTeam(false);
+                              setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+                            }}
+                            className="flex-1"
+                            data-testid="button-cancel-edit"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                        <Button
+                          onClick={handleCreateTeam}
+                          disabled={!teamFormData.name || createTeamMutation.isPending || updateTeamMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-submit-team"
+                        >
+                          {createTeamMutation.isPending || updateTeamMutation.isPending 
+                            ? 'Saving...' 
+                            : editingTeam 
+                              ? 'Update Team' 
+                              : 'Create Team'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!editingTeam && !creatingNewTeam && teams.length > 0 && (
                     <Button
-                      onClick={handleCreateTeam}
-                      disabled={!teamFormData.name || createTeamMutation.isPending}
+                      variant="outline"
+                      onClick={() => {
+                        setCreatingNewTeam(true);
+                        setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+                      }}
                       className="w-full"
-                      data-testid="button-submit-team"
+                      data-testid="button-add-new-team"
                     >
-                      {createTeamMutation.isPending ? 'Creating...' : 'Create Team'}
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add New Team
                     </Button>
-                  </div>
+                  )}
                 </DialogContent>
               </Dialog>
 
@@ -585,16 +828,92 @@ export default function ContractorSchedulePage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label htmlFor="job-address">Address</Label>
-                      <Input
-                        id="job-address"
-                        value={jobFormData.address}
-                        onChange={(e) => setJobFormData({ ...jobFormData, address: e.target.value })}
-                        placeholder="e.g., 123 Main St, Apt 4B"
-                        data-testid="input-job-address"
-                      />
-                    </div>
+                    <Collapsible open={addressExpanded} onOpenChange={setAddressExpanded}>
+                      <div className="space-y-4">
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between"
+                            data-testid="button-toggle-address"
+                          >
+                            <span>Address (optional)</span>
+                            <ChevronDown className={cn(
+                              "h-4 w-4 transition-transform",
+                              addressExpanded && "rotate-180"
+                            )} />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-3">
+                          <div>
+                            <Label htmlFor="job-address" className="text-sm">Street Address</Label>
+                            <Input
+                              id="job-address"
+                              value={jobFormData.address}
+                              onChange={(e) => setJobFormData({ ...jobFormData, address: e.target.value })}
+                              placeholder="e.g., 123 Main St, Apt 4B"
+                              data-testid="input-job-address"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="job-city" className="text-sm">City</Label>
+                              <Input
+                                id="job-city"
+                                value={jobFormData.city}
+                                onChange={(e) => setJobFormData({ ...jobFormData, city: e.target.value })}
+                                placeholder="City"
+                                data-testid="input-job-city"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="job-state" className="text-sm">State</Label>
+                              <Input
+                                id="job-state"
+                                value={jobFormData.state}
+                                onChange={(e) => setJobFormData({ ...jobFormData, state: e.target.value })}
+                                placeholder="State"
+                                data-testid="input-job-state"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="job-tel" className="text-sm">Phone</Label>
+                              <Input
+                                id="job-tel"
+                                value={jobFormData.tel}
+                                onChange={(e) => setJobFormData({ ...jobFormData, tel: e.target.value })}
+                                placeholder="Phone number"
+                                type="tel"
+                                data-testid="input-job-tel"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="job-email" className="text-sm">Email</Label>
+                              <Input
+                                id="job-email"
+                                value={jobFormData.email}
+                                onChange={(e) => setJobFormData({ ...jobFormData, email: e.target.value })}
+                                placeholder="Email address"
+                                type="email"
+                                data-testid="input-job-email"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="job-contact-person" className="text-sm">Contact Person</Label>
+                            <Input
+                              id="job-contact-person"
+                              value={jobFormData.contactPerson}
+                              onChange={(e) => setJobFormData({ ...jobFormData, contactPerson: e.target.value })}
+                              placeholder="Contact name"
+                              data-testid="input-job-contact-person"
+                            />
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
                     <div>
                       <Label htmlFor="job-urgency">Urgency</Label>
                       <Select
@@ -621,7 +940,11 @@ export default function ContractorSchedulePage() {
                         max={7}
                         step={1}
                         value={[jobFormData.durationDays]}
-                        onValueChange={([value]) => setJobFormData({ ...jobFormData, durationDays: value })}
+                        onValueChange={([value]) => setJobFormData({ 
+                          ...jobFormData, 
+                          durationDays: value,
+                          allDay: value > 1 ? true : jobFormData.allDay // Auto-select all-day for multi-day jobs
+                        })}
                         className="mt-2"
                         data-testid="slider-duration-days"
                       />
@@ -694,9 +1017,7 @@ export default function ContractorSchedulePage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <TeamLegend teams={teams} jobs={jobs} />
-            
-            <div className="grid grid-cols-[1fr_250px] gap-6 mt-6">
+            <div className="grid grid-cols-[1fr_250px] gap-6">
               {/* Weekly Calendar */}
               <div>
                 <Card>
@@ -838,6 +1159,15 @@ export default function ContractorSchedulePage() {
               ) : null}
             </DragOverlay>
           </DndContext>
+
+          <div className="mt-6">
+            <TeamLegend 
+              teams={teams} 
+              jobs={jobs} 
+              isCollapsed={legendCollapsed}
+              onToggle={() => setLegendCollapsed(!legendCollapsed)}
+            />
+          </div>
 
           <JobDetailsDialog
             job={selectedJob}
@@ -1066,7 +1396,12 @@ function DayColumn({ id, date, jobs, teams, weekDays, calculateJobSpan, isToday,
   );
 }
 
-function TeamLegend({ teams, jobs }: { teams: Team[]; jobs: ScheduledJob[] }) {
+function TeamLegend({ teams, jobs, isCollapsed, onToggle }: { 
+  teams: Team[]; 
+  jobs: ScheduledJob[]; 
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
   const getActiveJobsCount = (teamId: string) => {
     return jobs.filter(j => j.teamId === teamId && j.status !== 'Completed' && j.status !== 'Cancelled').length;
   };
@@ -1074,62 +1409,80 @@ function TeamLegend({ teams, jobs }: { teams: Team[]; jobs: ScheduledJob[] }) {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Team & Urgency Legend</CardTitle>
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
+          data-testid="button-toggle-legend"
+        >
+          <CardTitle className="text-base">Teams & Legend</CardTitle>
+          <ChevronDown className={cn(
+            "h-5 w-5 transition-transform text-muted-foreground",
+            !isCollapsed && "rotate-180"
+          )} />
+        </button>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Teams</p>
-            <div className="flex flex-wrap gap-2">
-              {teams.map(team => (
-                <TooltipProvider key={team.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-gray-700 bg-card dark:bg-gray-800 cursor-help"
-                        data-testid={`team-legend-${team.id}`}
-                      >
-                        <div
-                          className="w-4 h-4 rounded"
-                          style={{ backgroundColor: team.color }}
-                        />
-                        <span className="text-sm font-medium text-foreground dark:text-white">
-                          {team.name}
-                        </span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="text-sm">
-                        <p className="font-semibold">{team.name}</p>
-                        <p className="text-xs text-muted-foreground">Specialty: {team.specialty}</p>
-                        <p className="text-xs text-muted-foreground">Active Jobs: {getActiveJobsCount(team.id)}</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ))}
-            </div>
-          </div>
-          
-          <div>
-            <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Urgency Levels</p>
-            <div className="flex flex-wrap gap-3">
-              <div className="flex items-center gap-2" data-testid="urgency-legend-low">
-                <Circle className="h-3 w-3 text-slate-500 dark:text-slate-400" />
-                <span className="text-sm text-foreground dark:text-white">Low</span>
-              </div>
-              <div className="flex items-center gap-2" data-testid="urgency-legend-high">
-                <AlertTriangle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-500" />
-                <span className="text-sm text-foreground dark:text-white">High</span>
-              </div>
-              <div className="flex items-center gap-2" data-testid="urgency-legend-emergent">
-                <Zap className="h-4 w-4 text-red-600 dark:text-red-500" />
-                <span className="text-sm text-foreground dark:text-white">Emergent</span>
+      {!isCollapsed && (
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Teams</p>
+              <div className="flex flex-wrap gap-2">
+                {teams.length === 0 ? (
+                  <p className="text-sm text-muted-foreground dark:text-gray-400">
+                    No teams yet. Create one to get started.
+                  </p>
+                ) : (
+                  teams.map(team => (
+                    <TooltipProvider key={team.id}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-gray-700 bg-card dark:bg-gray-800 cursor-help"
+                            data-testid={`team-legend-${team.id}`}
+                          >
+                            <div
+                              className="w-4 h-4 rounded"
+                              style={{ backgroundColor: team.color }}
+                            />
+                            <span className="text-sm font-medium text-foreground dark:text-white">
+                              {team.name}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-sm">
+                            <p className="font-semibold">{team.name}</p>
+                            <p className="text-xs text-muted-foreground">Specialty: {team.specialty}</p>
+                            <p className="text-xs text-muted-foreground">Active Jobs: {getActiveJobsCount(team.id)}</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))
+                )}
               </div>
             </div>
+            
+            <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Urgency Levels</p>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2" data-testid="urgency-legend-low">
+                  <Circle className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                  <span className="text-sm text-foreground dark:text-white">Low</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="urgency-legend-high">
+                  <AlertTriangle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-500" />
+                  <span className="text-sm text-foreground dark:text-white">High</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="urgency-legend-emergent">
+                  <Zap className="h-4 w-4 text-red-600 dark:text-red-500" />
+                  <span className="text-sm text-foreground dark:text-white">Emergent</span>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </CardContent>
+        </CardContent>
+      )}
     </Card>
   );
 }
