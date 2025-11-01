@@ -8,13 +8,14 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import ReminderForm from "@/components/forms/reminder-form";
 import PropertyAssistant from "@/components/ai/property-assistant";
+import RemindersCalendar from "@/components/reminders/reminders-calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bell, Plus, Clock, CheckCircle, Calendar, AlertTriangle, DollarSign, FileText, Wrench, Shield, Edit, Trash2, CalendarDays, Repeat } from "lucide-react";
+import { Bell, Plus, Clock, CheckCircle, Calendar, AlertTriangle, DollarSign, FileText, Wrench, Shield, Edit, Trash2, CalendarDays, Repeat, List } from "lucide-react";
 import type { Reminder, Property, OwnershipEntity, Lease, Unit, TenantGroup } from "@shared/schema";
 
 export default function Reminders() {
@@ -34,6 +35,8 @@ export default function Reminders() {
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
+  const [view, setView] = useState<"list" | "calendar">("list");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -791,6 +794,28 @@ export default function Reminders() {
             </AlertDialogContent>
           </AlertDialog>
 
+          {/* View Toggle */}
+          <div className="flex items-center gap-2 mb-6" data-testid="view-toggle">
+            <Button
+              variant={view === "list" ? "default" : "outline"}
+              onClick={() => setView("list")}
+              className="gap-2"
+              data-testid="button-list-view"
+            >
+              <List className="h-4 w-4" />
+              List
+            </Button>
+            <Button
+              variant={view === "calendar" ? "default" : "outline"}
+              onClick={() => setView("calendar")}
+              className="gap-2"
+              data-testid="button-calendar-view"
+            >
+              <Calendar className="h-4 w-4" />
+              Calendar
+            </Button>
+          </div>
+
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card data-testid="card-overdue-reminders">
@@ -842,7 +867,23 @@ export default function Reminders() {
             </Card>
           </div>
 
-          {remindersLoading ? (
+          {/* Calendar or List View */}
+          {view === "calendar" ? (
+            <RemindersCalendar
+              reminders={filteredReminders}
+              onDateClick={(date) => {
+                setSelectedCalendarDate(date);
+                setView("list");
+                setDateFilter("custom");
+                const startOfDay = new Date(date);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(date);
+                endOfDay.setHours(23, 59, 59, 999);
+                setCustomDateFrom(startOfDay);
+                setCustomDateTo(endOfDay);
+              }}
+            />
+          ) : remindersLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i} data-testid={`skeleton-reminder-${i}`}>
