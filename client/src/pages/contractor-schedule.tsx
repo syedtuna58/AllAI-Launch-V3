@@ -383,6 +383,21 @@ export default function ContractorSchedulePage() {
       return;
     }
 
+    // If dropped on unscheduled area
+    if (over.id === 'unscheduled') {
+      updateJobMutation.mutate({
+        id: jobId,
+        data: {
+          scheduledStartAt: null,
+          scheduledEndAt: null,
+          status: 'Unscheduled',
+          tenantConfirmed: false,
+        },
+      });
+      setActiveId(null);
+      return;
+    }
+
     // If dropped on a day slot
     if (over.id.toString().startsWith('day-')) {
       const dayIndex = parseInt(over.id.toString().replace('day-', ''));
@@ -1115,36 +1130,15 @@ export default function ContractorSchedulePage() {
               </div>
 
               {/* Unscheduled Jobs Sidebar */}
-              <div>
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Unscheduled Jobs</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1.5">
-                    {unscheduledJobs.length === 0 ? (
-                      <p className="text-sm text-muted-foreground dark:text-gray-400">
-                        No unscheduled jobs
-                      </p>
-                    ) : (
-                      unscheduledJobs.map(job => {
-                        const team = teams.find(t => t.id === job.teamId);
-                        return (
-                          <JobCard
-                            key={job.id}
-                            job={job}
-                            team={team}
-                            isDragging={activeId === job.id}
-                            onClick={() => {
-                              setSelectedJob(job);
-                              setShowJobDetailsDialog(true);
-                            }}
-                          />
-                        );
-                      })
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+              <UnscheduledJobsPanel 
+                jobs={unscheduledJobs} 
+                teams={teams} 
+                activeId={activeId}
+                onJobClick={(job) => {
+                  setSelectedJob(job);
+                  setShowJobDetailsDialog(true);
+                }}
+              />
             </div>
 
             <DragOverlay>
@@ -1282,6 +1276,35 @@ function JobCard({
           <p className="font-medium text-sm text-white truncate drop-shadow-sm">
             {job.title}
           </p>
+          {!job.isAllDay && job.scheduledStartAt && job.scheduledEndAt && (
+            <p className="text-xs text-white/90 font-medium mt-0.5 drop-shadow-sm">
+              {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt), 'h:mm a')}
+            </p>
+          )}
+          {!job.scheduledStartAt && !job.isAllDay && job.notes && (() => {
+            try {
+              const parsed = JSON.parse(job.notes);
+              if (parsed.timePreferences) {
+                const { startTime, duration } = parsed.timePreferences;
+                const [hours, mins] = startTime.split(':').map(Number);
+                const startMinutes = hours * 60 + mins;
+                const endMinutes = startMinutes + duration;
+                const endHours = Math.floor(endMinutes / 60) % 24;
+                const endMins = endMinutes % 60;
+                const formatTime = (h: number, m: number) => {
+                  const period = h >= 12 ? 'PM' : 'AM';
+                  const hour12 = h % 12 || 12;
+                  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+                };
+                return (
+                  <p className="text-xs text-white/90 font-medium mt-0.5 drop-shadow-sm">
+                    {formatTime(hours, mins)} - {formatTime(endHours, endMins)} ({duration}min)
+                  </p>
+                );
+              }
+            } catch (e) {}
+            return null;
+          })()}
           {isMultiDay && job.address && (
             <p className="text-xs text-white/80 truncate mt-0.5">
               {job.address}
@@ -1484,6 +1507,62 @@ function TeamLegend({ teams, jobs, isCollapsed, onToggle }: {
         </CardContent>
       )}
     </Card>
+  );
+}
+
+function UnscheduledJobsPanel({ 
+  jobs, 
+  teams, 
+  activeId, 
+  onJobClick 
+}: { 
+  jobs: ScheduledJob[]; 
+  teams: Team[]; 
+  activeId: string | null;
+  onJobClick: (job: ScheduledJob) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'unscheduled',
+  });
+
+  return (
+    <div ref={setNodeRef}>
+      <Card className={cn(
+        "transition-all",
+        isOver && "ring-2 ring-primary dark:ring-blue-500 bg-primary/5 dark:bg-blue-900/20"
+      )}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center justify-between">
+            Unscheduled Jobs
+            {isOver && (
+              <Badge variant="secondary" className="text-xs">
+                Drop to unschedule
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          {jobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground dark:text-gray-400">
+              {isOver ? "Drop here to unschedule" : "No unscheduled jobs"}
+            </p>
+          ) : (
+            jobs.map(job => {
+              const team = teams.find(t => t.id === job.teamId);
+              return (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  team={team}
+                  isDragging={activeId === job.id}
+                  onClick={() => onJobClick(job)}
+                />
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
