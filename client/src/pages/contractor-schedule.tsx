@@ -16,10 +16,12 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDraggable,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { format, addDays, startOfWeek, isSameDay, parseISO } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -175,7 +177,18 @@ export default function ContractorSchedulePage() {
   const getJobsForDay = (date: Date) => {
     return scheduledJobs.filter(job => {
       if (!job.scheduledStartAt) return false;
-      return isSameDay(parseISO(job.scheduledStartAt), date);
+      
+      // Use the full calendar day boundaries for the column
+      const dayStart = startOfDay(date);
+      const dayEnd = endOfDay(date);
+      
+      // Parse job times with full precision
+      const jobStart = parseISO(job.scheduledStartAt);
+      const jobEnd = job.scheduledEndAt ? parseISO(job.scheduledEndAt) : jobStart;
+      
+      // Treat end time as exclusive: a job ending at midnight should not appear on the next day
+      // Check if job overlaps with the day: jobStart < dayEnd (exclusive) AND jobEnd > dayStart
+      return jobStart <= dayEnd && jobEnd > dayStart;
     });
   };
 
@@ -209,14 +222,44 @@ export default function ContractorSchedulePage() {
       const dayIndex = parseInt(over.id.toString().replace('day-', ''));
       const targetDate = weekDays[dayIndex];
       
-      // Update job with new scheduled date
+      // Calculate duration in milliseconds to preserve exact time components
+      let durationMs = 0;
+      if (job.scheduledStartAt && job.scheduledEndAt) {
+        const originalStart = parseISO(job.scheduledStartAt);
+        const originalEnd = parseISO(job.scheduledEndAt);
+        durationMs = originalEnd.getTime() - originalStart.getTime();
+      }
+      
+      // For unscheduled jobs being scheduled for the first time, set to all-day
+      let newStartDate: Date;
+      let newEndDate: Date;
+      
+      if (!job.scheduledStartAt) {
+        // New job being scheduled - set to span the full day (start to end)
+        newStartDate = startOfDay(targetDate);
+        newEndDate = endOfDay(targetDate);
+      } else {
+        // Existing job being rescheduled - preserve time components by shifting the day
+        const originalStart = parseISO(job.scheduledStartAt);
+        const originalDayStart = startOfDay(originalStart);
+        const targetDayStart = startOfDay(targetDate);
+        
+        // Calculate the time offset from start of original day
+        const timeOffset = originalStart.getTime() - originalDayStart.getTime();
+        
+        // Apply the same time offset to the new target day
+        newStartDate = new Date(targetDayStart.getTime() + timeOffset);
+        newEndDate = new Date(newStartDate.getTime() + durationMs);
+      }
+      
+      // Update job with new scheduled date, preserving exact duration
       updateJobMutation.mutate({
         id: jobId,
         data: {
-          scheduledStartAt: targetDate.toISOString(),
-          scheduledEndAt: addDays(targetDate, 0).toISOString(),
-          allDay: true,
-          status: job.tenantConfirmed ? 'scheduled' : 'scheduled',
+          scheduledStartAt: newStartDate.toISOString(),
+          scheduledEndAt: newEndDate.toISOString(),
+          allDay: job.allDay ?? true,
+          status: 'scheduled',
           tenantConfirmed: false, // Manual moves require tenant confirmation
         },
       });
@@ -532,7 +575,6 @@ export default function ContractorSchedulePage() {
 }
 
 function JobCard({ job, team, isDragging }: { job: ScheduledJob; team?: Team; isDragging?: boolean }) {
-  const { useDraggable } = require("@dnd-kit/core");
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job.id,
   });
@@ -592,7 +634,6 @@ function DayColumn({ id, date, jobs, teams, isToday }: {
   teams: Team[];
   isToday: boolean;
 }) {
-  const { useDroppable } = require("@dnd-kit/core");
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
