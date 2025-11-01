@@ -165,14 +165,8 @@ export default function EquipmentManagementModal({
 
   // Initialize form data when existing equipment loads or property changes
   useEffect(() => {
-    console.log('🔄 useEffect running - isPendingMode:', isPendingMode, 'catalog.length:', catalog.length);
     // In pending mode, only initialize once (not on every render)
-    if (isPendingMode && catalog.length > 0) {
-      if (hasInitializedPendingData.current) {
-        console.log('🔄 Already initialized pending mode, skipping');
-        return; // Skip if already initialized
-      }
-      console.log('🔄 Initializing pending mode equipment data');
+    if (isPendingMode && catalog.length > 0 && !hasInitializedPendingData.current) {
       const initialData: Record<string, EquipmentFormData> = {};
       catalog.forEach(def => {
         initialData[def.type] = {
@@ -359,19 +353,13 @@ export default function EquipmentManagementModal({
   });
 
   const toggleEquipment = (type: string) => {
-    console.log('🔧 toggleEquipment called for:', type);
-    setEquipmentData(prev => {
-      console.log('🔧 Previous equipmentData:', prev);
-      const newData = {
-        ...prev,
-        [type]: {
-          ...prev[type],
-          selected: !prev[type]?.selected,
-        },
-      };
-      console.log('🔧 New equipmentData:', newData);
-      return newData;
-    });
+    setEquipmentData(prev => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        selected: !prev[type]?.selected,
+      },
+    }));
   };
 
   const updateInstallYear = (type: string, year: number) => {
