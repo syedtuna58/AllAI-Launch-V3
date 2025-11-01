@@ -1132,6 +1132,7 @@ export const scheduledJobs = pgTable("scheduled_jobs", {
   scheduledStartAt: timestamp("scheduled_start_at", { withTimezone: true }),
   scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
   isAllDay: boolean("is_all_day").default(false),
+  durationDays: integer("duration_days").default(1), // Number of days the job spans
   
   // Assignment
   teamId: varchar("team_id").references(() => teams.id),
@@ -1141,6 +1142,9 @@ export const scheduledJobs = pgTable("scheduled_jobs", {
   caseId: varchar("case_id").references(() => smartCases.id), // Link to smart case if applicable
   propertyId: varchar("property_id").references(() => properties.id),
   unitId: varchar("unit_id").references(() => units.id),
+  
+  // Address for jobs
+  address: text("address"),
   
   // Status and priority
   status: jobStatusEnum("status").default("Unscheduled"),

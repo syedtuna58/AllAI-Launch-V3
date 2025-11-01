@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import {
@@ -43,6 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type Team = {
@@ -66,6 +67,8 @@ type ScheduledJob = {
   urgency: 'Low' | 'High' | 'Emergent';
   tenantConfirmed: boolean;
   notes: string | null;
+  address: string | null;
+  durationDays: number;
   orgId: string;
   createdAt: string;
   updatedAt: string;
@@ -99,10 +102,14 @@ export default function ContractorSchedulePage() {
     teamId: '',
     urgency: 'Low' as const,
     propertyId: null,
+    address: '',
     startTime: '08:00',
     duration: 120, // in minutes (default 2 hours)
+    durationDays: 1,
     allDay: false,
   });
+  const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null);
+  const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [hideWeekends, setHideWeekends] = useState(true);
   const [teamFormData, setTeamFormData] = useState({
     name: '',
@@ -156,8 +163,10 @@ export default function ContractorSchedulePage() {
         teamId: '',
         urgency: 'Low',
         propertyId: null,
+        address: '',
         startTime: '08:00',
         duration: 120,
+        durationDays: 1,
         allDay: false,
       });
     },
@@ -338,6 +347,8 @@ export default function ContractorSchedulePage() {
       teamId: jobFormData.teamId,
       urgency: jobFormData.urgency,
       propertyId: jobFormData.propertyId,
+      address: jobFormData.address || null,
+      durationDays: jobFormData.durationDays,
       status: 'Unscheduled',
       isAllDay: jobFormData.allDay,
       tenantConfirmed: false,
@@ -359,7 +370,7 @@ export default function ContractorSchedulePage() {
       <div className="flex h-screen bg-background text-foreground dark:bg-gray-900">
         <Sidebar />
         <div className="flex-1 flex flex-col">
-          <Header />
+          <Header title="Contractor Schedule" />
           <main className="flex-1 p-6">
             <p className="text-muted-foreground dark:text-gray-400">Please log in to view contractor schedules.</p>
           </main>
@@ -372,7 +383,7 @@ export default function ContractorSchedulePage() {
     <div className="flex h-screen bg-background text-foreground dark:bg-gray-900">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+        <Header title="Contractor Schedule" />
         <main className="flex-1 p-6 overflow-auto">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -527,6 +538,16 @@ export default function ContractorSchedulePage() {
                       </Select>
                     </div>
                     <div>
+                      <Label htmlFor="job-address">Address</Label>
+                      <Input
+                        id="job-address"
+                        value={jobFormData.address}
+                        onChange={(e) => setJobFormData({ ...jobFormData, address: e.target.value })}
+                        placeholder="e.g., 123 Main St, Apt 4B"
+                        data-testid="input-job-address"
+                      />
+                    </div>
+                    <div>
                       <Label htmlFor="job-urgency">Urgency</Label>
                       <Select
                         value={jobFormData.urgency}
@@ -541,6 +562,27 @@ export default function ContractorSchedulePage() {
                           <SelectItem value="Emergent">Emergent</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="duration-days" className="text-sm">
+                        Duration: {jobFormData.durationDays} {jobFormData.durationDays === 1 ? 'day' : 'days'}
+                      </Label>
+                      <Slider
+                        id="duration-days"
+                        min={1}
+                        max={7}
+                        step={1}
+                        value={[jobFormData.durationDays]}
+                        onValueChange={([value]) => setJobFormData({ ...jobFormData, durationDays: value })}
+                        className="mt-2"
+                        data-testid="slider-duration-days"
+                      />
+                      {jobFormData.durationDays > 1 && (
+                        <p className="text-xs text-muted-foreground dark:text-gray-400 mt-2 flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          This job will span {jobFormData.durationDays} consecutive days on the calendar
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
@@ -604,7 +646,9 @@ export default function ContractorSchedulePage() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <div className="grid grid-cols-[1fr_320px] gap-6">
+            <TeamLegend teams={teams} jobs={jobs} />
+            
+            <div className="grid grid-cols-[1fr_250px] gap-6 mt-6">
               {/* Weekly Calendar */}
               <div>
                 <Card>
@@ -685,6 +729,10 @@ export default function ContractorSchedulePage() {
                                 data: { tenantConfirmed: true }
                               });
                             }}
+                            onClick={(job) => {
+                              setSelectedJob(job);
+                              setShowJobDetailsDialog(true);
+                            }}
                           />
                         );
                       })}
@@ -696,10 +744,10 @@ export default function ContractorSchedulePage() {
               {/* Unscheduled Jobs Sidebar */}
               <div>
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="pb-3">
                     <CardTitle className="text-lg">Unscheduled Jobs</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
+                  <CardContent className="space-y-1.5">
                     {unscheduledJobs.length === 0 ? (
                       <p className="text-sm text-muted-foreground dark:text-gray-400">
                         No unscheduled jobs
@@ -713,6 +761,10 @@ export default function ContractorSchedulePage() {
                             job={job}
                             team={team}
                             isDragging={activeId === job.id}
+                            onClick={() => {
+                              setSelectedJob(job);
+                              setShowJobDetailsDialog(true);
+                            }}
                           />
                         );
                       })
@@ -734,13 +786,32 @@ export default function ContractorSchedulePage() {
               ) : null}
             </DragOverlay>
           </DndContext>
+
+          <JobDetailsDialog
+            job={selectedJob}
+            team={selectedJob ? teams.find(t => t.id === selectedJob.teamId) : undefined}
+            open={showJobDetailsDialog}
+            onOpenChange={setShowJobDetailsDialog}
+          />
         </main>
       </div>
     </div>
   );
 }
 
-function JobCard({ job, team, isDragging, onConfirm }: { job: ScheduledJob; team?: Team; isDragging?: boolean; onConfirm?: (jobId: string) => void }) {
+function JobCard({ 
+  job, 
+  team, 
+  isDragging, 
+  onConfirm, 
+  onClick 
+}: { 
+  job: ScheduledJob; 
+  team?: Team; 
+  isDragging?: boolean; 
+  onConfirm?: (jobId: string) => void;
+  onClick?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job.id,
   });
@@ -751,56 +822,62 @@ function JobCard({ job, team, isDragging, onConfirm }: { job: ScheduledJob; team
   
   const showConfirmButton = !job.tenantConfirmed && job.scheduledStartAt && onConfirm;
 
+  const getUrgencyIcon = (urgency: string) => {
+    switch (urgency) {
+      case 'Low':
+        return <Circle className="h-3 w-3 text-slate-500 dark:text-slate-400" />;
+      case 'High':
+        return <AlertTriangle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-500" />;
+      case 'Emergent':
+        return <Zap className="h-4 w-4 text-red-600 dark:text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  const backgroundColor = team?.color || '#3b82f6';
+  
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        "p-3 rounded-lg border transition-all",
-        "bg-white dark:bg-gray-800 border-border dark:border-gray-700",
+        "relative rounded-md transition-all overflow-hidden group",
         isDragging && "opacity-50",
-        !job.tenantConfirmed && job.scheduledStartAt && "opacity-60 border-dashed"
+        !job.tenantConfirmed && job.scheduledStartAt && "opacity-70 border-2 border-dashed border-white/50"
       )}
       data-testid={`job-card-${job.id}`}
     >
-      <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing">
-        <div className="flex items-start gap-2">
-          <div
-            className="w-1 h-full rounded"
-            style={{ backgroundColor: team?.color || '#3b82f6' }}
-          />
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm text-foreground dark:text-white truncate">
-              {job.title}
-            </p>
-            {team && (
-              <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
-                {team.name}
-              </p>
-            )}
-            {job.scheduledStartAt && !job.isAllDay && (
-              <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
-                {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt!), 'h:mm a')}
-              </p>
-            )}
-            <div className="flex gap-1 mt-2">
-              <Badge variant="secondary" className={cn("text-xs", URGENCY_COLORS[job.urgency])}>
-                {job.urgency}
-              </Badge>
-              {!job.tenantConfirmed && job.scheduledStartAt && (
-                <Badge variant="outline" className="text-xs">
-                  Pending
-                </Badge>
-              )}
-            </div>
-          </div>
+      <div 
+        {...listeners} 
+        {...attributes} 
+        onClick={onClick}
+        className="cursor-grab active:cursor-grabbing p-2 relative"
+        style={{ 
+          backgroundColor,
+          opacity: 0.85 
+        }}
+      >
+        <div 
+          className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
+        />
+        
+        <div className="absolute top-1 right-1 z-10">
+          {getUrgencyIcon(job.urgency)}
+        </div>
+        
+        <div className="pr-6">
+          <p className="font-medium text-sm text-white truncate drop-shadow-sm">
+            {job.title}
+          </p>
         </div>
       </div>
+      
       {showConfirmButton && (
         <Button
           size="sm"
           variant="outline"
-          className="w-full mt-2 h-7 text-xs"
+          className="w-full mt-1 h-6 text-xs rounded-t-none"
           onClick={(e) => {
             e.stopPropagation();
             onConfirm(job.id);
@@ -815,56 +892,262 @@ function JobCard({ job, team, isDragging, onConfirm }: { job: ScheduledJob; team
   );
 }
 
-function DayColumn({ id, date, jobs, teams, isToday, onConfirmJob }: {
+function DayColumn({ id, date, jobs, teams, isToday, onConfirmJob, onClick }: {
   id: string;
   date: Date;
   jobs: ScheduledJob[];
   teams: Team[];
   isToday: boolean;
   onConfirmJob?: (jobId: string) => void;
+  onClick?: (job: ScheduledJob) => void;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
   const { setNodeRef, isOver } = useDroppable({
     id,
   });
 
   return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "min-h-[400px] p-2 rounded-lg border transition-colors",
-        "bg-card dark:bg-gray-800 border-border dark:border-gray-700",
-        isToday && "border-primary dark:border-blue-500 border-2",
-        isOver && "bg-primary/10 dark:bg-blue-900/20"
-      )}
-      data-testid={`day-column-${id}`}
-    >
-      <div className="mb-3">
-        <p className={cn(
-          "text-sm font-medium",
-          isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
-        )}>
-          {format(date, 'EEE')}
-        </p>
-        <p className={cn(
-          "text-lg font-bold",
-          isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
-        )}>
-          {format(date, 'd')}
-        </p>
-      </div>
-      <div className="space-y-2">
-        {jobs.map(job => {
-          const team = teams.find(t => t.id === job.teamId);
-          return (
-            <JobCard
-              key={job.id}
-              job={job}
-              team={team}
-              onConfirm={onConfirmJob}
-            />
-          );
-        })}
-      </div>
-    </div>
+    <TooltipProvider>
+      <Tooltip open={isHovered && isOver}>
+        <TooltipTrigger asChild>
+          <div
+            ref={setNodeRef}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className={cn(
+              "min-h-[400px] p-2 rounded-lg border transition-colors",
+              "bg-card dark:bg-gray-800 border-border dark:border-gray-700",
+              isToday && "border-primary dark:border-blue-500 border-2",
+              isOver && "bg-primary/10 dark:bg-blue-900/20 shadow-lg"
+            )}
+            data-testid={`day-column-${id}`}
+          >
+            <div className="mb-3">
+              <p className={cn(
+                "text-sm font-medium",
+                isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
+              )}>
+                {format(date, 'EEE')}
+              </p>
+              <p className={cn(
+                "text-lg font-bold",
+                isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
+              )}>
+                {format(date, 'd')}
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {jobs.map(job => {
+                const team = teams.find(t => t.id === job.teamId);
+                return (
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    team={team}
+                    onConfirm={onConfirmJob}
+                    onClick={() => onClick?.(job)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-sm">
+          <p className="font-semibold">{format(date, 'EEEE, MMMM d')}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Drop job here to schedule for this day
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function TeamLegend({ teams, jobs }: { teams: Team[]; jobs: ScheduledJob[] }) {
+  const getActiveJobsCount = (teamId: string) => {
+    return jobs.filter(j => j.teamId === teamId && j.status !== 'Completed' && j.status !== 'Cancelled').length;
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Team & Urgency Legend</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Teams</p>
+            <div className="flex flex-wrap gap-2">
+              {teams.map(team => (
+                <TooltipProvider key={team.id}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-gray-700 bg-card dark:bg-gray-800 cursor-help"
+                        data-testid={`team-legend-${team.id}`}
+                      >
+                        <div
+                          className="w-4 h-4 rounded"
+                          style={{ backgroundColor: team.color }}
+                        />
+                        <span className="text-sm font-medium text-foreground dark:text-white">
+                          {team.name}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-sm">
+                        <p className="font-semibold">{team.name}</p>
+                        <p className="text-xs text-muted-foreground">Specialty: {team.specialty}</p>
+                        <p className="text-xs text-muted-foreground">Active Jobs: {getActiveJobsCount(team.id)}</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Urgency Levels</p>
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2" data-testid="urgency-legend-low">
+                <Circle className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                <span className="text-sm text-foreground dark:text-white">Low</span>
+              </div>
+              <div className="flex items-center gap-2" data-testid="urgency-legend-high">
+                <AlertTriangle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-500" />
+                <span className="text-sm text-foreground dark:text-white">High</span>
+              </div>
+              <div className="flex items-center gap-2" data-testid="urgency-legend-emergent">
+                <Zap className="h-4 w-4 text-red-600 dark:text-red-500" />
+                <span className="text-sm text-foreground dark:text-white">Emergent</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function JobDetailsDialog({ 
+  job, 
+  team, 
+  open, 
+  onOpenChange 
+}: { 
+  job: ScheduledJob | null; 
+  team?: Team; 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!job) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl" data-testid="dialog-job-details">
+        <DialogHeader>
+          <DialogTitle className="text-xl" data-testid="text-job-details-title">
+            {job.title}
+          </DialogTitle>
+          <DialogDescription>
+            View job details and information
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Team</Label>
+              <div className="flex items-center gap-2 mt-1">
+                {team && (
+                  <>
+                    <div
+                      className="w-3 h-3 rounded"
+                      style={{ backgroundColor: team.color }}
+                    />
+                    <p className="text-sm font-medium" data-testid="text-job-team">
+                      {team.name} ({team.specialty})
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Urgency</Label>
+              <Badge variant="secondary" className={cn("mt-1", URGENCY_COLORS[job.urgency])} data-testid="badge-job-urgency">
+                {job.urgency}
+              </Badge>
+            </div>
+          </div>
+
+          {job.address && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Address</Label>
+              <p className="text-sm mt-1" data-testid="text-job-address">{job.address}</p>
+            </div>
+          )}
+
+          {job.scheduledStartAt && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">Start Time</Label>
+                <p className="text-sm mt-1" data-testid="text-job-start">
+                  {format(parseISO(job.scheduledStartAt), 'MMM d, yyyy h:mm a')}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">End Time</Label>
+                <p className="text-sm mt-1" data-testid="text-job-end">
+                  {job.scheduledEndAt ? format(parseISO(job.scheduledEndAt), 'MMM d, yyyy h:mm a') : 'Not set'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+              <p className="text-sm mt-1" data-testid="text-job-status">{job.status}</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Duration</Label>
+              <p className="text-sm mt-1" data-testid="text-job-duration">
+                {job.durationDays} {job.durationDays === 1 ? 'day' : 'days'}
+              </p>
+            </div>
+          </div>
+
+          {job.description && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+              <p className="text-sm mt-1 whitespace-pre-wrap" data-testid="text-job-description">
+                {job.description}
+              </p>
+            </div>
+          )}
+
+          {job.notes && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
+              <p className="text-sm mt-1 whitespace-pre-wrap text-muted-foreground" data-testid="text-job-notes">
+                {job.notes}
+              </p>
+            </div>
+          )}
+
+          {!job.tenantConfirmed && job.scheduledStartAt && (
+            <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
+              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                Awaiting tenant confirmation
+              </p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
