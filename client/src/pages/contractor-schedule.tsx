@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import {
@@ -655,7 +655,18 @@ export default function ContractorSchedulePage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className={cn("grid gap-2", hideWeekends ? "grid-cols-5" : "grid-cols-7")}>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
+                      {/* Time labels column */}
+                      <div className="pr-2 border-r border-border dark:border-gray-700">
+                        <div className="h-[60px]"></div> {/* Spacer for header */}
+                        {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
+                          <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
+                            {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Day columns */}
                       {weekDays.map((day, index) => {
                         const dayJobs = getJobsForDay(day);
                         const isToday = isSameDay(day, new Date());
@@ -668,6 +679,12 @@ export default function ContractorSchedulePage() {
                             jobs={dayJobs}
                             teams={teams}
                             isToday={isToday}
+                            onConfirmJob={(jobId) => {
+                              updateJobMutation.mutate({
+                                id: jobId,
+                                data: { tenantConfirmed: true }
+                              });
+                            }}
                           />
                         );
                       })}
@@ -723,7 +740,7 @@ export default function ContractorSchedulePage() {
   );
 }
 
-function JobCard({ job, team, isDragging }: { job: ScheduledJob; team?: Team; isDragging?: boolean }) {
+function JobCard({ job, team, isDragging, onConfirm }: { job: ScheduledJob; team?: Team; isDragging?: boolean; onConfirm?: (jobId: string) => void }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job.id,
   });
@@ -731,62 +748,80 @@ function JobCard({ job, team, isDragging }: { job: ScheduledJob; team?: Team; is
   const style = transform ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
+  
+  const showConfirmButton = !job.tenantConfirmed && job.scheduledStartAt && onConfirm;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
       className={cn(
-        "p-3 rounded-lg border cursor-grab active:cursor-grabbing transition-all",
+        "p-3 rounded-lg border transition-all",
         "bg-white dark:bg-gray-800 border-border dark:border-gray-700",
         isDragging && "opacity-50",
         !job.tenantConfirmed && job.scheduledStartAt && "opacity-60 border-dashed"
       )}
       data-testid={`job-card-${job.id}`}
     >
-      <div className="flex items-start gap-2">
-        <div
-          className="w-1 h-full rounded"
-          style={{ backgroundColor: team?.color || '#3b82f6' }}
-        />
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm text-foreground dark:text-white truncate">
-            {job.title}
-          </p>
-          {team && (
-            <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
-              {team.name}
+      <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing">
+        <div className="flex items-start gap-2">
+          <div
+            className="w-1 h-full rounded"
+            style={{ backgroundColor: team?.color || '#3b82f6' }}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm text-foreground dark:text-white truncate">
+              {job.title}
             </p>
-          )}
-          {job.scheduledStartAt && !job.isAllDay && (
-            <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
-              {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt!), 'h:mm a')}
-            </p>
-          )}
-          <div className="flex gap-1 mt-2">
-            <Badge variant="secondary" className={cn("text-xs", URGENCY_COLORS[job.urgency])}>
-              {job.urgency}
-            </Badge>
-            {!job.tenantConfirmed && job.scheduledStartAt && (
-              <Badge variant="outline" className="text-xs">
-                Pending
-              </Badge>
+            {team && (
+              <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
+                {team.name}
+              </p>
             )}
+            {job.scheduledStartAt && !job.isAllDay && (
+              <p className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
+                {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt!), 'h:mm a')}
+              </p>
+            )}
+            <div className="flex gap-1 mt-2">
+              <Badge variant="secondary" className={cn("text-xs", URGENCY_COLORS[job.urgency])}>
+                {job.urgency}
+              </Badge>
+              {!job.tenantConfirmed && job.scheduledStartAt && (
+                <Badge variant="outline" className="text-xs">
+                  Pending
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </div>
+      {showConfirmButton && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full mt-2 h-7 text-xs"
+          onClick={(e) => {
+            e.stopPropagation();
+            onConfirm(job.id);
+          }}
+          data-testid={`button-confirm-${job.id}`}
+        >
+          <Check className="h-3 w-3 mr-1" />
+          Confirm
+        </Button>
+      )}
     </div>
   );
 }
 
-function DayColumn({ id, date, jobs, teams, isToday }: {
+function DayColumn({ id, date, jobs, teams, isToday, onConfirmJob }: {
   id: string;
   date: Date;
   jobs: ScheduledJob[];
   teams: Team[];
   isToday: boolean;
+  onConfirmJob?: (jobId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id,
@@ -825,6 +860,7 @@ function DayColumn({ id, date, jobs, teams, isToday }: {
               key={job.id}
               job={job}
               team={team}
+              onConfirm={onConfirmJob}
             />
           );
         })}
