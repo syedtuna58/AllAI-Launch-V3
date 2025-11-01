@@ -877,30 +877,37 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   />
                 </div>
 
-                {/* Equipment Management */}
-                {propertyId && (
-                  <div className="mt-6 p-4 border rounded-lg bg-muted/10">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium text-sm mb-1">Equipment Tracking</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Track HVAC, water heaters, roof, appliances and more with manufacturer/model details and AI image recognition.
+                {/* Equipment Management Info Box */}
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-xs text-blue-900 dark:text-blue-100 font-medium mb-1">
+                        Track Equipment for Better Insights
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                        Add HVAC, water heaters, and appliances now to enable predictive maintenance tracking, automated replacement cost estimates, and lifespan monitoring.
+                      </p>
+                      {propertyId ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOpenEquipmentModal(true)}
+                          className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+                          data-testid="button-manage-equipment"
+                        >
+                          <Wrench className="h-3 w-3 mr-1" />
+                          Manage Equipment
+                        </Button>
+                      ) : (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 italic">
+                          💡 Equipment can be added after saving the property
                         </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setOpenEquipmentModal(true)}
-                        data-testid="button-manage-equipment"
-                      >
-                        <Wrench className="h-4 w-4 mr-2" />
-                        Manage Equipment
-                      </Button>
+                      )}
                     </div>
                   </div>
-                )}
-
+                </div>
 
                 <FormField
                   control={form.control}
@@ -1086,6 +1093,38 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                           </FormItem>
                         )}
                       />
+                    </div>
+
+                    {/* Equipment Management Link */}
+                    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-xs text-blue-900 dark:text-blue-100 font-medium mb-1">
+                            Track Equipment for Better Insights
+                          </p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+                            Add HVAC, water heaters, and appliances now to enable predictive maintenance tracking, automated replacement cost estimates, and lifespan monitoring.
+                          </p>
+                          {propertyId ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setOpenEquipmentModal(true)}
+                              className="border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900"
+                              data-testid={`button-manage-equipment-unit-${index}`}
+                            >
+                              <Wrench className="h-3 w-3 mr-1" />
+                              Manage Equipment
+                            </Button>
+                          ) : (
+                            <p className="text-xs text-blue-600 dark:text-blue-400 italic">
+                              💡 Equipment can be added after saving the property
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
