@@ -52,6 +52,7 @@ interface EquipmentManagementModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   property?: Property;
+  onAddPendingEquipment?: (equipment: Partial<Equipment>) => void;
 }
 
 const currentYear = new Date().getFullYear();
@@ -60,6 +61,7 @@ export default function EquipmentManagementModal({
   open,
   onOpenChange,
   property,
+  onAddPendingEquipment,
 }: EquipmentManagementModalProps) {
   const { toast } = useToast();
   const [useClimateAdjustment, setUseClimateAdjustment] = useState(true);
@@ -82,11 +84,12 @@ export default function EquipmentManagementModal({
   }, [property?.id]);
   
   // Set first property as default when properties load and none selected
+  // BUT only if we're not in pending mode (onAddPendingEquipment present)
   useEffect(() => {
-    if (properties.length > 0 && !selectedPropertyId && !property?.id) {
+    if (properties.length > 0 && !selectedPropertyId && !property?.id && !onAddPendingEquipment) {
       setSelectedPropertyId(properties[0].id);
     }
-  }, [properties.length, selectedPropertyId, property?.id]);
+  }, [properties.length, selectedPropertyId, property?.id, onAddPendingEquipment]);
 
   // Get the currently selected property object
   const currentProperty = properties.find(p => p.id === selectedPropertyId);
@@ -212,7 +215,32 @@ export default function EquipmentManagementModal({
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Guard against empty property ID
+      const selectedEquipment = Object.values(equipmentData).filter(eq => eq.selected);
+      
+      // If in pending mode (no property ID but has callback), add to pending equipment
+      if (!selectedPropertyId && onAddPendingEquipment) {
+        for (const eq of selectedEquipment) {
+          let equipmentType = eq.type;
+          if (eq.isCustom && eq.customDisplayName) {
+            equipmentType = eq.customDisplayName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') || eq.type;
+          }
+          
+          const pendingEquipmentItem: Partial<Equipment> = {
+            equipmentType: equipmentType,
+            installYear: eq.installYear,
+            customLifespanYears: eq.customLifespan,
+            useClimateAdjustment,
+            replacementCost: eq.replacementCost,
+            manufacturer: eq.manufacturer,
+            model: eq.model,
+          };
+          
+          onAddPendingEquipment(pendingEquipmentItem);
+        }
+        return null; // No property ID to return in pending mode
+      }
+      
+      // Guard against empty property ID in normal mode
       if (!selectedPropertyId) {
         throw new Error('No property selected');
       }
@@ -220,8 +248,6 @@ export default function EquipmentManagementModal({
       // Capture property ID and equipment data at mutation start to prevent race conditions if user changes selector mid-save
       const propertyIdForMutation = selectedPropertyId;
       const existingEquipmentForMutation = [...existingEquipment];
-
-      const selectedEquipment = Object.values(equipmentData).filter(eq => eq.selected);
       
       // Delete removed equipment
       for (const existing of existingEquipmentForMutation) {
@@ -268,6 +294,12 @@ export default function EquipmentManagementModal({
       return propertyIdForMutation;
     },
     onSuccess: async (propertyIdForMutation) => {
+      // If in pending mode, just close the modal
+      if (!propertyIdForMutation && onAddPendingEquipment) {
+        onOpenChange(false);
+        return;
+      }
+      
       await queryClient.invalidateQueries({ queryKey: ['/api/properties', propertyIdForMutation, 'equipment'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
       

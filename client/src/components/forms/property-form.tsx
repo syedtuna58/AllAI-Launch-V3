@@ -17,6 +17,8 @@ import { formatNumberWithCommas, removeCommas } from "@/lib/formatters";
 import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, X } from "lucide-react";
 
 const ownershipSchema = z.object({
   entityId: z.string().min(1, "Entity is required"),
@@ -115,6 +117,13 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   const [openUnits, setOpenUnits] = useState(false);
   const [openEquipmentModal, setOpenEquipmentModal] = useState(false);
   
+  // Pending equipment state (for equipment added before property is saved)
+  const [pendingEquipment, setPendingEquipment] = useState<Partial<Equipment>[]>([]);
+  
+  // Draft recovery state
+  const [showDraftBanner, setShowDraftBanner] = useState(false);
+  const [savedDraft, setSavedDraft] = useState<any>(null);
+  
   // Fetch equipment linked to this property (if editing)
   const propertyId = (initialData as any)?.id;
   const { data: linkedEquipment = [] } = useQuery<Equipment[]>({
@@ -199,6 +208,94 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
     }
   }, [initialData, form]);
 
+  // Draft key for localStorage
+  const DRAFT_KEY = 'property-form-draft';
+  
+  // Load draft on mount
+  useEffect(() => {
+    // Don't load draft if we're editing an existing property
+    if ((initialData as any)?.id) return;
+    
+    try {
+      const draft = localStorage.getItem(DRAFT_KEY);
+      if (draft) {
+        const parsedDraft = JSON.parse(draft);
+        setSavedDraft(parsedDraft);
+        setShowDraftBanner(true);
+      }
+    } catch (error) {
+      console.error('Failed to load draft:', error);
+    }
+  }, [(initialData as any)?.id]);
+  
+  // Auto-save draft with debouncing
+  const formValues = form.watch(); // Watch all form values
+  useEffect(() => {
+    // Don't auto-save if editing existing property
+    if ((initialData as any)?.id) return;
+    if (!form.formState.isDirty) return;
+    
+    const timeoutId = setTimeout(() => {
+      try {
+        const formData = form.getValues();
+        const draft = {
+          formData,
+          pendingEquipment,
+          timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch (error) {
+        console.error('Failed to save draft:', error);
+      }
+    }, 3000); // Save after 3 seconds of inactivity
+    
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formValues, pendingEquipment]);
+  
+  // Restore draft handler
+  const handleRestoreDraft = () => {
+    if (!savedDraft) return;
+    
+    try {
+      // Restore form data
+      form.reset(savedDraft.formData);
+      
+      // Restore pending equipment
+      if (savedDraft.pendingEquipment) {
+        setPendingEquipment(savedDraft.pendingEquipment);
+      }
+      
+      setShowDraftBanner(false);
+      toast({
+        title: "Draft Restored",
+        description: "Your previous work has been restored.",
+      });
+    } catch (error) {
+      console.error('Failed to restore draft:', error);
+      toast({
+        title: "Error",
+        description: "Failed to restore draft. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Discard draft handler
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      setSavedDraft(null);
+      setShowDraftBanner(false);
+      toast({
+        title: "Draft Discarded",
+        description: "The saved draft has been removed.",
+      });
+    } catch (error) {
+      console.error('Failed to discard draft:', error);
+    }
+  };
+
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -242,18 +339,25 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   };
 
   const handleAddEquipment = () => {
-    if (!propertyId) {
-      toast({
-        title: "Save Property First",
-        description: "Please save the property before adding equipment. Equipment needs to be linked to a saved property.",
-        variant: "default",
-      });
-      return;
-    }
+    // Always allow adding equipment - it will be stored in pending state if no propertyId
     setOpenEquipmentModal(true);
   };
+  
+  // Handler for adding equipment from modal (before property is saved)
+  const handleAddPendingEquipment = (equipment: Partial<Equipment>) => {
+    setPendingEquipment(prev => [...prev, equipment]);
+    toast({
+      title: "Equipment Added",
+      description: "Equipment will be saved when you save the property.",
+    });
+  };
+  
+  // Handler for removing pending equipment
+  const handleRemovePendingEquipment = (index: number) => {
+    setPendingEquipment(prev => prev.filter((_, i) => i !== index));
+  };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = async (data: any) => {
     // Convert numeric values to strings for decimal database fields
     const processedData = {
       ...data,
@@ -264,7 +368,16 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
       purchasePrice: data.purchasePrice !== undefined ? String(data.purchasePrice) : undefined,
       downPayment: data.downPayment !== undefined ? String(data.downPayment) : undefined,
       salePrice: data.salePrice !== undefined ? String(data.salePrice) : undefined,
+      pendingEquipment, // Pass pending equipment to parent component
     };
+    
+    // Clear draft from localStorage after successful submission
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch (error) {
+      console.error('Failed to clear draft:', error);
+    }
+    
     onSubmit(processedData);
   };
 
@@ -284,6 +397,79 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
             Set up your property with basic details. Optional sections help with predictive maintenance and financial tracking.
           </p>
         </div>
+
+        {/* Draft Recovery Banner */}
+        {showDraftBanner && savedDraft && (
+          <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="flex items-center justify-between">
+              <div className="flex-1 pr-4">
+                <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Unsaved Draft Found
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                  You have an unsaved property draft from {new Date(savedDraft.timestamp).toLocaleString()}. 
+                  {savedDraft.pendingEquipment?.length > 0 && ` Includes ${savedDraft.pendingEquipment.length} equipment item(s).`}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRestoreDraft}
+                  className="border-blue-300 dark:border-blue-700"
+                  data-testid="button-restore-draft"
+                >
+                  Restore
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDiscardDraft}
+                  data-testid="button-discard-draft"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Pending Equipment Display */}
+        {pendingEquipment.length > 0 && (
+          <Alert className="border-green-500 bg-green-50 dark:bg-green-950/20">
+            <Info className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <AlertDescription>
+              <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                {pendingEquipment.length} Equipment Item(s) Ready to Save
+              </p>
+              <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                These equipment items will be saved automatically when you save the property.
+              </p>
+              <div className="mt-2 space-y-1">
+                {pendingEquipment.map((eq, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs">
+                    <span className="text-green-800 dark:text-green-200">
+                      {eq.equipmentType} {eq.manufacturer && `- ${eq.manufacturer}`} {eq.model && `${eq.model}`}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemovePendingEquipment(index)}
+                      className="h-6 px-2"
+                      data-testid={`button-remove-pending-equipment-${index}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Required Fields Section */}
         <div className="space-y-4 pb-4 border-b">
@@ -2235,6 +2421,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
       open={openEquipmentModal}
       onOpenChange={setOpenEquipmentModal}
       property={propertyId ? { id: propertyId, name: form.watch("name") } as Property : undefined}
+      onAddPendingEquipment={!propertyId ? handleAddPendingEquipment : undefined}
     />
     </>
   );

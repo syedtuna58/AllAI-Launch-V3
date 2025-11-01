@@ -73,23 +73,64 @@ export default function Properties() {
 
   const createPropertyMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/properties", data);
-      return response.json();
+      // Separate pending equipment from property data
+      const { pendingEquipment, ...propertyData } = data;
+      
+      // Create the property first
+      const response = await apiRequest("POST", "/api/properties", propertyData);
+      const newProperty = await response.json();
+      
+      // If there's pending equipment, save it now that we have a propertyId
+      if (pendingEquipment && pendingEquipment.length > 0 && newProperty.id) {
+        const failedItems: string[] = [];
+        for (const equipment of pendingEquipment) {
+          try {
+            await apiRequest('POST', `/api/properties/${newProperty.id}/equipment`, equipment);
+          } catch (error) {
+            console.error('Failed to save equipment:', error);
+            failedItems.push(equipment.name || 'Unknown item');
+            // Continue with other equipment items even if one fails
+          }
+        }
+        
+        // Store failed items for notification in onSuccess
+        if (failedItems.length > 0) {
+          newProperty._failedEquipment = failedItems;
+        }
+      }
+      
+      return newProperty;
     },
     onSuccess: (response) => {
       // Invalidate both properties and units queries since we might have created a unit too
       queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
       queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      
+      // Also invalidate equipment query if we saved equipment
+      if (response.id) {
+        queryClient.invalidateQueries({ queryKey: ['/api/properties', response.id, 'equipment'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
+      }
+      
       setShowPropertyForm(false);
       
-      const message = response.unit 
-        ? "Property and default unit created successfully" 
-        : "Property created successfully";
-      
-      toast({
-        title: "Success",
-        description: message,
-      });
+      // Check if there were any failed equipment saves
+      if (response._failedEquipment && response._failedEquipment.length > 0) {
+        toast({
+          title: "Property created with warnings",
+          description: `Property saved successfully, but ${response._failedEquipment.length} equipment item(s) failed to save: ${response._failedEquipment.join(', ')}. Please try adding them again.`,
+          variant: "destructive",
+        });
+      } else {
+        const message = response.unit 
+          ? "Property and default unit created successfully" 
+          : "Property created successfully";
+        
+        toast({
+          title: "Success",
+          description: message,
+        });
+      }
     },
     onError: (error) => {
       if (isUnauthorizedError(error as Error)) {
