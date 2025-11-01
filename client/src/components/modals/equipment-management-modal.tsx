@@ -561,26 +561,34 @@ export default function EquipmentManagementModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Property Selector */}
-        <div className="space-y-2">
-          <Label htmlFor="property-select">Property</Label>
-          <Select 
-            value={selectedPropertyId} 
-            onValueChange={setSelectedPropertyId}
-            disabled={saveMutation.isPending}
-          >
-            <SelectTrigger id="property-select" data-testid="select-property">
-              <SelectValue placeholder="Select a property" />
-            </SelectTrigger>
-            <SelectContent>
-              {properties.map(prop => (
-                <SelectItem key={prop.id} value={prop.id} data-testid={`property-option-${prop.id}`}>
-                  {prop.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Property Selector - only show when not in pending mode */}
+        {!onAddPendingEquipment ? (
+          <div className="space-y-2">
+            <Label htmlFor="property-select">Property</Label>
+            <Select 
+              value={selectedPropertyId} 
+              onValueChange={setSelectedPropertyId}
+              disabled={saveMutation.isPending}
+            >
+              <SelectTrigger id="property-select" data-testid="select-property">
+                <SelectValue placeholder="Select a property" />
+              </SelectTrigger>
+              <SelectContent>
+                {properties.map(prop => (
+                  <SelectItem key={prop.id} value={prop.id} data-testid={`property-option-${prop.id}`}>
+                    {prop.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <p className="text-sm text-blue-900 dark:text-blue-100">
+              Equipment will be saved automatically when you create the property
+            </p>
+          </div>
+        )}
 
         {/* AI Image Recognition */}
         <div className="space-y-2">
@@ -591,14 +599,14 @@ export default function EquipmentManagementModal({
             onChange={handleImageUpload}
             className="hidden"
             id="equipment-image-upload"
-            disabled={isAnalyzingImage || !selectedPropertyId}
+            disabled={isAnalyzingImage || (!selectedPropertyId && !onAddPendingEquipment)}
           />
           <Button
             type="button"
             variant="outline"
             className="w-full"
             onClick={() => document.getElementById('equipment-image-upload')?.click()}
-            disabled={isAnalyzingImage || !selectedPropertyId}
+            disabled={isAnalyzingImage || (!selectedPropertyId && !onAddPendingEquipment)}
             data-testid="button-upload-equipment-image"
           >
             {isAnalyzingImage ? (
