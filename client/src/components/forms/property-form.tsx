@@ -1,7 +1,7 @@
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -344,13 +344,13 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   };
   
   // Handler for adding equipment from modal (before property is saved)
-  const handleAddPendingEquipment = (equipment: Partial<Equipment>) => {
+  const handleAddPendingEquipment = useCallback((equipment: Partial<Equipment>) => {
     setPendingEquipment(prev => [...prev, equipment]);
     toast({
       title: "Equipment Added",
       description: "Equipment will be saved when you save the property.",
     });
-  };
+  }, [toast]);
   
   // Handler for removing pending equipment
   const handleRemovePendingEquipment = (index: number) => {
