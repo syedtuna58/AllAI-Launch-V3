@@ -1116,26 +1116,11 @@ export default function ContractorSchedulePage() {
                         {/* Time labels column */}
                         <div className="pr-2 border-r border-border dark:border-gray-700">
                           <div className="h-[60px]"></div> {/* Spacer for header */}
-                          {(() => {
-                            const labels = [];
-                            for (let hour = 6; hour <= 20; hour++) {
-                              const period = hour >= 12 ? 'PM' : 'AM';
-                              const hour12 = hour % 12 || 12;
-                              labels.push(
-                                <div key={`${hour}-0`} className="h-[20px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2 leading-5">
-                                  {`${hour12} ${period}`}
-                                </div>
-                              );
-                              if (hour < 20) {
-                                labels.push(
-                                  <div key={`${hour}-30`} className="h-[20px] text-xs text-muted-foreground/50 dark:text-gray-500 text-right pr-2 leading-5">
-                                    :30
-                                  </div>
-                                );
-                              }
-                            }
-                            return labels;
-                          })()}
+                          {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
+                            <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
+                              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                            </div>
+                          ))}
                         </div>
                         
                         {/* Day columns */}
@@ -1367,35 +1352,6 @@ function JobCard({
   );
 }
 
-function TimeSlot({ dayIndex, hour, minute, date, isOver }: {
-  dayIndex: number;
-  hour: number;
-  minute: number;
-  date: Date;
-  isOver: boolean;
-}) {
-  const period = hour >= 12 ? 'PM' : 'AM';
-  const hour12 = hour % 12 || 12;
-  const timeFormatted = minute === 0 ? `${hour12} ${period}` : `${hour12}:${minute} ${period}`;
-  
-  return (
-    <TooltipProvider>
-      <Tooltip open={isOver} delayDuration={0}>
-        <TooltipTrigger asChild>
-          <div
-            className={cn(
-              "h-[20px] border-b border-border/30 dark:border-gray-700/30 transition-colors relative",
-              isOver && "bg-primary/20 dark:bg-blue-500/20 border-primary dark:border-blue-500"
-            )}
-          />
-        </TooltipTrigger>
-        <TooltipContent side="right" className="text-sm font-medium">
-          {format(date, 'EEE MMM d')} at {timeFormatted}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
 
 function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, onClick }: {
   dayIndex: number;
@@ -1413,14 +1369,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   activeId: string | null;
   onClick?: (job: ScheduledJob) => void;
 }) {
-  // Generate 30-minute time slots from 6 AM to 8 PM
-  const timeSlots = [];
-  for (let hour = 6; hour <= 20; hour++) {
-    timeSlots.push({ hour, minute: 0 });
-    if (hour < 20) {
-      timeSlots.push({ hour, minute: 30 });
-    }
-  }
+  // Generate hours from 6 AM to 8 PM (for visual hourly grid)
+  const hours = Array.from({ length: 15 }, (_, i) => i + 6);
 
   return (
     <div
@@ -1447,24 +1397,57 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
         </p>
       </div>
       
-      {/* Time slots with drop zones */}
+      {/* Hourly slots with 30-minute drop zones */}
       <div className="relative">
-        {timeSlots.map(({ hour, minute }) => {
-          const slotId = `day-${dayIndex}-time-${hour}-${minute}`;
-          const { setNodeRef, isOver } = useDroppable({ id: slotId });
+        {hours.map(hour => {
+          const slot00Id = `day-${dayIndex}-time-${hour}-0`;
+          const slot30Id = `day-${dayIndex}-time-${hour}-30`;
+          const { setNodeRef: setRef00, isOver: isOver00 } = useDroppable({ id: slot00Id });
+          const { setNodeRef: setRef30, isOver: isOver30 } = useDroppable({ id: slot30Id });
+          
+          const period = hour >= 12 ? 'PM' : 'AM';
+          const hour12 = hour % 12 || 12;
           
           return (
             <div
-              key={`${hour}-${minute}`}
-              ref={setNodeRef}
+              key={hour}
+              className="h-[40px] border-b border-border/30 dark:border-gray-700/30 relative"
             >
-              <TimeSlot
-                dayIndex={dayIndex}
-                hour={hour}
-                minute={minute}
-                date={date}
-                isOver={isOver}
-              />
+              {/* First half-hour drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver00} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef00}
+                      className={cn(
+                        "absolute top-0 left-0 right-0 h-[20px] transition-colors",
+                        isOver00 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12} ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* Second half-hour drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver30} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef30}
+                      className={cn(
+                        "absolute bottom-0 left-0 right-0 h-[20px] transition-colors",
+                        isOver30 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12}:30 ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           );
         })}
@@ -1481,24 +1464,24 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
               }
               
               // Calculate vertical position based on job time
-              // Each 30-minute slot is 20px, starting from 6 AM
+              // Each hour is 40px, starting from 6 AM, with 30-minute precision
               let topPosition = 0;
-              let heightPx = 40; // default height (2 slots = 1 hour)
+              let heightPx = 40; // default height (1 hour)
               
               if (job.scheduledStartAt && !job.isAllDay) {
                 const startTime = parseISO(job.scheduledStartAt);
                 const hours = startTime.getHours();
                 const minutes = startTime.getMinutes();
-                // Position = (hours from 6am * 2 slots per hour * 20px) + (minutes / 30 * 20px)
-                topPosition = ((hours - 6) * 2 * 20) + (Math.floor(minutes / 30) * 20);
+                // Position = (hours from 6am * 40px) + (minutes * 40px / 60 min)
+                topPosition = ((hours - 6) * 40) + (minutes * 40 / 60);
                 
                 // Calculate height based on duration
                 if (job.scheduledEndAt) {
                   const endTime = parseISO(job.scheduledEndAt);
                   const durationMs = endTime.getTime() - startTime.getTime();
                   const durationMinutes = durationMs / (1000 * 60);
-                  // Height = duration in 30-min slots * 20px per slot
-                  heightPx = Math.max(20, Math.ceil(durationMinutes / 30) * 20);
+                  // Height = duration in minutes * 40px per hour / 60 minutes
+                  heightPx = Math.max(20, (durationMinutes * 40) / 60);
                 }
               }
               
