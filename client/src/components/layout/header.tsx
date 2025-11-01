@@ -110,7 +110,11 @@ export default function Header({ title }: HeaderProps) {
     },
   });
 
-  const pinnedShortcutItems = AVAILABLE_SHORTCUTS.filter(s => pinnedShortcuts.includes(s.id));
+  const pinnedShortcutItems = AVAILABLE_SHORTCUTS.filter(s => 
+    pinnedShortcuts.includes(s.id) && 
+    s.id !== 'predictive-insights' && 
+    s.id !== 'due-soon'
+  );
 
   return (
     <>

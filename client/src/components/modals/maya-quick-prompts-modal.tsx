@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Bot, Lightbulb, Send } from "lucide-react";
@@ -42,6 +42,7 @@ export default function MayaQuickPromptsModal({ open, onOpenChange }: MayaQuickP
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl p-0 gap-0" data-testid="modal-maya-prompts">
+        <DialogTitle className="sr-only">Ask Maya</DialogTitle>
         <div className="bg-muted/30 dark:bg-muted/20 rounded-t-lg p-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
