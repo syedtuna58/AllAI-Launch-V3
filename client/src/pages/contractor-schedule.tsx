@@ -1221,7 +1221,8 @@ function JobCard({
 
   const isMultiDay = spanDays > 1 || extendsBeyondWeek;
   
-  const style = transform ? {
+  // Don't apply transform when dragging - DragOverlay handles the visual
+  const style = (transform && !isDragging) ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
   
@@ -1255,7 +1256,7 @@ function JobCard({
       ref={setNodeRef}
       style={wrapperStyle}
       className={cn(
-        "rounded-lg transition-all overflow-hidden group h-full",
+        "transition-all overflow-hidden group h-full",
         isDragging && "opacity-50",
         isMultiDay ? "mb-1.5" : "mb-0"
       )}
