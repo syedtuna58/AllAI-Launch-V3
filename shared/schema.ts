@@ -1107,7 +1107,7 @@ export const proposalSlots = pgTable("proposal_slots", {
 
 // Contractor Teams/Crews
 export const teamSpecialtyEnum = pgEnum("team_specialty", ["Handyman", "HVAC", "Plumbing", "Electrical", "Roofing", "Landscaping", "Painting", "Carpentry", "General", "Other"]);
-export const jobUrgencyEnum = pgEnum("job_urgency", ["Low", "Medium", "High", "Urgent"]);
+export const jobUrgencyEnum = pgEnum("job_urgency", ["Low", "High", "Emergent"]);
 export const jobStatusEnum = pgEnum("job_status", ["Unscheduled", "Scheduled", "Needs Review", "Confirmed", "In Progress", "Completed", "Cancelled"]);
 
 export const teams = pgTable("teams", {
@@ -1144,7 +1144,7 @@ export const scheduledJobs = pgTable("scheduled_jobs", {
   
   // Status and priority
   status: jobStatusEnum("status").default("Unscheduled"),
-  urgency: jobUrgencyEnum("urgency").default("Medium"),
+  urgency: jobUrgencyEnum("urgency").default("Low"),
   
   // Tenant confirmation workflow
   requiresTenantConfirmation: boolean("requires_tenant_confirmation").default(false),
