@@ -266,6 +266,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
 
   const handleSubmit = async (data: any) => {
     console.log('📝 Form handleSubmit called with data:', data);
+    console.log('📝 Form errors:', form.formState.errors);
     console.log('📝 Pending equipment:', pendingEquipment);
     // Convert numeric values to strings for decimal database fields
     const processedData = {
@@ -286,7 +287,20 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   return (
     <>
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form 
+        onSubmit={form.handleSubmit(
+          handleSubmit,
+          (errors) => {
+            console.log('❌ Form validation errors:', errors);
+            toast({
+              title: "Validation Error",
+              description: "Please check the form for errors and try again.",
+              variant: "destructive",
+            });
+          }
+        )} 
+        className="space-y-6"
+      >
         {/* Header */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
