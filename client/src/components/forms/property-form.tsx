@@ -110,6 +110,9 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   const [newEntityName, setNewEntityName] = useState("");
   const [newEntityType, setNewEntityType] = useState<"Individual" | "LLC" | "Partnership" | "Corporation">("Individual");
   
+  // State for entity explainer banner
+  const [showEntityBanner, setShowEntityBanner] = useState(false);
+  
   const [openBasicDetails, setOpenBasicDetails] = useState(false);
   const [openEquipment, setOpenEquipment] = useState(false);
   const [openFinancial, setOpenFinancial] = useState(false);
@@ -212,6 +215,30 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
     }
   }, [initialData, form]);
 
+  // Auto-select entity when there's only one available (for new users)
+  React.useEffect(() => {
+    // Only run this for new properties (no initialData) when there's exactly one entity
+    if (!initialData && entities.length === 1) {
+      const currentOwnerships = form.getValues("ownerships");
+      // If the first ownership has no entity selected, auto-select the only available entity
+      if (currentOwnerships && currentOwnerships[0] && !currentOwnerships[0].entityId) {
+        form.setValue("ownerships.0.entityId", entities[0].id);
+      }
+    }
+  }, [entities, initialData, form]);
+
+  // Show entity banner for new users with exactly one entity (auto-created default)
+  React.useEffect(() => {
+    if (!initialData && entities.length === 1) {
+      const dismissed = localStorage.getItem("entityBannerDismissed");
+      if (dismissed !== "true") {
+        setShowEntityBanner(true);
+      }
+    } else {
+      setShowEntityBanner(false);
+    }
+  }, [entities, initialData]);
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "ownerships",
@@ -270,6 +297,11 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   // Handler for removing pending equipment
   const handleRemovePendingEquipment = (index: number) => {
     setPendingEquipment(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  const handleDismissEntityBanner = () => {
+    localStorage.setItem("entityBannerDismissed", "true");
+    setShowEntityBanner(false);
   };
 
   const handleSubmit = async (data: any) => {
@@ -349,6 +381,35 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
             Set up your property with basic details. Optional sections help with predictive maintenance and financial tracking.
           </p>
         </div>
+
+        {/* Entity Explainer Banner for New Users */}
+        {showEntityBanner && (
+          <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20" data-testid="alert-entity-banner">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Welcome! We created a default ownership entity for you
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    An ownership entity is who owns your properties (like yourself, an LLC, or a partnership). You can rename it or create more entities (like LLCs or partnerships) anytime in the Entities page.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDismissEntityBanner}
+                  className="h-6 px-2 shrink-0"
+                  data-testid="button-dismiss-entity-banner"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Pending Equipment Display */}
         {pendingEquipment.length > 0 && (

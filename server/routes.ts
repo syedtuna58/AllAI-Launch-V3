@@ -397,7 +397,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const org = await storage.getUserOrganization(userId);
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
-      const entities = await storage.getOwnershipEntities(org.id);
+      let entities = await storage.getOwnershipEntities(org.id);
+      
+      // Auto-create default entity for new users with zero entities
+      if (entities.length === 0) {
+        console.log("🏢 Creating default entity for new user");
+        const user = await storage.getUser(userId);
+        const defaultEntityName = user?.firstName 
+          ? `${user.firstName} - Personal` 
+          : "Personal Portfolio";
+        
+        const defaultEntity = await storage.createOwnershipEntity({
+          orgId: org.id,
+          name: defaultEntityName,
+          type: "Individual",
+          status: "Active",
+        });
+        
+        entities = [defaultEntity];
+        console.log("✅ Default entity created:", defaultEntityName);
+      }
+      
       res.json(entities);
     } catch (error) {
       console.error("Error fetching entities:", error);
