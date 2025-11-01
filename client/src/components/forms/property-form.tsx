@@ -113,7 +113,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   const [openEquipment, setOpenEquipment] = useState(false);
   const [openFinancial, setOpenFinancial] = useState(false);
   const [openHOA, setOpenHOA] = useState(false);
-  const [openOwnership, setOpenOwnership] = useState(false);
+  const [openOwnership, setOpenOwnership] = useState(!initialData); // Open by default when creating new property
   const [openUnits, setOpenUnits] = useState(false);
   const [openEquipmentModal, setOpenEquipmentModal] = useState(false);
   
