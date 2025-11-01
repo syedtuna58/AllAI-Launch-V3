@@ -113,7 +113,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   const [openEquipment, setOpenEquipment] = useState(false);
   const [openFinancial, setOpenFinancial] = useState(false);
   const [openHOA, setOpenHOA] = useState(false);
-  const [openOwnership, setOpenOwnership] = useState(!initialData); // Open by default when creating new property
+  const [openOwnership, setOpenOwnership] = useState(false);
   const [openUnits, setOpenUnits] = useState(false);
   const [openEquipmentModal, setOpenEquipmentModal] = useState(false);
   
@@ -292,9 +292,27 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
           handleSubmit,
           (errors) => {
             console.log('❌ Form validation errors:', errors);
+            
+            // Build a detailed error message
+            const errorMessages: string[] = [];
+            
+            if (errors.name) errorMessages.push("Property name is required");
+            if (errors.street) errorMessages.push("Street address is required");
+            if (errors.city) errorMessages.push("City is required");
+            if (errors.state) errorMessages.push("State is required");
+            if (errors.zipCode) errorMessages.push("Zip code is required");
+            if (errors.ownerships) {
+              errorMessages.push("At least one owner must be selected (see Ownership Structure section)");
+              setOpenOwnership(true); // Auto-open the ownership section
+            }
+            
+            const message = errorMessages.length > 0 
+              ? errorMessages.join(". ") + "."
+              : "Please check the form for errors and try again.";
+            
             toast({
-              title: "Validation Error",
-              description: "Please check the form for errors and try again.",
+              title: "Form Validation Failed",
+              description: message,
               variant: "destructive",
             });
           }
