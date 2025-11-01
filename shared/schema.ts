@@ -1102,6 +1102,63 @@ export const proposalSlots = pgTable("proposal_slots", {
 });
 
 // ============================================================================
+// CONTRACTOR SCHEDULING & TEAMS SYSTEM
+// ============================================================================
+
+// Contractor Teams/Crews
+export const teamSpecialtyEnum = pgEnum("team_specialty", ["Handyman", "HVAC", "Plumbing", "Electrical", "Roofing", "Landscaping", "Painting", "Carpentry", "General", "Other"]);
+export const jobUrgencyEnum = pgEnum("job_urgency", ["Low", "Medium", "High", "Urgent"]);
+export const jobStatusEnum = pgEnum("job_status", ["Unscheduled", "Scheduled", "Needs Review", "Confirmed", "In Progress", "Completed", "Cancelled"]);
+
+export const teams = pgTable("teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  name: varchar("name").notNull(), // e.g., "HVAC Team A", "Plumbing Crew"
+  specialty: teamSpecialtyEnum("specialty").notNull(),
+  color: varchar("color").notNull().default("#3B82F6"), // Hex color for calendar display
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Scheduled Jobs for Contractor Calendar
+export const scheduledJobs = pgTable("scheduled_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  
+  // Scheduling details
+  scheduledStartAt: timestamp("scheduled_start_at", { withTimezone: true }),
+  scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
+  isAllDay: boolean("is_all_day").default(false),
+  
+  // Assignment
+  teamId: varchar("team_id").references(() => teams.id),
+  contractorId: varchar("contractor_id").references(() => vendors.id),
+  
+  // Links to existing entities
+  caseId: varchar("case_id").references(() => smartCases.id), // Link to smart case if applicable
+  propertyId: varchar("property_id").references(() => properties.id),
+  unitId: varchar("unit_id").references(() => units.id),
+  
+  // Status and priority
+  status: jobStatusEnum("status").default("Unscheduled"),
+  urgency: jobUrgencyEnum("urgency").default("Medium"),
+  
+  // Tenant confirmation workflow
+  requiresTenantConfirmation: boolean("requires_tenant_confirmation").default(false),
+  tenantConfirmed: boolean("tenant_confirmed").default(false),
+  tenantConfirmedAt: timestamp("tenant_confirmed_at", { withTimezone: true }),
+  
+  // Notes
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ============================================================================
 // OMNICHANNEL COMMUNICATION SYSTEM
 // ============================================================================
 
@@ -1347,6 +1404,42 @@ export const threadParticipantsRelations = relations(threadParticipants, ({ one 
   }),
 }));
 
+// Teams and Scheduled Jobs Relations
+export const teamsRelations = relations(teams, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [teams.orgId],
+    references: [organizations.id],
+  }),
+  scheduledJobs: many(scheduledJobs),
+}));
+
+export const scheduledJobsRelations = relations(scheduledJobs, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [scheduledJobs.orgId],
+    references: [organizations.id],
+  }),
+  team: one(teams, {
+    fields: [scheduledJobs.teamId],
+    references: [teams.id],
+  }),
+  contractor: one(vendors, {
+    fields: [scheduledJobs.contractorId],
+    references: [vendors.id],
+  }),
+  case: one(smartCases, {
+    fields: [scheduledJobs.caseId],
+    references: [smartCases.id],
+  }),
+  property: one(properties, {
+    fields: [scheduledJobs.propertyId],
+    references: [properties.id],
+  }),
+  unit: one(units, {
+    fields: [scheduledJobs.unitId],
+    references: [units.id],
+  }),
+}));
+
 // Insert schemas for new tables
 export const insertUserCategorySchema = createInsertSchema(userCategories).omit({ id: true, createdAt: true });
 export const insertUserCategoryMemberSchema = createInsertSchema(userCategoryMembers).omit({ id: true, createdAt: true });
@@ -1356,6 +1449,14 @@ export const insertThreadParticipantSchema = createInsertSchema(threadParticipan
 export const insertApprovalPolicySchema = createInsertSchema(approvalPolicies).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertAppointmentProposalSchema = createInsertSchema(appointmentProposals).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertProposalSlotSchema = createInsertSchema(proposalSlots).omit({ id: true, createdAt: true });
+
+// Teams and Scheduled Jobs insert schemas
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, createdAt: true });
+export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  scheduledStartAt: z.union([z.date(), z.string().transform((str) => new Date(str))]).optional(),
+  scheduledEndAt: z.union([z.date(), z.string().transform((str) => new Date(str))]).optional(),
+  tenantConfirmedAt: z.union([z.date(), z.string().transform((str) => new Date(str))]).optional(),
+});
 
 // Types for new tables
 export type UserCategory = typeof userCategories.$inferSelect;
@@ -1374,6 +1475,12 @@ export type AppointmentProposal = typeof appointmentProposals.$inferSelect;
 export type InsertAppointmentProposal = z.infer<typeof insertAppointmentProposalSchema>;
 export type ProposalSlot = typeof proposalSlots.$inferSelect;
 export type InsertProposalSlot = z.infer<typeof insertProposalSlotSchema>;
+
+// Teams and Scheduled Jobs types
+export type Team = typeof teams.$inferSelect;
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type ScheduledJob = typeof scheduledJobs.$inferSelect;
+export type InsertScheduledJob = z.infer<typeof insertScheduledJobSchema>;
 
 // Omnichannel insert schemas
 export const insertChannelMessageSchema = createInsertSchema(channelMessages).omit({ id: true, createdAt: true });
