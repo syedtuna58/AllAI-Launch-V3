@@ -28,6 +28,8 @@ import {
   insertMessageThreadSchema,
   insertChatMessageSchema,
   insertEquipmentSchema,
+  insertTeamSchema,
+  insertScheduledJobSchema,
 } from "@shared/schema";
 import { EQUIPMENT_CATALOG, calculateReplacementYear, getEquipmentDefinition } from "./equipment-catalog";
 import { PredictiveAnalyticsEngine } from "./predictiveAnalyticsEngine";
@@ -6683,6 +6685,159 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     } catch (error) {
       console.error("Error deleting equipment:", error);
       res.status(500).json({ message: "Failed to delete equipment" });
+    }
+  });
+
+  // ===========================
+  // TEAM ROUTES
+  // ===========================
+
+  // Get all teams for an organization
+  app.get('/api/teams', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const teams = await storage.getTeams(org.id);
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+      res.status(500).json({ message: "Failed to fetch teams" });
+    }
+  });
+
+  // Get single team
+  app.get('/api/teams/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const team = await storage.getTeam(req.params.id);
+      if (!team) return res.status(404).json({ message: "Team not found" });
+      res.json(team);
+    } catch (error) {
+      console.error("Error fetching team:", error);
+      res.status(500).json({ message: "Failed to fetch team" });
+    }
+  });
+
+  // Create team
+  app.post('/api/teams', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const validatedData = insertTeamSchema.parse({
+        ...req.body,
+        orgId: org.id,
+      });
+
+      const team = await storage.createTeam(validatedData);
+      res.json(team);
+    } catch (error) {
+      console.error("Error creating team:", error);
+      res.status(500).json({ message: "Failed to create team" });
+    }
+  });
+
+  // Update team
+  app.put('/api/teams/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const validatedData = insertTeamSchema.partial().parse(req.body);
+      const team = await storage.updateTeam(req.params.id, validatedData);
+      res.json(team);
+    } catch (error) {
+      console.error("Error updating team:", error);
+      res.status(500).json({ message: "Failed to update team" });
+    }
+  });
+
+  // Delete team
+  app.delete('/api/teams/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteTeam(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting team:", error);
+      res.status(500).json({ message: "Failed to delete team" });
+    }
+  });
+
+  // ===========================
+  // SCHEDULED JOB ROUTES
+  // ===========================
+
+  // Get all scheduled jobs for an organization
+  app.get('/api/scheduled-jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const filters = {
+        teamId: req.query.teamId as string | undefined,
+        status: req.query.status as string | undefined,
+      };
+
+      const jobs = await storage.getScheduledJobs(org.id, filters);
+      res.json(jobs);
+    } catch (error) {
+      console.error("Error fetching scheduled jobs:", error);
+      res.status(500).json({ message: "Failed to fetch scheduled jobs" });
+    }
+  });
+
+  // Get single scheduled job
+  app.get('/api/scheduled-jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const job = await storage.getScheduledJob(req.params.id);
+      if (!job) return res.status(404).json({ message: "Scheduled job not found" });
+      res.json(job);
+    } catch (error) {
+      console.error("Error fetching scheduled job:", error);
+      res.status(500).json({ message: "Failed to fetch scheduled job" });
+    }
+  });
+
+  // Create scheduled job
+  app.post('/api/scheduled-jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      const validatedData = insertScheduledJobSchema.parse({
+        ...req.body,
+        orgId: org.id,
+      });
+
+      const job = await storage.createScheduledJob(validatedData);
+      res.json(job);
+    } catch (error) {
+      console.error("Error creating scheduled job:", error);
+      res.status(500).json({ message: "Failed to create scheduled job" });
+    }
+  });
+
+  // Update scheduled job
+  app.put('/api/scheduled-jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const validatedData = insertScheduledJobSchema.partial().parse(req.body);
+      const job = await storage.updateScheduledJob(req.params.id, validatedData);
+      res.json(job);
+    } catch (error) {
+      console.error("Error updating scheduled job:", error);
+      res.status(500).json({ message: "Failed to update scheduled job" });
+    }
+  });
+
+  // Delete scheduled job
+  app.delete('/api/scheduled-jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteScheduledJob(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting scheduled job:", error);
+      res.status(500).json({ message: "Failed to delete scheduled job" });
     }
   });
 

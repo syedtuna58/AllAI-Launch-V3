@@ -108,6 +108,12 @@ import {
   type InsertChannelSettings,
   type Equipment,
   type InsertEquipment,
+  teams,
+  scheduledJobs,
+  type Team,
+  type InsertTeam,
+  type ScheduledJob,
+  type InsertScheduledJob,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
@@ -335,6 +341,20 @@ export interface IStorage {
   updateEquipment(id: string, equipment: Partial<InsertEquipment>): Promise<Equipment>;
   deleteEquipment(id: string): Promise<void>;
   getOrgEquipment(orgId: string): Promise<Equipment[]>;
+
+  // Team operations
+  getTeams(orgId: string): Promise<Team[]>;
+  getTeam(id: string): Promise<Team | undefined>;
+  createTeam(team: InsertTeam): Promise<Team>;
+  updateTeam(id: string, team: Partial<InsertTeam>): Promise<Team>;
+  deleteTeam(id: string): Promise<void>;
+
+  // Scheduled Job operations
+  getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string }): Promise<ScheduledJob[]>;
+  getScheduledJob(id: string): Promise<ScheduledJob | undefined>;
+  createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob>;
+  updateScheduledJob(id: string, job: Partial<InsertScheduledJob>): Promise<ScheduledJob>;
+  deleteScheduledJob(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3272,6 +3292,71 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(equipment)
       .where(eq(equipment.orgId, orgId))
       .orderBy(asc(equipment.equipmentType));
+  }
+
+  // Team operations
+  async getTeams(orgId: string): Promise<Team[]> {
+    return db.select().from(teams)
+      .where(eq(teams.orgId, orgId))
+      .orderBy(asc(teams.name));
+  }
+
+  async getTeam(id: string): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team;
+  }
+
+  async createTeam(team: InsertTeam): Promise<Team> {
+    const [newTeam] = await db.insert(teams).values(team).returning();
+    return newTeam;
+  }
+
+  async updateTeam(id: string, teamData: Partial<InsertTeam>): Promise<Team> {
+    const [updated] = await db.update(teams)
+      .set(teamData)
+      .where(eq(teams.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteTeam(id: string): Promise<void> {
+    await db.delete(teams).where(eq(teams.id, id));
+  }
+
+  // Scheduled Job operations
+  async getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string }): Promise<ScheduledJob[]> {
+    let query = db.select().from(scheduledJobs).where(eq(scheduledJobs.orgId, orgId));
+    
+    if (filters?.teamId) {
+      query = query.where(eq(scheduledJobs.teamId, filters.teamId));
+    }
+    if (filters?.status) {
+      query = query.where(eq(scheduledJobs.status, filters.status as any));
+    }
+    
+    return query.orderBy(asc(scheduledJobs.scheduledStartAt));
+  }
+
+  async getScheduledJob(id: string): Promise<ScheduledJob | undefined> {
+    const [job] = await db.select().from(scheduledJobs).where(eq(scheduledJobs.id, id));
+    return job;
+  }
+
+  async createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob> {
+    const [newJob] = await db.insert(scheduledJobs).values(job).returning();
+    return newJob;
+  }
+
+  async updateScheduledJob(id: string, jobData: Partial<InsertScheduledJob>): Promise<ScheduledJob> {
+    const [updated] = await db.update(scheduledJobs)
+      .set({ ...jobData, updatedAt: new Date() })
+      .where(eq(scheduledJobs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteScheduledJob(id: string): Promise<void> {
+    await db.delete(scheduledJobs).where(eq(scheduledJobs.id, id));
   }
 }
 
