@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -71,12 +71,20 @@ export default function EquipmentManagementModal({
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>(property?.id || '');
   const [customEquipmentCounter, setCustomEquipmentCounter] = useState(0);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const hasInitializedPendingData = useRef(false);
 
   // Fetch all properties for the dropdown
   const { data: properties = [] } = useQuery<PropertyWithOwnerships[]>({
     queryKey: ['/api/properties'],
     enabled: open,
   });
+
+  // Reset pending data initialization flag when modal closes
+  useEffect(() => {
+    if (!open) {
+      hasInitializedPendingData.current = false;
+    }
+  }, [open]);
 
   // Update selected property when property prop changes
   useEffect(() => {
@@ -157,8 +165,14 @@ export default function EquipmentManagementModal({
 
   // Initialize form data when existing equipment loads or property changes
   useEffect(() => {
-    // In pending mode, always initialize with empty defaults from catalog
+    console.log('🔄 useEffect running - isPendingMode:', isPendingMode, 'catalog.length:', catalog.length);
+    // In pending mode, only initialize once (not on every render)
     if (isPendingMode && catalog.length > 0) {
+      if (hasInitializedPendingData.current) {
+        console.log('🔄 Already initialized pending mode, skipping');
+        return; // Skip if already initialized
+      }
+      console.log('🔄 Initializing pending mode equipment data');
       const initialData: Record<string, EquipmentFormData> = {};
       catalog.forEach(def => {
         initialData[def.type] = {
@@ -169,6 +183,7 @@ export default function EquipmentManagementModal({
         };
       });
       setEquipmentData(initialData);
+      hasInitializedPendingData.current = true;
       return; // Exit early in pending mode
     }
     
@@ -344,13 +359,19 @@ export default function EquipmentManagementModal({
   });
 
   const toggleEquipment = (type: string) => {
-    setEquipmentData(prev => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
-        selected: !prev[type]?.selected,
-      },
-    }));
+    console.log('🔧 toggleEquipment called for:', type);
+    setEquipmentData(prev => {
+      console.log('🔧 Previous equipmentData:', prev);
+      const newData = {
+        ...prev,
+        [type]: {
+          ...prev[type],
+          selected: !prev[type]?.selected,
+        },
+      };
+      console.log('🔧 New equipmentData:', newData);
+      return newData;
+    });
   };
 
   const updateInstallYear = (type: string, year: number) => {
