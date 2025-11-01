@@ -275,16 +275,52 @@ export default function ContractorSchedulePage() {
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       return apiRequest('PUT', `/api/scheduled-jobs/${id}`, data);
     },
+    onMutate: async ({ id, data }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/scheduled-jobs'] });
+      
+      // Snapshot the previous value
+      const previousJobs = queryClient.getQueryData<ScheduledJob[]>(['/api/scheduled-jobs']);
+      
+      // Optimistically update the cache
+      queryClient.setQueryData<ScheduledJob[]>(['/api/scheduled-jobs'], (old) => {
+        if (!old) return old;
+        return old.map(job => {
+          if (job.id !== id) return job;
+          
+          // Calculate durationDays if we're updating scheduled times
+          let updatedData = { ...data };
+          if (data.scheduledStartAt && data.scheduledEndAt) {
+            const start = parseISO(data.scheduledStartAt);
+            const end = parseISO(data.scheduledEndAt);
+            const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+            updatedData.durationDays = Math.max(1, daysDiff);
+          }
+          
+          return { ...job, ...updatedData };
+        });
+      });
+      
+      // Return context with previous value
+      return { previousJobs };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
       toast({ title: "Job updated successfully" });
     },
-    onError: (error: any) => {
+    onError: (error: any, variables, context) => {
+      // Rollback on error
+      if (context?.previousJobs) {
+        queryClient.setQueryData(['/api/scheduled-jobs'], context.previousJobs);
+      }
       toast({
         title: "Failed to update job",
         description: error.message,
         variant: "destructive"
       });
+    },
+    onSettled: () => {
+      // Always refetch after error or success to ensure sync
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
     },
   });
 
@@ -1117,6 +1153,7 @@ export default function ContractorSchedulePage() {
                               weekDays={weekDays}
                               calculateJobSpan={calculateJobSpan}
                               isToday={isToday}
+                              activeId={activeId}
                               onClick={(job) => {
                                 setSelectedJob(job);
                                 setShowJobDetailsDialog(true);
@@ -1233,9 +1270,8 @@ function JobCard({
       ref={setNodeRef}
       style={wrapperStyle}
       className={cn(
-        "rounded-md transition-all overflow-hidden group",
+        "rounded-lg transition-all overflow-hidden group h-full",
         isDragging && "opacity-50",
-        !job.tenantConfirmed && job.scheduledStartAt && "opacity-70 border-2 border-dashed border-white/50",
         isMultiDay ? "mb-1.5" : "mb-0"
       )}
       data-testid={`job-card-${job.id}`}
@@ -1245,12 +1281,11 @@ function JobCard({
         {...attributes} 
         onClick={onClick}
         className={cn(
-          "cursor-grab active:cursor-grabbing p-2 relative",
+          "cursor-grab active:cursor-grabbing p-2 relative h-full",
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
         )}
         style={{ 
           backgroundColor,
-          opacity: 0.85,
           backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}, ${backgroundColor}dd)` : undefined
         }}
       >
@@ -1362,7 +1397,7 @@ function TimeSlot({ dayIndex, hour, minute, date, isOver }: {
   );
 }
 
-function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, onClick }: {
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, onClick }: {
   dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
@@ -1375,6 +1410,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
     extendsBeyondWeek: boolean;
   };
   isToday: boolean;
+  activeId: string | null;
   onClick?: (job: ScheduledJob) => void;
 }) {
   // Generate 30-minute time slots from 6 AM to 8 PM
@@ -1474,7 +1510,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                     top: `${topPosition}px`,
                     left: 0,
                     right: 0,
-                    height: job.scheduledStartAt && !job.isAllDay ? `${heightPx}px` : 'auto'
+                    height: job.scheduledStartAt && !job.isAllDay ? `${heightPx}px` : 'auto',
+                    visibility: activeId === job.id ? 'hidden' : 'visible'
                   }}
                 >
                   <JobCard
@@ -1625,12 +1662,15 @@ function UnscheduledJobsPanel({
           ) : (
             jobs.map(job => {
               const team = teams.find(t => t.id === job.teamId);
+              // Hide the job if it's being dragged
+              if (activeId === job.id) {
+                return <div key={job.id} style={{ visibility: 'hidden', height: 0 }} />;
+              }
               return (
                 <JobCard
                   key={job.id}
                   job={job}
                   team={team}
-                  isDragging={activeId === job.id}
                   onClick={() => onJobClick(job)}
                 />
               );
