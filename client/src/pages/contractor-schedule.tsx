@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 type Team = {
@@ -61,7 +63,7 @@ type ScheduledJob = {
   scheduledEndAt: string | null;
   isAllDay: boolean;
   status: 'Unscheduled' | 'Scheduled' | 'Needs Review' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled';
-  urgency: 'Low' | 'Medium' | 'High' | 'Urgent';
+  urgency: 'Low' | 'High' | 'Emergent';
   tenantConfirmed: boolean;
   notes: string | null;
   orgId: string;
@@ -71,9 +73,8 @@ type ScheduledJob = {
 
 const URGENCY_COLORS = {
   Low: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  Medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
   High: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
-  Urgent: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+  Emergent: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 };
 
 const PRESET_COLORS = [
@@ -88,7 +89,7 @@ const PRESET_COLORS = [
 export default function ContractorSchedulePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date()));
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 })); // 1 = Monday
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -96,12 +97,13 @@ export default function ContractorSchedulePage() {
     title: '',
     description: '',
     teamId: '',
-    urgency: 'Medium' as const,
+    urgency: 'Low' as const,
     propertyId: null,
-    startTime: '09:00',
-    endTime: '17:00',
-    allDay: true,
+    startTime: '08:00',
+    duration: 120, // in minutes (default 2 hours)
+    allDay: false,
   });
+  const [hideWeekends, setHideWeekends] = useState(true);
   const [teamFormData, setTeamFormData] = useState({
     name: '',
     specialty: 'General' as const,
@@ -152,11 +154,11 @@ export default function ContractorSchedulePage() {
         title: '',
         description: '',
         teamId: '',
-        urgency: 'Medium',
+        urgency: 'Low',
         propertyId: null,
-        startTime: '09:00',
-        endTime: '17:00',
-        allDay: true,
+        startTime: '08:00',
+        duration: 120,
+        allDay: false,
       });
     },
     onError: (error: any) => {
@@ -185,7 +187,8 @@ export default function ContractorSchedulePage() {
     },
   });
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  const weekDays = hideWeekends ? allWeekDays.filter((_, i) => i < 5) : allWeekDays; // Filter out Sat/Sun if hideWeekends is true
 
   const unscheduledJobs = jobs.filter(job => !job.scheduledStartAt);
   const scheduledJobs = jobs.filter(job => job.scheduledStartAt);
@@ -258,7 +261,7 @@ export default function ContractorSchedulePage() {
           newEndDate = endOfDay(targetDate);
         } else {
           // Non-all-day job: parse stored time preferences or use defaults
-          let startHour = 9, startMin = 0, endHour = 17, endMin = 0;
+          let startHour = 8, startMin = 0, durationMinutes = 120;
           
           // Try to parse time preferences from notes field
           if (job.notes) {
@@ -266,11 +269,9 @@ export default function ContractorSchedulePage() {
               const parsed = JSON.parse(job.notes);
               if (parsed.timePreferences) {
                 const [sH, sM] = parsed.timePreferences.startTime.split(':').map(Number);
-                const [eH, eM] = parsed.timePreferences.endTime.split(':').map(Number);
                 startHour = sH;
                 startMin = sM;
-                endHour = eH;
-                endMin = eM;
+                durationMinutes = parsed.timePreferences.duration || 120;
               }
             } catch (e) {
               // If notes isn't JSON or doesn't have timePreferences, use defaults
@@ -279,8 +280,7 @@ export default function ContractorSchedulePage() {
           
           newStartDate = new Date(targetDate);
           newStartDate.setHours(startHour, startMin, 0, 0);
-          newEndDate = new Date(targetDate);
-          newEndDate.setHours(endHour, endMin, 0, 0);
+          newEndDate = new Date(newStartDate.getTime() + durationMinutes * 60 * 1000);
         }
       } else {
         // Existing job being rescheduled - preserve time components by shifting the day
@@ -313,17 +313,26 @@ export default function ContractorSchedulePage() {
   };
 
   const handleCreateJob = () => {
+    // Calculate end time from duration
+    const calculateEndTime = (start: string, durationMinutes: number): string => {
+      const [hours, minutes] = start.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes + durationMinutes;
+      const endHours = Math.floor(totalMinutes / 60) % 24;
+      const endMinutes = totalMinutes % 60;
+      return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
+    };
+    
     // Store time preferences in notes field as JSON for unscheduled jobs
     let notes = jobFormData.description || '';
     if (!jobFormData.allDay) {
       const timePrefs = {
         startTime: jobFormData.startTime,
-        endTime: jobFormData.endTime,
+        duration: jobFormData.duration,
       };
       notes = JSON.stringify({ timePreferences: timePrefs, description: jobFormData.description });
     }
     
-    createJobMutation.mutate({
+    const payload: any = {
       title: jobFormData.title,
       description: jobFormData.description,
       teamId: jobFormData.teamId,
@@ -333,10 +342,10 @@ export default function ContractorSchedulePage() {
       isAllDay: jobFormData.allDay,
       tenantConfirmed: false,
       notes: notes,
-      // Unscheduled jobs don't have start/end dates yet
-      scheduledStartAt: null,
-      scheduledEndAt: null,
-    });
+    };
+    
+    // Don't include scheduledStartAt/scheduledEndAt for unscheduled jobs (omit instead of null)
+    createJobMutation.mutate(payload);
   };
 
   const handleCreateTeam = () => {
@@ -528,9 +537,8 @@ export default function ContractorSchedulePage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="Low">Low</SelectItem>
-                          <SelectItem value="Medium">Medium</SelectItem>
                           <SelectItem value="High">High</SelectItem>
-                          <SelectItem value="Urgent">Urgent</SelectItem>
+                          <SelectItem value="Emergent">Emergent</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -547,7 +555,7 @@ export default function ContractorSchedulePage() {
                         <Label htmlFor="all-day" className="cursor-pointer">All Day</Label>
                       </div>
                       {!jobFormData.allDay && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <>
                           <div>
                             <Label htmlFor="start-time" className="text-sm">Start Time</Label>
                             <Input
@@ -559,16 +567,21 @@ export default function ContractorSchedulePage() {
                             />
                           </div>
                           <div>
-                            <Label htmlFor="end-time" className="text-sm">End Time</Label>
-                            <Input
-                              id="end-time"
-                              type="time"
-                              value={jobFormData.endTime}
-                              onChange={(e) => setJobFormData({ ...jobFormData, endTime: e.target.value })}
-                              data-testid="input-end-time"
+                            <Label htmlFor="duration" className="text-sm">
+                              Duration: {Math.floor(jobFormData.duration / 60)}h {jobFormData.duration % 60}m
+                            </Label>
+                            <Slider
+                              id="duration"
+                              min={30}
+                              max={480}
+                              step={30}
+                              value={[jobFormData.duration]}
+                              onValueChange={([value]) => setJobFormData({ ...jobFormData, duration: value })}
+                              className="mt-2"
+                              data-testid="slider-duration"
                             />
                           </div>
-                        </div>
+                        </>
                       )}
                     </div>
                     <Button
@@ -618,18 +631,31 @@ export default function ContractorSchedulePage() {
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => setCurrentWeekStart(startOfWeek(new Date()))}
-                        data-testid="button-today"
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        Today
-                      </Button>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="hide-weekends"
+                            checked={hideWeekends}
+                            onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
+                            data-testid="checkbox-hide-weekends"
+                          />
+                          <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
+                            Hide Weekends
+                          </Label>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+                          data-testid="button-today"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Today
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-7 gap-2">
+                    <div className={cn("grid gap-2", hideWeekends ? "grid-cols-5" : "grid-cols-7")}>
                       {weekDays.map((day, index) => {
                         const dayJobs = getJobsForDay(day);
                         const isToday = isSameDay(day, new Date());
