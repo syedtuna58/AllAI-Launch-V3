@@ -118,6 +118,13 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
   const [openUnits, setOpenUnits] = useState(false);
   const [openEquipmentModal, setOpenEquipmentModal] = useState(false);
   
+  // Financial subsections
+  const [openPrimaryMortgage, setOpenPrimaryMortgage] = useState(false);
+  const [openPropertyValue, setOpenPropertyValue] = useState(false);
+  const [openPurchaseDetails, setOpenPurchaseDetails] = useState(false);
+  const [openSecondaryMortgage, setOpenSecondaryMortgage] = useState(false);
+  const [openPropertySale, setOpenPropertySale] = useState(false);
+  
   // Pending equipment state (for equipment added before property is saved)
   const [pendingEquipment, setPendingEquipment] = useState<Partial<Equipment>[]>([]);
   
@@ -1664,7 +1671,7 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
         )}
 
 
-        {/* Financial Information Section - Combines Property Value and Mortgage */}
+        {/* Financial Information Section - Reorganized with subsections */}
         <Collapsible open={openFinancial} onOpenChange={setOpenFinancial}>
           <Card className="border-blue-200 dark:border-blue-800">
             <CollapsibleTrigger asChild>
@@ -1676,557 +1683,639 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
                   </div>
                   <ChevronDown className={`h-4 w-4 transition-transform ${openFinancial ? 'rotate-180' : ''}`} />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Property value, mortgages, and financial tracking</p>
+                <p className="text-xs text-muted-foreground mt-1">Choose which financial details to track</p>
               </CardHeader>
             </CollapsibleTrigger>
             <CollapsibleContent>
-              <CardContent className="space-y-6 pt-0">
-                {/* Property Value Subsection */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-muted-foreground">Property Value</h4>
-            <FormField
-              control={form.control}
-              name="propertyValue"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {form.watch("type")?.includes("Building") ? "Total Building Value" : "Property Value"}
-                  </FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        placeholder="500,000"
-                        className="pl-9"
-                        key={`property-value-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : (initialData?.propertyValue ? Number(initialData.propertyValue).toLocaleString() : "")}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                            
-                            // Auto-fill purchase price for NEW properties only
-                            if (!initialData && numericValue && !form.getValues('purchasePrice')) {
-                              form.setValue('purchasePrice', numericValue, { shouldDirty: true });
-                            }
-                          }
-                        }}
-                        data-testid="input-property-value"
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Auto Appreciation Section */}
-            <FormField
-              control={form.control}
-              name="autoAppreciation"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      data-testid="checkbox-auto-appreciation"
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      Enable Automatic Yearly Appreciation
-                    </FormLabel>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically increase property value by a set percentage each year starting one year from today.
-                    </p>
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {/* Appreciation Rate Input */}
-            {form.watch("autoAppreciation") && (
-              <FormField
-                control={form.control}
-                name="appreciationRate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Annual Appreciation Rate</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="50"
-                          step="0.5"
-                          placeholder="3.5"
-                          className="pr-8"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          data-testid="input-appreciation-rate"
+              <CardContent className="space-y-3 pt-0">
+                
+                {/* 1. Primary Mortgage Subsection - Most Common */}
+                <Collapsible open={openPrimaryMortgage} onOpenChange={setOpenPrimaryMortgage}>
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Home className="h-4 w-4 text-blue-600" />
+                            <h4 className="text-sm font-medium">Primary Mortgage</h4>
+                          </div>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openPrimaryMortgage ? 'rotate-180' : ''}`} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Monthly payment and financing details</p>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {/* Monthly Mortgage */}
+                        <FormField
+                          control={form.control}
+                          name="monthlyMortgage"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Monthly Mortgage Payment</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="2,500"
+                                    className="pl-9"
+                                    key={`monthly-mortgage-${(initialData as any)?.id || 'new'}`}
+                                    value={field.value ? Number(field.value).toLocaleString() : ""}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      field.onChange(numericValue);
+                                    }}
+                                    onBlur={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      if (!isNaN(numericValue || 0)) {
+                                        field.onChange(numericValue);
+                                        if (numericValue) {
+                                          e.target.value = numericValue.toLocaleString();
+                                        }
+                                      }
+                                    }}
+                                    data-testid="input-monthly-mortgage"
+                                  />
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Total monthly payment (principal + interest + PMI). Will auto-create recurring expense.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
                         />
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                      </div>
-                    </FormControl>
-                    <p className="text-xs text-muted-foreground">
-                      Property value will increase by this percentage annually. Enter in 0.5% increments (e.g., 3.5 for 3.5%).
-                    </p>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-          </div>
 
-          {/* Mortgage & Financing Subsection */}
-          <div className="space-y-4 pt-4 border-t">
-            <h4 className="text-sm font-medium text-muted-foreground">Mortgage & Financing</h4>
+                        {/* Interest Rate */}
+                        <FormField
+                          control={form.control}
+                          name="interestRate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Interest Rate</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="5.25"
+                                    className="pr-8"
+                                    key={`interest-rate-${(initialData as any)?.id || 'new'}`}
+                                    value={field.value !== undefined ? String(field.value) : ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      // Allow empty, digits, and decimal point
+                                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                        // Just store the raw value to allow typing decimals
+                                        field.onChange(value === '' ? undefined : value);
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      const value = e.target.value;
+                                      if (value && value !== '.') {
+                                        const numericValue = parseFloat(value);
+                                        if (!isNaN(numericValue)) {
+                                          field.onChange(numericValue);
+                                        }
+                                      } else {
+                                        field.onChange(undefined);
+                                      }
+                                    }}
+                                    data-testid="input-interest-rate"
+                                  />
+                                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Annual interest rate for calculations and year-end tax adjustments.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-            {/* Monthly Mortgage */}
-            <FormField
-              control={form.control}
-              name="monthlyMortgage"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monthly Mortgage Payment</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="2,500"
-                        className="pl-9"
-                        key={`monthly-mortgage-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : ""}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-monthly-mortgage"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Total monthly payment (principal + interest + PMI). Will auto-create recurring expense.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        {/* Mortgage Payment Start Date */}
+                        <FormField
+                          control={form.control}
+                          name="mortgageStartDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>First Payment Date</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  value={field.value ? 
+                                    (field.value instanceof Date ? 
+                                      field.value.toISOString().split('T')[0] : 
+                                      new Date(field.value).toISOString().split('T')[0]
+                                    ) : ''}
+                                  onChange={(e) => {
+                                    const newDate = e.target.value ? new Date(e.target.value + 'T00:00:00.000Z') : undefined;
+                                    console.log('🗓️ Mortgage start date changed:', { 
+                                      inputValue: e.target.value, 
+                                      newDate,
+                                      previousValue: field.value 
+                                    });
+                                    field.onChange(newDate);
+                                  }}
+                                  data-testid="input-mortgage-start-date"
+                                />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                When should recurring mortgage expenses start being generated? Defaults to next month if left empty.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
-            {/* Interest Rate */}
-            <FormField
-              control={form.control}
-              name="interestRate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Interest Rate</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="5.25"
-                        className="pr-8"
-                        key={`interest-rate-${(initialData as any)?.id || 'new'}`}
-                        value={field.value !== undefined ? String(field.value) : ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Allow empty, digits, and decimal point
-                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                            // Just store the raw value to allow typing decimals
-                            field.onChange(value === '' ? undefined : value);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value;
-                          if (value && value !== '.') {
-                            const numericValue = parseFloat(value);
-                            if (!isNaN(numericValue)) {
-                              field.onChange(numericValue);
-                            }
-                          } else {
-                            field.onChange(undefined);
-                          }
-                        }}
-                        data-testid="input-interest-rate"
-                      />
-                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Annual interest rate for calculations and year-end tax adjustments.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                {/* 2. Property Value Subsection - Common */}
+                <Collapsible open={openPropertyValue} onOpenChange={setOpenPropertyValue}>
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <TrendingDown className="h-4 w-4 text-blue-600" />
+                            <h4 className="text-sm font-medium">Property Value</h4>
+                          </div>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openPropertyValue ? 'rotate-180' : ''}`} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Current value and appreciation tracking</p>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        <FormField
+                          control={form.control}
+                          name="propertyValue"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {form.watch("type")?.includes("Building") ? "Total Building Value" : "Property Value"}
+                              </FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                  <Input
+                                    type="text"
+                                    placeholder="500,000"
+                                    className="pl-9"
+                                    key={`property-value-${(initialData as any)?.id || 'new'}`}
+                                    value={field.value ? Number(field.value).toLocaleString() : (initialData?.propertyValue ? Number(initialData.propertyValue).toLocaleString() : "")}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      field.onChange(numericValue);
+                                    }}
+                                    onBlur={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      if (!isNaN(numericValue || 0)) {
+                                        field.onChange(numericValue);
+                                        if (numericValue) {
+                                          e.target.value = numericValue.toLocaleString();
+                                        }
+                                        
+                                        // Auto-fill purchase price for NEW properties only
+                                        if (!initialData && numericValue && !form.getValues('purchasePrice')) {
+                                          form.setValue('purchasePrice', numericValue, { shouldDirty: true });
+                                        }
+                                      }
+                                    }}
+                                    data-testid="input-property-value"
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-            {/* Mortgage Payment Start Date */}
-            <FormField
-              control={form.control}
-              name="mortgageStartDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>First Payment Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      value={field.value ? 
-                        (field.value instanceof Date ? 
-                          field.value.toISOString().split('T')[0] : 
-                          new Date(field.value).toISOString().split('T')[0]
-                        ) : ''}
-                      onChange={(e) => {
-                        const newDate = e.target.value ? new Date(e.target.value + 'T00:00:00.000Z') : undefined;
-                        console.log('🗓️ Mortgage start date changed:', { 
-                          inputValue: e.target.value, 
-                          newDate,
-                          previousValue: field.value 
-                        });
-                        field.onChange(newDate);
-                      }}
-                      data-testid="input-mortgage-start-date"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    When should recurring mortgage expenses start being generated? Defaults to next month if left empty.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        {/* Auto Appreciation Section */}
+                        <FormField
+                          control={form.control}
+                          name="autoAppreciation"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  data-testid="checkbox-auto-appreciation"
+                                />
+                              </FormControl>
+                              <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                  Enable Automatic Yearly Appreciation
+                                </FormLabel>
+                                <p className="text-sm text-muted-foreground">
+                                  Automatically increase property value by a set percentage each year starting one year from today.
+                                </p>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
 
-            <div className="my-6 border-t border-muted-foreground/20" />
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground font-medium">Secondary Mortgage (Optional)</p>
-              <p className="text-xs text-muted-foreground">Add a second mortgage if your property has multiple loans</p>
-            </div>
+                        {/* Appreciation Rate Input */}
+                        {form.watch("autoAppreciation") && (
+                          <FormField
+                            control={form.control}
+                            name="appreciationRate"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Annual Appreciation Rate</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="50"
+                                      step="0.5"
+                                      placeholder="3.5"
+                                      className="pr-8"
+                                      {...field}
+                                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                      data-testid="input-appreciation-rate"
+                                    />
+                                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                  </div>
+                                </FormControl>
+                                <p className="text-xs text-muted-foreground">
+                                  Property value will increase by this percentage annually. Enter in 0.5% increments (e.g., 3.5 for 3.5%).
+                                </p>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
-            {/* Secondary Monthly Mortgage */}
-            <FormField
-              control={form.control}
-              name="monthlyMortgage2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Secondary Monthly Payment</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="1,000"
-                        className="pl-9"
-                        key={`monthly-mortgage-2-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : ""}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-monthly-mortgage-2"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Second mortgage monthly payment (HELOC, bridge loan, etc.). Will auto-create recurring expense.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                {/* 3. Purchase Details Subsection - Less Common */}
+                <Collapsible open={openPurchaseDetails} onOpenChange={setOpenPurchaseDetails}>
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-blue-600" />
+                            <h4 className="text-sm font-medium">Purchase Details</h4>
+                          </div>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openPurchaseDetails ? 'rotate-180' : ''}`} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Original purchase price and acquisition information</p>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {/* Purchase Price */}
+                        <FormField
+                          control={form.control}
+                          name="purchasePrice"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Total Purchase Price</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                  <Input
+                                    type="number"
+                                    step="any"
+                                    placeholder="500000"
+                                    className="pl-9"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                                    data-testid="input-purchase-price"
+                                  />
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Total property purchase price. Auto-fills with property value above. <strong>Edit this if you purchased at a different price than current value.</strong>
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-            {/* Secondary Interest Rate */}
-            <FormField
-              control={form.control}
-              name="interestRate2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Secondary Interest Rate</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="6.75"
-                        className="pr-8"
-                        key={`interest-rate-2-${(initialData as any)?.id || 'new'}`}
-                        value={field.value !== undefined ? String(field.value) : ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          // Allow empty, digits, and decimal point
-                          if (value === '' || /^\d*\.?\d*$/.test(value)) {
-                            // Just store the raw value to allow typing decimals
-                            field.onChange(value === '' ? undefined : value);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const value = e.target.value;
-                          if (value && value !== '.') {
-                            const numericValue = parseFloat(value);
-                            if (!isNaN(numericValue)) {
-                              field.onChange(numericValue);
-                            }
-                          } else {
-                            field.onChange(undefined);
-                          }
-                        }}
-                        data-testid="input-interest-rate-2"
-                      />
-                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Annual interest rate for second mortgage calculations and tax adjustments.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        {/* Down Payment */}
+                        <FormField
+                          control={form.control}
+                          name="downPayment"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Down Payment & Cash Invested</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="100,000"
+                                    className="pl-9"
+                                    key={`down-payment-${(initialData as any)?.id || 'new'}`}
+                                    value={field.value ? Number(field.value).toLocaleString() : ""}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      field.onChange(numericValue);
+                                    }}
+                                    onBlur={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      if (!isNaN(numericValue || 0)) {
+                                        field.onChange(numericValue);
+                                        if (numericValue) {
+                                          e.target.value = numericValue.toLocaleString();
+                                        }
+                                      }
+                                    }}
+                                    data-testid="input-down-payment"
+                                  />
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Total cash invested (down payment + closing costs). Used for cash-on-cash return calculations.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-            {/* Secondary Mortgage Start Date */}
-            <FormField
-              control={form.control}
-              name="mortgageStartDate2"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Secondary First Payment Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      value={field.value ? 
-                        (field.value instanceof Date ? 
-                          field.value.toISOString().split('T')[0] : 
-                          new Date(field.value).toISOString().split('T')[0]
-                        ) : ''}
-                      onChange={(e) => {
-                        const newDate = e.target.value ? new Date(e.target.value) : undefined;
-                        console.log('🗓️ Secondary mortgage start date changed:', { 
-                          inputValue: e.target.value, 
-                          newDate,
-                          previousValue: field.value 
-                        });
-                        field.onChange(newDate);
-                      }}
-                      data-testid="input-mortgage-start-date-2"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    When should secondary mortgage expenses start? Defaults to next month if left empty.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        {/* Acquisition Date */}
+                        <FormField
+                          control={form.control}
+                          name="acquisitionDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Acquisition Date</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  {...field}
+                                  value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                  onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
+                                  data-testid="input-acquisition-date"
+                                />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Date property was acquired. Used for partial-year calculations and mortgage payment start.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
-            <div className="my-6 border-t border-muted-foreground/20" />
+                {/* 4. Secondary Mortgage Subsection - Less Common */}
+                <Collapsible open={openSecondaryMortgage} onOpenChange={setOpenSecondaryMortgage}>
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-blue-600" />
+                            <h4 className="text-sm font-medium">Secondary Mortgage</h4>
+                          </div>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openSecondaryMortgage ? 'rotate-180' : ''}`} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">HELOC, bridge loan, or second mortgage details</p>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {/* Secondary Monthly Mortgage */}
+                        <FormField
+                          control={form.control}
+                          name="monthlyMortgage2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Secondary Monthly Payment</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="1,000"
+                                    className="pl-9"
+                                    key={`monthly-mortgage-2-${(initialData as any)?.id || 'new'}`}
+                                    value={field.value ? Number(field.value).toLocaleString() : ""}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      field.onChange(numericValue);
+                                    }}
+                                    onBlur={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      if (!isNaN(numericValue || 0)) {
+                                        field.onChange(numericValue);
+                                        if (numericValue) {
+                                          e.target.value = numericValue.toLocaleString();
+                                        }
+                                      }
+                                    }}
+                                    data-testid="input-monthly-mortgage-2"
+                                  />
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Second mortgage monthly payment (HELOC, bridge loan, etc.). Will auto-create recurring expense.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-            {/* Purchase Price */}
-            <FormField
-              control={form.control}
-              name="purchasePrice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Purchase Price</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="500000"
-                        className="pl-9"
-                        {...field}
-                        onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                        data-testid="input-purchase-price"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Total property purchase price. Auto-fills with property value above. <strong>Edit this if you purchased at a different price than current value.</strong>
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        {/* Secondary Interest Rate */}
+                        <FormField
+                          control={form.control}
+                          name="interestRate2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Secondary Interest Rate</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="6.75"
+                                    className="pr-8"
+                                    key={`interest-rate-2-${(initialData as any)?.id || 'new'}`}
+                                    value={field.value !== undefined ? String(field.value) : ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      // Allow empty, digits, and decimal point
+                                      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                                        // Just store the raw value to allow typing decimals
+                                        field.onChange(value === '' ? undefined : value);
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      const value = e.target.value;
+                                      if (value && value !== '.') {
+                                        const numericValue = parseFloat(value);
+                                        if (!isNaN(numericValue)) {
+                                          field.onChange(numericValue);
+                                        }
+                                      } else {
+                                        field.onChange(undefined);
+                                      }
+                                    }}
+                                    data-testid="input-interest-rate-2"
+                                  />
+                                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">%</span>
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Annual interest rate for second mortgage calculations and tax adjustments.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-            {/* Down Payment */}
-            <FormField
-              control={form.control}
-              name="downPayment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Down Payment & Cash Invested</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="100,000"
-                        className="pl-9"
-                        key={`down-payment-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : ""}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-down-payment"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Total cash invested (down payment + closing costs). Used for cash-on-cash return calculations.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        {/* Secondary Mortgage Start Date */}
+                        <FormField
+                          control={form.control}
+                          name="mortgageStartDate2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Secondary First Payment Date</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  value={field.value ? 
+                                    (field.value instanceof Date ? 
+                                      field.value.toISOString().split('T')[0] : 
+                                      new Date(field.value).toISOString().split('T')[0]
+                                    ) : ''}
+                                  onChange={(e) => {
+                                    const newDate = e.target.value ? new Date(e.target.value) : undefined;
+                                    console.log('🗓️ Secondary mortgage start date changed:', { 
+                                      inputValue: e.target.value, 
+                                      newDate,
+                                      previousValue: field.value 
+                                    });
+                                    field.onChange(newDate);
+                                  }}
+                                  data-testid="input-mortgage-start-date-2"
+                                />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                When should secondary mortgage expenses start? Defaults to next month if left empty.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
-            {/* Acquisition Date */}
-            <FormField
-              control={form.control}
-              name="acquisitionDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Acquisition Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                      onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                      data-testid="input-acquisition-date"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Date property was acquired. Used for partial-year calculations and mortgage payment start.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                {/* 5. Property Sale Subsection - Least Common */}
+                <Collapsible open={openPropertySale} onOpenChange={setOpenPropertySale}>
+                  <Card className="border-l-4 border-l-blue-500">
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/30 transition-colors p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-blue-600" />
+                            <h4 className="text-sm font-medium">Property Sale</h4>
+                          </div>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${openPropertySale ? 'rotate-180' : ''}`} />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Sale date and price information</p>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {/* Sale Date */}
+                        <FormField
+                          control={form.control}
+                          name="saleDate"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sale Date</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="date"
+                                  {...field}
+                                  value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                  onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
+                                  data-testid="input-sale-date"
+                                />
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Date property was sold. Mortgage calculations will end on this date.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
-          {/* Property Sale Subsection */}
-          <div className="space-y-4 pt-4 border-t">
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Property Sale</h4>
-              <Badge variant="outline" className="text-xs">Optional</Badge>
-            </div>
-            {/* Sale Date */}
-            <FormField
-              control={form.control}
-              name="saleDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sale Date</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="date"
-                      {...field}
-                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
-                      onChange={(e) => field.onChange(e.target.value ? new Date(e.target.value) : undefined)}
-                      data-testid="input-sale-date"
-                    />
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Date property was sold. Mortgage calculations will end on this date.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Sale Price */}
-            <FormField
-              control={form.control}
-              name="salePrice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sale Price</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="750,000"
-                        className="pl-9"
-                        key={`sale-price-${(initialData as any)?.id || 'new'}`}
-                        value={field.value ? Number(field.value).toLocaleString() : (initialData?.salePrice ? Number(initialData.salePrice).toLocaleString() : "")}
-                        onChange={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          field.onChange(numericValue);
-                        }}
-                        onBlur={(e) => {
-                          const rawValue = e.target.value.replace(/,/g, '');
-                          const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
-                          if (!isNaN(numericValue || 0)) {
-                            field.onChange(numericValue);
-                            if (numericValue) {
-                              e.target.value = numericValue.toLocaleString();
-                            }
-                          }
-                        }}
-                        data-testid="input-sale-price"
-                      />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-muted-foreground">
-                    Gross sale price. Used for calculating capital gains/losses.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                        {/* Sale Price */}
+                        <FormField
+                          control={form.control}
+                          name="salePrice"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sale Price</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="750,000"
+                                    className="pl-9"
+                                    key={`sale-price-${(initialData as any)?.id || 'new'}`}
+                                    value={field.value ? Number(field.value).toLocaleString() : (initialData?.salePrice ? Number(initialData.salePrice).toLocaleString() : "")}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      field.onChange(numericValue);
+                                    }}
+                                    onBlur={(e) => {
+                                      const rawValue = e.target.value.replace(/,/g, '');
+                                      const numericValue = rawValue === '' ? undefined : parseFloat(rawValue);
+                                      if (!isNaN(numericValue || 0)) {
+                                        field.onChange(numericValue);
+                                        if (numericValue) {
+                                          e.target.value = numericValue.toLocaleString();
+                                        }
+                                      }
+                                    }}
+                                    data-testid="input-sale-price"
+                                  />
+                                </div>
+                              </FormControl>
+                              <p className="text-xs text-muted-foreground">
+                                Gross sale price. Used for calculating capital gains/losses.
+                              </p>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
         </CardContent>
       </CollapsibleContent>
     </Card>
