@@ -85,7 +85,13 @@ export default function Sidebar() {
               <User className="h-4 w-4 mr-2" />
               Edit Profile
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowSettingsMenu(!showSettingsMenu)} data-testid="menu-settings">
+            <DropdownMenuItem 
+              onSelect={(e) => {
+                e.preventDefault();
+                setShowSettingsMenu(!showSettingsMenu);
+              }}
+              data-testid="menu-settings"
+            >
               <Settings className="h-4 w-4 mr-2" />
               Settings
               <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showSettingsMenu ? 'rotate-180' : ''}`} />

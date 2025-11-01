@@ -5,7 +5,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import QuickAddModal from "@/components/modals/quick-add-modal";
 import MayaQuickPromptsModal from "@/components/modals/maya-quick-prompts-modal";
@@ -14,9 +13,8 @@ import NotificationDropdown from "@/components/notifications/notification-dropdo
 import ReminderDropdown from "@/components/reminders/reminder-dropdown";
 import { RoleSwitcher } from "@/components/role-switcher";
 import { useAuth } from "@/hooks/useAuth";
-import { useDevMode } from "@/contexts/DevModeContext";
 import { useLocation } from "wouter";
-import { Plus, Settings, Bot, DollarSign, TrendingUp, Inbox, Receipt, Calculator, MessageSquare, Clock } from "lucide-react";
+import { Plus, Bot, DollarSign, TrendingUp, Inbox, Receipt, Calculator, MessageSquare, Clock } from "lucide-react";
 import type { Property, OwnershipEntity, Unit } from "@shared/schema";
 
 interface HeaderProps {
@@ -35,7 +33,6 @@ const AVAILABLE_SHORTCUTS = [
 export default function Header({ title }: HeaderProps) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { devModeEnabled, setDevModeEnabled } = useDevMode();
   const [, setLocation] = useLocation();
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
