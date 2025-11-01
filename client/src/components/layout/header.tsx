@@ -185,39 +185,6 @@ export default function Header({ title }: HeaderProps) {
           {/* Reminders Calendar */}
           <ReminderDropdown onCreateReminder={() => setShowReminderForm(true)} />
           
-          {/* Settings Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" data-testid="button-settings">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="px-2 py-1.5 text-sm font-semibold">Settings</div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setLocation('/channel-settings')} data-testid="menu-channel-settings">
-                Channel Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLocation('/approval-settings')} data-testid="menu-approval-settings">
-                Approval Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLocation('/categories')} data-testid="menu-categories">
-                Categories
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => setDevModeEnabled(!devModeEnabled)}
-                className="flex items-center justify-between"
-                data-testid="menu-dev-mode"
-              >
-                <span>Dev Mode</span>
-                <div className={`w-8 h-4 rounded-full transition-colors ${devModeEnabled ? 'bg-primary' : 'bg-muted'}`}>
-                  <div className={`w-3 h-3 rounded-full bg-white mt-0.5 transition-transform ${devModeEnabled ? 'ml-4' : 'ml-0.5'}`} />
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
           {/* Quick Add */}
           <Button onClick={() => setShowQuickAdd(true)} data-testid="button-quick-add">
             <Plus className="h-4 w-4 mr-2" />

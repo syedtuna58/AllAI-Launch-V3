@@ -7,14 +7,15 @@ import { useDevMode } from "@/contexts/DevModeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserProfileForm from "@/components/forms/user-profile-form";
-import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, ClipboardList, MessageSquare, Clock, TestTube2, MessageCircle, Inbox, TrendingUp } from "lucide-react";
+import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, ClipboardList, MessageSquare, Clock, TestTube2, MessageCircle, Inbox, TrendingUp, Settings } from "lucide-react";
 
 export default function Sidebar() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { currentRole } = useRole();
-  const { devModeEnabled } = useDevMode();
+  const { devModeEnabled, setDevModeEnabled } = useDevMode();
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
 
   const adminNavigation = [
     { name: "Dashboard", href: "/", icon: Home },
@@ -84,6 +85,34 @@ export default function Sidebar() {
               <User className="h-4 w-4 mr-2" />
               Edit Profile
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowSettingsMenu(!showSettingsMenu)} data-testid="menu-settings">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+              <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showSettingsMenu ? 'rotate-180' : ''}`} />
+            </DropdownMenuItem>
+            {showSettingsMenu && (
+              <>
+                <DropdownMenuItem onClick={() => setLocation('/channel-settings')} className="pl-8" data-testid="menu-channel-settings">
+                  Channel Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocation('/approval-settings')} className="pl-8" data-testid="menu-approval-settings">
+                  Approval Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocation('/categories')} className="pl-8" data-testid="menu-categories">
+                  Categories
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setDevModeEnabled(!devModeEnabled)}
+                  className="pl-8 flex items-center justify-between"
+                  data-testid="menu-dev-mode"
+                >
+                  <span>Dev Mode</span>
+                  <div className={`w-8 h-4 rounded-full transition-colors ${devModeEnabled ? 'bg-primary' : 'bg-muted'}`}>
+                    <div className={`w-3 h-3 rounded-full bg-white mt-0.5 transition-transform ${devModeEnabled ? 'ml-4' : 'ml-0.5'}`} />
+                  </div>
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="menu-sign-out">
               <a href="/api/logout" className="flex items-center">
