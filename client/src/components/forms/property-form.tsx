@@ -301,8 +301,20 @@ export default function PropertyForm({ entities, onSubmit, onCancel, isLoading, 
             if (errors.city) errorMessages.push("City is required");
             if (errors.state) errorMessages.push("State is required");
             if (errors.zipCode) errorMessages.push("Zip code is required");
+            
+            // Check for ownership errors (both array-level and item-level)
             if (errors.ownerships) {
-              errorMessages.push("At least one owner must be selected (see Ownership Structure section)");
+              if (Array.isArray(errors.ownerships)) {
+                // Check if any ownership item has errors
+                const hasOwnershipItemErrors = errors.ownerships.some(item => item && typeof item === 'object');
+                if (hasOwnershipItemErrors) {
+                  errorMessages.push("Please select an owner for each ownership entry (see Ownership Structure section)");
+                } else {
+                  errorMessages.push(errors.ownerships.message || "At least one owner must be selected (see Ownership Structure section)");
+                }
+              } else {
+                errorMessages.push(errors.ownerships.message || "At least one owner must be selected (see Ownership Structure section)");
+              }
               setOpenOwnership(true); // Auto-open the ownership section
             }
             
