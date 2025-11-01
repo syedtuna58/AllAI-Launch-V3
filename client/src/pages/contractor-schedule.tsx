@@ -391,7 +391,6 @@ export default function ContractorSchedulePage() {
           scheduledStartAt: null,
           scheduledEndAt: null,
           status: 'Unscheduled',
-          tenantConfirmed: false,
         },
       });
       setActiveId(null);
@@ -403,6 +402,7 @@ export default function ContractorSchedulePage() {
       const parts = over.id.toString().split('-');
       const dayIndex = parseInt(parts[1]);
       const targetHour = parseInt(parts[3]);
+      const targetMinute = parseInt(parts[4]);
       const targetDate = weekDays[dayIndex];
       
       // Calculate duration in milliseconds to preserve exact time components
@@ -433,9 +433,9 @@ export default function ContractorSchedulePage() {
           }
         }
         
-        // Use the target hour from the drop zone
+        // Use the target hour and minute from the drop zone
         newStartDate = new Date(targetDate);
-        newStartDate.setHours(targetHour, 0, 0, 0);
+        newStartDate.setHours(targetHour, targetMinute, 0, 0);
         
         // Calculate end time based on duration
         newEndDate = new Date(newStartDate.getTime() + durationMinutes * 60 * 1000);
@@ -445,13 +445,9 @@ export default function ContractorSchedulePage() {
           newEndDate = new Date(addDays(newStartDate, job.durationDays - 1).getTime() + durationMinutes * 60 * 1000);
         }
       } else {
-        // Existing job being rescheduled - use the new time slot hour but preserve minutes and duration
-        const originalStart = parseISO(job.scheduledStartAt);
-        const originalMinutes = originalStart.getMinutes();
-        
-        // Set to new day and new hour, but preserve minutes
+        // Existing job being rescheduled - use the new time slot
         newStartDate = new Date(targetDate);
-        newStartDate.setHours(targetHour, originalMinutes, 0, 0);
+        newStartDate.setHours(targetHour, targetMinute, 0, 0);
         
         // Preserve the exact duration
         newEndDate = new Date(newStartDate.getTime() + durationMs);
@@ -465,7 +461,6 @@ export default function ContractorSchedulePage() {
           scheduledEndAt: newEndDate.toISOString(),
           isAllDay: false, // Time slot scheduling is never all-day
           status: 'Scheduled',
-          tenantConfirmed: false, // Manual moves require tenant confirmation
         },
       });
     }
@@ -1085,11 +1080,26 @@ export default function ContractorSchedulePage() {
                         {/* Time labels column */}
                         <div className="pr-2 border-r border-border dark:border-gray-700">
                           <div className="h-[60px]"></div> {/* Spacer for header */}
-                          {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
-                            <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
-                              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
-                            </div>
-                          ))}
+                          {(() => {
+                            const labels = [];
+                            for (let hour = 6; hour <= 20; hour++) {
+                              const period = hour >= 12 ? 'PM' : 'AM';
+                              const hour12 = hour % 12 || 12;
+                              labels.push(
+                                <div key={`${hour}-0`} className="h-[20px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2 leading-5">
+                                  {`${hour12} ${period}`}
+                                </div>
+                              );
+                              if (hour < 20) {
+                                labels.push(
+                                  <div key={`${hour}-30`} className="h-[20px] text-xs text-muted-foreground/50 dark:text-gray-500 text-right pr-2 leading-5">
+                                    :30
+                                  </div>
+                                );
+                              }
+                            }
+                            return labels;
+                          })()}
                         </div>
                         
                         {/* Day columns */}
@@ -1107,12 +1117,6 @@ export default function ContractorSchedulePage() {
                               weekDays={weekDays}
                               calculateJobSpan={calculateJobSpan}
                               isToday={isToday}
-                              onConfirmJob={(jobId) => {
-                                updateJobMutation.mutate({
-                                  id: jobId,
-                                  data: { tenantConfirmed: true }
-                                });
-                              }}
                               onClick={(job) => {
                                 setSelectedJob(job);
                                 setShowJobDetailsDialog(true);
@@ -1179,7 +1183,6 @@ function JobCard({
   spanDays = 1,
   isFirstDay = true,
   extendsBeyondWeek = false,
-  onConfirm, 
   onClick 
 }: { 
   job: ScheduledJob; 
@@ -1188,7 +1191,6 @@ function JobCard({
   spanDays?: number;
   isFirstDay?: boolean;
   extendsBeyondWeek?: boolean;
-  onConfirm?: (jobId: string) => void;
   onClick?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -1201,7 +1203,8 @@ function JobCard({
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
   
-  const showConfirmButton = !job.tenantConfirmed && job.scheduledStartAt && onConfirm;
+  // Removed tenant confirmation - not needed for drag/drop workflow
+  const showConfirmButton = false;
 
   const getUrgencyIcon = (urgency: string) => {
     switch (urgency) {
@@ -1329,13 +1332,16 @@ function JobCard({
   );
 }
 
-function TimeSlot({ dayIndex, hour, date, isOver }: {
+function TimeSlot({ dayIndex, hour, minute, date, isOver }: {
   dayIndex: number;
   hour: number;
+  minute: number;
   date: Date;
   isOver: boolean;
 }) {
-  const hourFormatted = hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`;
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  const timeFormatted = minute === 0 ? `${hour12} ${period}` : `${hour12}:${minute} ${period}`;
   
   return (
     <TooltipProvider>
@@ -1343,20 +1349,20 @@ function TimeSlot({ dayIndex, hour, date, isOver }: {
         <TooltipTrigger asChild>
           <div
             className={cn(
-              "h-[40px] border-b border-border/30 dark:border-gray-700/30 transition-colors relative",
+              "h-[20px] border-b border-border/30 dark:border-gray-700/30 transition-colors relative",
               isOver && "bg-primary/20 dark:bg-blue-500/20 border-primary dark:border-blue-500"
             )}
           />
         </TooltipTrigger>
         <TooltipContent side="right" className="text-sm font-medium">
-          {format(date, 'EEE MMM d')} at {hourFormatted}
+          {format(date, 'EEE MMM d')} at {timeFormatted}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
 
-function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, onConfirmJob, onClick }: {
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, onClick }: {
   dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
@@ -1369,11 +1375,16 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
     extendsBeyondWeek: boolean;
   };
   isToday: boolean;
-  onConfirmJob?: (jobId: string) => void;
   onClick?: (job: ScheduledJob) => void;
 }) {
-  const hours = Array.from({ length: 15 }, (_, i) => i + 6); // 6 AM to 8 PM
-  const [hoveredTimeSlot, setHoveredTimeSlot] = useState<number | null>(null);
+  // Generate 30-minute time slots from 6 AM to 8 PM
+  const timeSlots = [];
+  for (let hour = 6; hour <= 20; hour++) {
+    timeSlots.push({ hour, minute: 0 });
+    if (hour < 20) {
+      timeSlots.push({ hour, minute: 30 });
+    }
+  }
 
   return (
     <div
@@ -1402,20 +1413,19 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
       
       {/* Time slots with drop zones */}
       <div className="relative">
-        {hours.map(hour => {
-          const slotId = `day-${dayIndex}-time-${hour}`;
+        {timeSlots.map(({ hour, minute }) => {
+          const slotId = `day-${dayIndex}-time-${hour}-${minute}`;
           const { setNodeRef, isOver } = useDroppable({ id: slotId });
           
           return (
             <div
-              key={hour}
+              key={`${hour}-${minute}`}
               ref={setNodeRef}
-              onMouseEnter={() => setHoveredTimeSlot(hour)}
-              onMouseLeave={() => setHoveredTimeSlot(null)}
             >
               <TimeSlot
                 dayIndex={dayIndex}
                 hour={hour}
+                minute={minute}
                 date={date}
                 isOver={isOver}
               />
@@ -1435,22 +1445,24 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
               }
               
               // Calculate vertical position based on job time
+              // Each 30-minute slot is 20px, starting from 6 AM
               let topPosition = 0;
-              let heightPx = 80; // default height
+              let heightPx = 40; // default height (2 slots = 1 hour)
               
               if (job.scheduledStartAt && !job.isAllDay) {
                 const startTime = parseISO(job.scheduledStartAt);
                 const hours = startTime.getHours();
                 const minutes = startTime.getMinutes();
-                // Each hour slot is 40px, starting from hour 6
-                topPosition = (hours - 6) * 40 + (minutes / 60) * 40;
+                // Position = (hours from 6am * 2 slots per hour * 20px) + (minutes / 30 * 20px)
+                topPosition = ((hours - 6) * 2 * 20) + (Math.floor(minutes / 30) * 20);
                 
                 // Calculate height based on duration
                 if (job.scheduledEndAt) {
                   const endTime = parseISO(job.scheduledEndAt);
                   const durationMs = endTime.getTime() - startTime.getTime();
-                  const durationHours = durationMs / (1000 * 60 * 60);
-                  heightPx = Math.max(40, durationHours * 40);
+                  const durationMinutes = durationMs / (1000 * 60);
+                  // Height = duration in 30-min slots * 20px per slot
+                  heightPx = Math.max(20, Math.ceil(durationMinutes / 30) * 20);
                 }
               }
               
@@ -1471,7 +1483,6 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                     spanDays={spanInfo.spanDays}
                     isFirstDay={spanInfo.isFirstDay}
                     extendsBeyondWeek={spanInfo.extendsBeyondWeek}
-                    onConfirm={onConfirmJob}
                     onClick={() => onClick?.(job)}
                   />
                 </div>
