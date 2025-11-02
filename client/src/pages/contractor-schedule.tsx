@@ -24,7 +24,7 @@ import {
   type CollisionDetection,
   getFirstCollision,
 } from "@dnd-kit/core";
-import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay, differenceInCalendarDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay, isBefore, parseISO, startOfDay, endOfDay, differenceInCalendarDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import {
   Dialog,
@@ -441,6 +441,7 @@ export default function ContractorSchedulePage() {
         duration: 120,
         durationDays: 1,
         allDay: false,
+        recurringDays: [],
       });
     },
     onError: (error: any) => {
@@ -709,8 +710,7 @@ export default function ContractorSchedulePage() {
       return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
     };
     
-    // Store time preferences and address details in notes field as JSON for unscheduled jobs
-    let notes = jobFormData.description || '';
+    // Store time preferences and address details in notes field as JSON
     const addressDetails = {
       address: jobFormData.address,
       city: jobFormData.city,
@@ -720,6 +720,7 @@ export default function ContractorSchedulePage() {
       contactPerson: jobFormData.contactPerson,
     };
     
+    let notes: string;
     if (!jobFormData.allDay) {
       const timePrefs = {
         startTime: jobFormData.startTime,
@@ -729,37 +730,102 @@ export default function ContractorSchedulePage() {
         timePreferences: timePrefs, 
         description: jobFormData.description,
         addressDetails: addressDetails,
+        recurringDays: jobFormData.recurringDays,
       });
     } else {
       notes = JSON.stringify({ 
         description: jobFormData.description,
         addressDetails: addressDetails,
+        recurringDays: jobFormData.recurringDays,
       });
     }
-    
-    const payload: any = {
-      title: jobFormData.title,
-      description: jobFormData.description,
-      teamId: jobFormData.teamId,
-      urgency: jobFormData.urgency,
-      propertyId: jobFormData.propertyId,
-      address: jobFormData.address || null,
-      durationDays: jobFormData.durationDays,
-      status: 'Unscheduled',
-      isAllDay: jobFormData.allDay,
-      tenantConfirmed: false,
-      notes: notes,
-    };
-    
-    // Don't include scheduledStartAt/scheduledEndAt for unscheduled jobs (omit instead of null)
-    createJobMutation.mutate(payload);
+
+    // If recurring days are selected, create scheduled jobs for each day of the current week
+    if (jobFormData.recurringDays.length > 0) {
+      const orgTimezone = organization?.timezone || 'America/New_York';
+      const today = new Date();
+      const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // 0 = Sunday
+      
+      jobFormData.recurringDays.forEach((dayIndex) => {
+        const targetDate = addDays(weekStart, dayIndex);
+        
+        // Skip if the date is in the past
+        if (isBefore(targetDate, today) && !isSameDay(targetDate, today)) {
+          return;
+        }
+        
+        // Calculate scheduled times with timezone conversion
+        let scheduledStartAt: string | undefined;
+        let scheduledEndAt: string | undefined;
+        
+        if (!jobFormData.allDay) {
+          const [hours, minutes] = jobFormData.startTime.split(':').map(Number);
+          const localDateTime = new Date(targetDate);
+          localDateTime.setHours(hours, minutes, 0, 0);
+          
+          // Convert from org timezone to UTC
+          const utcStartDateTime = fromZonedTime(localDateTime, orgTimezone);
+          scheduledStartAt = utcStartDateTime.toISOString();
+          
+          const localEndDateTime = new Date(localDateTime);
+          localEndDateTime.setMinutes(localEndDateTime.getMinutes() + jobFormData.duration);
+          const utcEndDateTime = fromZonedTime(localEndDateTime, orgTimezone);
+          scheduledEndAt = utcEndDateTime.toISOString();
+        } else {
+          // For all-day events, convert the start of day in org timezone to UTC
+          const localStartOfDay = new Date(targetDate);
+          localStartOfDay.setHours(0, 0, 0, 0);
+          const utcStartOfDay = fromZonedTime(localStartOfDay, orgTimezone);
+          scheduledStartAt = utcStartOfDay.toISOString();
+          
+          const localEndDate = addDays(targetDate, jobFormData.durationDays);
+          localEndDate.setHours(0, 0, 0, 0);
+          const utcEndDate = fromZonedTime(localEndDate, orgTimezone);
+          scheduledEndAt = utcEndDate.toISOString();
+        }
+        
+        const payload: any = {
+          title: jobFormData.title,
+          description: jobFormData.description,
+          teamId: jobFormData.teamId,
+          urgency: jobFormData.urgency,
+          propertyId: jobFormData.propertyId,
+          address: jobFormData.address || null,
+          durationDays: jobFormData.durationDays,
+          status: 'Scheduled',
+          isAllDay: jobFormData.allDay,
+          tenantConfirmed: false,
+          notes: notes,
+          scheduledStartAt,
+          scheduledEndAt,
+        };
+        
+        createJobMutation.mutate(payload);
+      });
+    } else {
+      // Create single unscheduled job (existing behavior)
+      const payload: any = {
+        title: jobFormData.title,
+        description: jobFormData.description,
+        teamId: jobFormData.teamId,
+        urgency: jobFormData.urgency,
+        propertyId: jobFormData.propertyId,
+        address: jobFormData.address || null,
+        durationDays: jobFormData.durationDays,
+        status: 'Unscheduled',
+        isAllDay: jobFormData.allDay,
+        tenantConfirmed: false,
+        notes: notes,
+      };
+      
+      createJobMutation.mutate(payload);
+    }
   };
 
   const handleUpdateJob = () => {
     if (!editingJob) return;
 
     // Build notes with time preferences and address details (same as create)
-    let notes = jobFormData.description || '';
     const addressDetails = {
       address: jobFormData.address,
       city: jobFormData.city,
@@ -769,6 +835,7 @@ export default function ContractorSchedulePage() {
       contactPerson: jobFormData.contactPerson,
     };
     
+    let notes: string;
     if (!jobFormData.allDay) {
       const timePrefs = {
         startTime: jobFormData.startTime,
@@ -778,11 +845,13 @@ export default function ContractorSchedulePage() {
         timePreferences: timePrefs, 
         description: jobFormData.description,
         addressDetails: addressDetails,
+        recurringDays: jobFormData.recurringDays,
       });
     } else {
       notes = JSON.stringify({ 
         description: jobFormData.description,
         addressDetails: addressDetails,
+        recurringDays: jobFormData.recurringDays,
       });
     }
 
