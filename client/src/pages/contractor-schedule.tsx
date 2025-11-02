@@ -256,7 +256,10 @@ export default function ContractorSchedulePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
-      toast({ title: "Team created successfully" });
+      toast({ 
+        title: "Team created successfully",
+        duration: 2000
+      });
       setShowTeamDialog(false);
       setEditingTeam(null);
       setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
@@ -265,7 +268,8 @@ export default function ContractorSchedulePage() {
       toast({
         title: "Failed to create team",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 4000
       });
     },
   });
@@ -276,7 +280,10 @@ export default function ContractorSchedulePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
-      toast({ title: "Team updated successfully" });
+      toast({ 
+        title: "Team updated successfully",
+        duration: 2000
+      });
       setShowTeamDialog(false);
       setEditingTeam(null);
       setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
@@ -285,7 +292,8 @@ export default function ContractorSchedulePage() {
       toast({
         title: "Failed to update team",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 4000
       });
     },
   });
@@ -296,7 +304,10 @@ export default function ContractorSchedulePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
-      toast({ title: "Team deleted successfully" });
+      toast({ 
+        title: "Team deleted successfully",
+        duration: 2000
+      });
       setShowTeamDialog(false);
       setEditingTeam(null);
       setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
@@ -305,7 +316,8 @@ export default function ContractorSchedulePage() {
       toast({
         title: "Failed to delete team",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 4000
       });
     },
   });
@@ -316,7 +328,10 @@ export default function ContractorSchedulePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
-      toast({ title: "Job created successfully" });
+      toast({ 
+        title: "Job created successfully",
+        duration: 2000
+      });
       setShowJobDialog(false);
       setJobFormData({
         title: '',
@@ -340,7 +355,8 @@ export default function ContractorSchedulePage() {
       toast({
         title: "Failed to create job",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 4000
       });
     },
   });
@@ -374,7 +390,10 @@ export default function ContractorSchedulePage() {
     onSuccess: (data: ScheduledJob) => {
       // Invalidate queries to refetch from server with new data
       queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
-      toast({ title: "Job updated successfully" });
+      toast({ 
+        title: "Job updated successfully",
+        duration: 2000
+      });
       dragMutationInProgress.current = false;
     },
     onError: (error: Error, variables, context) => {
@@ -385,7 +404,8 @@ export default function ContractorSchedulePage() {
       toast({
         title: "Failed to update job",
         description: error.message,
-        variant: "destructive"
+        variant: "destructive",
+        duration: 4000
       });
       dragMutationInProgress.current = false;
     },
@@ -543,7 +563,8 @@ export default function ContractorSchedulePage() {
         toast({
           title: "Scheduling unavailable",
           description: "Please wait for the page to finish loading before scheduling jobs.",
-          variant: "destructive"
+          variant: "destructive",
+          duration: 4000
         });
         setActiveId(null);
         return;
