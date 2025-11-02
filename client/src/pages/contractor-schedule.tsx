@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2 } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2, CheckCircle } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import {
@@ -542,7 +542,7 @@ export default function ContractorSchedulePage() {
           scheduledStartAt: isoStart,
           scheduledEndAt: isoEnd,
           isAllDay: false, // Time slot scheduling is never all-day
-          status: 'Scheduled',
+          status: 'Scheduled', // Set to Scheduled (proposed) - contractor can confirm later
         },
       });
     }
@@ -1422,7 +1422,10 @@ function JobCard({
     }
   };
 
-  const backgroundColor = team?.color || '#3b82f6';
+  // Use faded color for Scheduled (proposed) jobs, full color for Confirmed jobs
+  const baseColor = team?.color || '#3b82f6';
+  const isProposed = job.status === 'Scheduled';
+  const backgroundColor = isProposed ? `${baseColor}80` : baseColor; // 80 = 50% opacity in hex
   
   const wrapperStyle = isMultiDay && job.scheduledStartAt ? {
     ...style,
@@ -1580,6 +1583,9 @@ function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
             <div className="space-y-1">
               {dayJobs.slice(0, 3).map(job => {
                 const team = teams.find(t => t.id === job.teamId);
+                const baseColor = team?.color || '#3b82f6';
+                const isProposed = job.status === 'Scheduled';
+                const backgroundColor = isProposed ? `${baseColor}80` : baseColor; // 80 = 50% opacity
                 return (
                   <div
                     key={job.id}
@@ -1588,7 +1594,7 @@ function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
                       onJobClick(job);
                     }}
                     className="text-xs px-1.5 py-0.5 rounded truncate text-white font-medium"
-                    style={{ backgroundColor: team?.color || '#3b82f6' }}
+                    style={{ backgroundColor }}
                     title={job.title}
                   >
                     {job.title}
@@ -1935,44 +1941,137 @@ function JobDetailsDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTeamId, setEditTeamId] = useState<string>('');
+  const [editUrgency, setEditUrgency] = useState<string>('');
+  const { toast } = useToast();
+  const { data: teams = [] } = useQuery<Team[]>({
+    queryKey: ['/api/teams'],
+  });
+
   if (!job) return null;
+
+  // Initialize edit values when dialog opens or job changes
+  useEffect(() => {
+    if (job) {
+      setEditTeamId(job.teamId || '');
+      setEditUrgency(job.urgency);
+      setIsEditing(false);
+    }
+  }, [job?.id]);
+
+  const handleSave = async () => {
+    try {
+      await apiRequest('PUT', `/api/scheduled-jobs/${job.id}`, {
+        teamId: editTeamId,
+        urgency: editUrgency,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      setIsEditing(false);
+      toast({
+        title: "Job updated",
+        description: "Changes saved successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to update job",
+        description: error.message || "Something went wrong",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl" data-testid="dialog-job-details">
         <DialogHeader>
-          <DialogTitle className="text-xl" data-testid="text-job-details-title">
-            {job.title}
-          </DialogTitle>
-          <DialogDescription>
-            View job details and information
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-xl" data-testid="text-job-details-title">
+                {job.title}
+              </DialogTitle>
+              <DialogDescription>
+                {isEditing ? 'Edit job details' : 'View job details and information'}
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (isEditing) {
+                  // Cancel - reset values
+                  setEditTeamId(job.teamId || '');
+                  setEditUrgency(job.urgency);
+                }
+                setIsEditing(!isEditing);
+              }}
+              data-testid="button-toggle-edit"
+            >
+              <Edit2 className="h-4 w-4 mr-2" />
+              {isEditing ? 'Cancel' : 'Edit'}
+            </Button>
+          </div>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Team</Label>
-              <div className="flex items-center gap-2 mt-1">
-                {team && (
-                  <>
-                    <div
-                      className="w-3 h-3 rounded"
-                      style={{ backgroundColor: team.color }}
-                    />
-                    <p className="text-sm font-medium" data-testid="text-job-team">
-                      {team.name} ({team.specialty})
-                    </p>
-                  </>
-                )}
-              </div>
+              {isEditing ? (
+                <Select value={editTeamId} onValueChange={setEditTeamId}>
+                  <SelectTrigger className="mt-1" data-testid="select-job-team">
+                    <SelectValue placeholder="Select team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-3 h-3 rounded"
+                            style={{ backgroundColor: t.color }}
+                          />
+                          {t.name} ({t.specialty})
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex items-center gap-2 mt-1">
+                  {team && (
+                    <>
+                      <div
+                        className="w-3 h-3 rounded"
+                        style={{ backgroundColor: team.color }}
+                      />
+                      <p className="text-sm font-medium" data-testid="text-job-team">
+                        {team.name} ({team.specialty})
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Urgency</Label>
-              <Badge variant="secondary" className={cn("mt-1", URGENCY_COLORS[job.urgency])} data-testid="badge-job-urgency">
-                {job.urgency}
-              </Badge>
+              {isEditing ? (
+                <Select value={editUrgency} onValueChange={setEditUrgency}>
+                  <SelectTrigger className="mt-1" data-testid="select-job-urgency">
+                    <SelectValue placeholder="Select urgency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">Low</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Emergent">Emergent</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Badge variant="secondary" className={cn("mt-1", URGENCY_COLORS[job.urgency])} data-testid="badge-job-urgency">
+                  {job.urgency}
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -2031,12 +2130,62 @@ function JobDetailsDialog({
             </div>
           )}
 
-          {!job.tenantConfirmed && job.scheduledStartAt && (
-            <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
-              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                Awaiting tenant confirmation
-              </p>
+          {job.status === 'Scheduled' && job.scheduledStartAt && !isEditing && (
+            <div className="flex flex-col gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  Proposed appointment - awaiting confirmation
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await apiRequest('POST', `/api/scheduled-jobs/${job.id}/confirm`);
+                    queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+                    onOpenChange(false);
+                    toast({
+                      title: "Appointment confirmed",
+                      description: "The appointment has been marked as confirmed.",
+                    });
+                  } catch (error: any) {
+                    toast({
+                      title: "Failed to confirm appointment",
+                      description: error.message || "Something went wrong",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                className="w-full"
+                data-testid="button-confirm-appointment"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Confirm Appointment
+              </Button>
+            </div>
+          )}
+
+          {isEditing && (
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditTeamId(job.teamId || '');
+                  setEditUrgency(job.urgency);
+                  setIsEditing(false);
+                }}
+                data-testid="button-cancel-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                data-testid="button-save-job"
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Save Changes
+              </Button>
             </div>
           )}
         </div>

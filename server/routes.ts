@@ -6846,5 +6846,16 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     }
   });
 
+  // Confirm scheduled job (change status from Scheduled to Confirmed)
+  app.post('/api/scheduled-jobs/:id/confirm', isAuthenticated, async (req: any, res) => {
+    try {
+      const job = await storage.updateScheduledJob(req.params.id, { status: 'Confirmed' });
+      res.json(job);
+    } catch (error) {
+      console.error("Error confirming scheduled job:", error);
+      res.status(500).json({ message: "Failed to confirm scheduled job" });
+    }
+  });
+
   return httpServer;
 }
