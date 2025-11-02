@@ -1250,7 +1250,7 @@ export default function ContractorSchedulePage() {
                           <div className="pr-2 border-r border-border dark:border-gray-700">
                             <div className="h-[60px]"></div> {/* Spacer for header */}
                             {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
-                              <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
+                              <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2 flex items-start justify-end pt-1">
                                 {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
                               </div>
                             ))}
@@ -1290,7 +1290,7 @@ export default function ContractorSchedulePage() {
                           <div className="pr-3 border-r border-border dark:border-gray-700">
                             <div className="h-[60px]"></div>
                             {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
-                              <div key={hour} className="h-[60px] text-sm text-muted-foreground dark:text-gray-400 text-right pr-3 font-medium">
+                              <div key={hour} className="h-[60px] text-sm text-muted-foreground dark:text-gray-400 text-right pr-3 font-medium flex items-start justify-end pt-1">
                                 {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
                               </div>
                             ))}
@@ -1631,6 +1631,11 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
 }) {
   // Generate hours from 6 AM to 8 PM (for visual hourly grid)
   const hours = Array.from({ length: 15 }, (_, i) => i + 6);
+  
+  // Debug: log the hours array once per column
+  if (dayIndex === 0) {
+    console.log('📊 DayColumn hours array:', hours);
+  }
 
   return (
     <div
@@ -1659,7 +1664,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
       
       {/* Hourly slots with 30-minute drop zones */}
       <div className="relative">
-        {hours.map(hour => {
+        {hours.map((hour, hourIndex) => {
           const slot00Id = `day-${dayIndex}-time-${hour}-0`;
           const slot30Id = `day-${dayIndex}-time-${hour}-30`;
           const { setNodeRef: setRef00, isOver: isOver00 } = useDroppable({ id: slot00Id });
@@ -1667,6 +1672,11 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
           
           const period = hour >= 12 ? 'PM' : 'AM';
           const hour12 = hour % 12 || 12;
+          
+          // Debug: log drop zone creation for first column's first few hours
+          if (dayIndex === 0 && hourIndex < 3) {
+            console.log(`🎯 Creating drop zones for hour ${hour}: ${slot00Id}, ${slot30Id} (displays as "${hour12} ${period}")`);
+          }
           
           return (
             <div
