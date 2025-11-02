@@ -1535,7 +1535,8 @@ function JobCard({
     }
   };
 
-  const backgroundColor = team?.color || '#3b82f6';
+  // Use gray for unscheduled jobs (no team), otherwise use team color
+  const backgroundColor = team?.color || '#6b7280';
   
   const wrapperStyle = isMultiDay && job.scheduledStartAt ? {
     ...style,
