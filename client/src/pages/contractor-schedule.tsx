@@ -1435,7 +1435,7 @@ export default function ContractorSchedulePage() {
               />
             </div>
 
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
               {activeJob ? (
                 <div className="cursor-grabbing">
                   <JobCard
