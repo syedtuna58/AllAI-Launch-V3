@@ -6756,9 +6756,14 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     try {
       await storage.deleteTeam(req.params.id);
       res.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting team:", error);
-      res.status(500).json({ message: "Failed to delete team" });
+      // Return specific error message if it's about foreign key constraint
+      if (error.message && error.message.includes('assigned jobs')) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Failed to delete team" });
+      }
     }
   });
 
