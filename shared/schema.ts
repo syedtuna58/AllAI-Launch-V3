@@ -1460,6 +1460,7 @@ export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({
   scheduledStartAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]).optional(),
   scheduledEndAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]).optional(),
   tenantConfirmedAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]).optional(),
+  teamId: z.string().nullable().optional(),
 });
 
 // Types for new tables

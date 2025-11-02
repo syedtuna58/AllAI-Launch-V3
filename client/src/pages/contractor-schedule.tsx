@@ -520,6 +520,7 @@ export default function ContractorSchedulePage() {
         data: {
           scheduledStartAt: null,
           scheduledEndAt: null,
+          teamId: null,
           status: 'Unscheduled',
         },
       });
