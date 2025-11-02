@@ -193,6 +193,7 @@ export default function ContractorSchedulePage() {
     duration: 120, // in minutes (default 2 hours)
     durationDays: 1,
     allDay: false,
+    recurringDays: [] as number[], // 0=Sun, 1=Mon, ... 6=Sat
   });
   const [hideWeekends, setHideWeekends] = useState(true);
   const [legendCollapsed, setLegendCollapsed] = useState(true);
@@ -348,6 +349,7 @@ export default function ContractorSchedulePage() {
         duration: 120,
         durationDays: 1,
         allDay: false,
+        recurringDays: [],
       });
     },
     onError: (error: any) => {
@@ -831,6 +833,7 @@ export default function ContractorSchedulePage() {
       duration: 120,
       durationDays: 1,
       allDay: false,
+      recurringDays: [],
     });
   };
 
@@ -1127,6 +1130,7 @@ export default function ContractorSchedulePage() {
                     description: '',
                     teamId: '',
                     urgency: 'Low' as const,
+                    propertyId: null,
                     durationDays: 1,
                     allDay: false,
                     startTime: '09:00',
@@ -1137,6 +1141,7 @@ export default function ContractorSchedulePage() {
                     tel: '',
                     email: '',
                     contactPerson: '',
+                    recurringDays: [],
                   });
                 }
               }}>
@@ -1174,6 +1179,25 @@ export default function ContractorSchedulePage() {
                         data-testid="input-job-description"
                       />
                     </div>
+
+                    {/* Duration Slider (moved to top) */}
+                    <div>
+                      <Label htmlFor="duration" className="text-sm">
+                        Duration: {Math.floor(jobFormData.duration / 60)}h {jobFormData.duration % 60}m
+                      </Label>
+                      <Slider
+                        id="duration"
+                        min={15}
+                        max={480}
+                        step={15}
+                        value={[jobFormData.duration]}
+                        onValueChange={([value]) => setJobFormData({ ...jobFormData, duration: value })}
+                        className="mt-2"
+                        data-testid="slider-duration"
+                        disabled={jobFormData.allDay}
+                      />
+                    </div>
+
                     <div>
                       <Label htmlFor="job-team">Assign to Team</Label>
                       <Select
@@ -1186,12 +1210,20 @@ export default function ContractorSchedulePage() {
                         <SelectContent>
                           {teams.map(team => (
                             <SelectItem key={team.id} value={team.id}>
-                              {team.name} ({team.specialty})
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: team.color }}
+                                />
+                                <span>{team.name} ({team.specialty})</span>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Customer Info Section */}
                     <Collapsible open={addressExpanded} onOpenChange={setAddressExpanded}>
                       <div className="space-y-4">
                         <CollapsibleTrigger asChild>
@@ -1199,9 +1231,9 @@ export default function ContractorSchedulePage() {
                             variant="outline"
                             size="sm"
                             className="w-full justify-between"
-                            data-testid="button-toggle-address"
+                            data-testid="button-toggle-customer-info"
                           >
-                            <span>Address (optional)</span>
+                            <span>Customer Info (optional)</span>
                             <ChevronDown className={cn(
                               "h-4 w-4 transition-transform",
                               addressExpanded && "rotate-180"
@@ -1209,6 +1241,40 @@ export default function ContractorSchedulePage() {
                           </Button>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="space-y-3">
+                          <div>
+                            <Label htmlFor="job-contact-person" className="text-sm">Customer Name</Label>
+                            <Input
+                              id="job-contact-person"
+                              value={jobFormData.contactPerson}
+                              onChange={(e) => setJobFormData({ ...jobFormData, contactPerson: e.target.value })}
+                              placeholder="Contact name"
+                              data-testid="input-job-contact-person"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="job-tel" className="text-sm">Phone</Label>
+                              <Input
+                                id="job-tel"
+                                value={jobFormData.tel}
+                                onChange={(e) => setJobFormData({ ...jobFormData, tel: e.target.value })}
+                                placeholder="Phone number"
+                                type="tel"
+                                data-testid="input-job-tel"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="job-email" className="text-sm">Email</Label>
+                              <Input
+                                id="job-email"
+                                value={jobFormData.email}
+                                onChange={(e) => setJobFormData({ ...jobFormData, email: e.target.value })}
+                                placeholder="Email address"
+                                type="email"
+                                data-testid="input-job-email"
+                              />
+                            </div>
+                          </div>
                           <div>
                             <Label htmlFor="job-address" className="text-sm">Street Address</Label>
                             <Input
@@ -1241,43 +1307,10 @@ export default function ContractorSchedulePage() {
                               />
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <Label htmlFor="job-tel" className="text-sm">Phone</Label>
-                              <Input
-                                id="job-tel"
-                                value={jobFormData.tel}
-                                onChange={(e) => setJobFormData({ ...jobFormData, tel: e.target.value })}
-                                placeholder="Phone number"
-                                type="tel"
-                                data-testid="input-job-tel"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="job-email" className="text-sm">Email</Label>
-                              <Input
-                                id="job-email"
-                                value={jobFormData.email}
-                                onChange={(e) => setJobFormData({ ...jobFormData, email: e.target.value })}
-                                placeholder="Email address"
-                                type="email"
-                                data-testid="input-job-email"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <Label htmlFor="job-contact-person" className="text-sm">Contact Person</Label>
-                            <Input
-                              id="job-contact-person"
-                              value={jobFormData.contactPerson}
-                              onChange={(e) => setJobFormData({ ...jobFormData, contactPerson: e.target.value })}
-                              placeholder="Contact name"
-                              data-testid="input-job-contact-person"
-                            />
-                          </div>
                         </CollapsibleContent>
                       </div>
                     </Collapsible>
+
                     <div>
                       <Label htmlFor="job-urgency">Urgency</Label>
                       <Select
@@ -1294,9 +1327,38 @@ export default function ContractorSchedulePage() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Start Time */}
+                    {!jobFormData.allDay && (
+                      <div>
+                        <Label htmlFor="start-time" className="text-sm">Start Time</Label>
+                        <Input
+                          id="start-time"
+                          type="time"
+                          value={jobFormData.startTime}
+                          onChange={(e) => setJobFormData({ ...jobFormData, startTime: e.target.value })}
+                          data-testid="input-start-time"
+                        />
+                      </div>
+                    )}
+
+                    {/* All Day Checkbox (moved to bottom) */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-border dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        id="all-day"
+                        checked={jobFormData.allDay}
+                        onChange={(e) => setJobFormData({ ...jobFormData, allDay: e.target.checked })}
+                        className="rounded"
+                        data-testid="checkbox-all-day"
+                      />
+                      <Label htmlFor="all-day" className="cursor-pointer">All Day</Label>
+                    </div>
+
+                    {/* Multi-day Duration (optional) */}
                     <div>
                       <Label htmlFor="duration-days" className="text-sm">
-                        Duration: {jobFormData.durationDays} {jobFormData.durationDays === 1 ? 'day' : 'days'}
+                        Number of Days: {jobFormData.durationDays} {jobFormData.durationDays === 1 ? 'day' : 'days'}
                       </Label>
                       <Slider
                         id="duration-days"
@@ -1307,7 +1369,7 @@ export default function ContractorSchedulePage() {
                         onValueChange={([value]) => setJobFormData({ 
                           ...jobFormData, 
                           durationDays: value,
-                          allDay: value > 1 ? true : jobFormData.allDay // Auto-select all-day for multi-day jobs
+                          allDay: value > 1 ? true : jobFormData.allDay
                         })}
                         className="mt-2"
                         data-testid="slider-duration-days"
@@ -1319,46 +1381,43 @@ export default function ContractorSchedulePage() {
                         </p>
                       )}
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="all-day"
-                          checked={jobFormData.allDay}
-                          onChange={(e) => setJobFormData({ ...jobFormData, allDay: e.target.checked })}
-                          className="rounded"
-                          data-testid="checkbox-all-day"
-                        />
-                        <Label htmlFor="all-day" className="cursor-pointer">All Day</Label>
+
+                    {/* Recurring Job Selector */}
+                    <div className="pt-2 border-t border-border dark:border-gray-700">
+                      <Label className="text-sm mb-2 block">Repeat on Multiple Days (optional)</Label>
+                      <div className="grid grid-cols-7 gap-2">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => {
+                          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                          const isSelected = jobFormData.recurringDays.includes(index);
+                          return (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => {
+                                const newDays = isSelected
+                                  ? jobFormData.recurringDays.filter(d => d !== index)
+                                  : [...jobFormData.recurringDays, index].sort();
+                                setJobFormData({ ...jobFormData, recurringDays: newDays });
+                              }}
+                              className={cn(
+                                "h-10 rounded-md text-sm font-medium transition-colors",
+                                isSelected
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted hover:bg-muted/80 text-muted-foreground"
+                              )}
+                              title={dayNames[index]}
+                              data-testid={`button-recurring-day-${index}`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
                       </div>
-                      {!jobFormData.allDay && (
-                        <>
-                          <div>
-                            <Label htmlFor="start-time" className="text-sm">Start Time</Label>
-                            <Input
-                              id="start-time"
-                              type="time"
-                              value={jobFormData.startTime}
-                              onChange={(e) => setJobFormData({ ...jobFormData, startTime: e.target.value })}
-                              data-testid="input-start-time"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="duration" className="text-sm">
-                              Duration: {Math.floor(jobFormData.duration / 60)}h {jobFormData.duration % 60}m
-                            </Label>
-                            <Slider
-                              id="duration"
-                              min={30}
-                              max={480}
-                              step={30}
-                              value={[jobFormData.duration]}
-                              onValueChange={([value]) => setJobFormData({ ...jobFormData, duration: value })}
-                              className="mt-2"
-                              data-testid="slider-duration"
-                            />
-                          </div>
-                        </>
+                      {jobFormData.recurringDays.length > 0 && (
+                        <p className="text-xs text-muted-foreground dark:text-gray-400 mt-2 flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          This job will be created on {jobFormData.recurringDays.length} selected {jobFormData.recurringDays.length === 1 ? 'day' : 'days'} each week
+                        </p>
                       )}
                     </div>
                     {editingJob ? (
