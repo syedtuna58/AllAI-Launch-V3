@@ -21,6 +21,8 @@ import {
   useDroppable,
   type DragEndEvent,
   type DragStartEvent,
+  type CollisionDetection,
+  getFirstCollision,
 } from "@dnd-kit/core";
 import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay, differenceInCalendarDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
@@ -121,6 +123,49 @@ const ALL_SPECIALTIES = [
   'Tile',
   'Window/Door',
 ].sort();
+
+// Custom collision detection that uses the top edge of the dragged card
+const topEdgeCollisionDetection: CollisionDetection = (args) => {
+  const { active, droppableRects, droppableContainers } = args;
+  
+  // Get the active card's current position (after transform)
+  const activeRect = active.rect.current.translated;
+  if (!activeRect) {
+    return [];
+  }
+  
+  const activeTop = activeRect.top;
+  const activeLeft = activeRect.left;
+  const activeRight = activeRect.right;
+  
+  const collisions: Array<{ id: string; data: { value: number } }> = [];
+  
+  // Calculate distance from active top edge to each droppable's top edge
+  for (const droppableContainer of droppableContainers) {
+    const { id } = droppableContainer;
+    const rect = droppableRects.get(id);
+    
+    if (!rect) continue;
+    
+    // Check horizontal overlap (to ensure we're in the same column)
+    const hasHorizontalOverlap = activeLeft < rect.right && activeRight > rect.left;
+    
+    if (!hasHorizontalOverlap) continue;
+    
+    // Calculate distance from active's top edge to droppable's top edge
+    const distance = Math.abs(activeTop - rect.top);
+    
+    collisions.push({
+      id: id as string,
+      data: { value: distance }
+    });
+  }
+  
+  // Sort by distance (ascending) - closest first
+  collisions.sort((a, b) => a.data.value - b.data.value);
+  
+  return collisions;
+};
 
 export default function ContractorSchedulePage() {
   const { user } = useAuth();
@@ -1168,7 +1213,7 @@ export default function ContractorSchedulePage() {
 
           <DndContext
             sensors={sensors}
-            collisionDetection={pointerWithin}
+            collisionDetection={topEdgeCollisionDetection}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
@@ -1833,8 +1878,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
         })()}
         
         {/* Jobs overlay - positioned absolutely */}
-        <div className="absolute inset-0 pointer-events-none px-1">
-          <div className="relative h-full pointer-events-auto">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="relative h-full pointer-events-auto px-0.5">
             {jobs.map(job => {
               const team = teams.find(t => t.id === job.teamId);
               const spanInfo = calculateJobSpan(job, date, weekDays);
