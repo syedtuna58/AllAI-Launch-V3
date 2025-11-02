@@ -1309,6 +1309,7 @@ export default function ContractorSchedulePage() {
                                 calculateJobSpan={calculateJobSpan}
                                 isToday={isToday}
                                 activeId={activeId}
+                                organization={organization}
                                 onClick={(job) => {
                                   setSelectedJob(job);
                                   setShowJobDetailsDialog(true);
@@ -1346,6 +1347,7 @@ export default function ContractorSchedulePage() {
                             isToday={isSameDay(currentDate, new Date())}
                             activeId={activeId}
                             hourHeight={60}
+                            organization={organization}
                             onClick={(job) => {
                               setSelectedJob(job);
                               setShowJobDetailsDialog(true);
@@ -1651,7 +1653,7 @@ function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
   );
 }
 
-function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick }: {
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, organization }: {
   dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
@@ -1667,6 +1669,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   activeId: string | null;
   hourHeight?: number;
   onClick?: (job: ScheduledJob) => void;
+  organization?: Organization;
 }) {
   // Generate hours from 6 AM to 8 PM (for visual hourly grid)
   const hours = Array.from({ length: 15 }, (_, i) => i + 6);
