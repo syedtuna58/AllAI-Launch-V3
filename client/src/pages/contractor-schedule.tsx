@@ -1493,12 +1493,12 @@ function JobCard({
         {...attributes} 
         onClick={onClick}
         className={cn(
-          "cursor-grab active:cursor-grabbing p-2 relative h-full",
+          "cursor-grab active:cursor-grabbing p-2 relative h-full rounded-md",
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
         )}
         style={{ 
-          backgroundColor,
-          backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}, ${backgroundColor}dd)` : undefined
+          backgroundColor: `${backgroundColor}dd`,
+          backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}dd, ${backgroundColor}bb)` : undefined
         }}
       >
         <div 
@@ -1683,7 +1683,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   return (
     <div
       className={cn(
-        "rounded-lg border-0 relative",
+        "rounded-lg border-r border-border dark:border-gray-700 relative",
         "bg-card dark:bg-gray-800",
         isToday && "ring-2 ring-primary dark:ring-blue-500"
       )}
@@ -1736,7 +1736,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       ref={setRef00}
                       className={cn(
                         "absolute top-0 left-0 right-0 transition-colors",
-                        isOver00 ? "bg-primary/20 dark:bg-blue-500/20" : "bg-green-100/20 dark:bg-green-500/10"
+                        isOver00 && "bg-primary/20 dark:bg-blue-500/20"
                       )}
                       style={{ height: `${hourHeight / 2}px` }}
                     />
@@ -1755,7 +1755,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       ref={setRef30}
                       className={cn(
                         "absolute bottom-0 left-0 right-0 transition-colors",
-                        isOver30 ? "bg-primary/20 dark:bg-blue-500/20" : "bg-yellow-100/20 dark:bg-yellow-500/10"
+                        isOver30 && "bg-primary/20 dark:bg-blue-500/20"
                       )}
                       style={{ height: `${hourHeight / 2}px` }}
                     />
