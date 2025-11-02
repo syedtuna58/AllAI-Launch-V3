@@ -193,7 +193,6 @@ export default function ContractorSchedulePage() {
     duration: 120, // in minutes (default 2 hours)
     durationDays: 1,
     allDay: false,
-    recurringDays: [] as number[], // 0=Sun, 1=Mon, ... 6=Sat
   });
   const [hideWeekends, setHideWeekends] = useState(true);
   const [legendCollapsed, setLegendCollapsed] = useState(true);
@@ -349,7 +348,6 @@ export default function ContractorSchedulePage() {
         duration: 120,
         durationDays: 1,
         allDay: false,
-        recurringDays: [],
       });
     },
     onError: (error: any) => {
@@ -441,7 +439,6 @@ export default function ContractorSchedulePage() {
         duration: 120,
         durationDays: 1,
         allDay: false,
-        recurringDays: [],
       });
     },
     onError: (error: any) => {
@@ -700,16 +697,7 @@ export default function ContractorSchedulePage() {
     setActiveId(null);
   };
 
-  const handleCreateJob = async () => {
-    // Calculate end time from duration
-    const calculateEndTime = (start: string, durationMinutes: number): string => {
-      const [hours, minutes] = start.split(':').map(Number);
-      const totalMinutes = hours * 60 + minutes + durationMinutes;
-      const endHours = Math.floor(totalMinutes / 60) % 24;
-      const endMinutes = totalMinutes % 60;
-      return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
-    };
-    
+  const handleCreateJob = () => {
     // Store time preferences and address details in notes field as JSON
     const addressDetails = {
       address: jobFormData.address,
@@ -730,107 +718,30 @@ export default function ContractorSchedulePage() {
         timePreferences: timePrefs, 
         description: jobFormData.description,
         addressDetails: addressDetails,
-        recurringDays: jobFormData.recurringDays,
       });
     } else {
       notes = JSON.stringify({ 
         description: jobFormData.description,
         addressDetails: addressDetails,
-        recurringDays: jobFormData.recurringDays,
       });
     }
 
-    // If recurring days are selected, create scheduled jobs for each day of the current week
-    if (jobFormData.recurringDays.length > 0) {
-      const orgTimezone = organization?.timezone || 'America/New_York';
-      const today = new Date();
-      const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // 0 = Sunday
-      
-      const payloads: any[] = [];
-      
-      jobFormData.recurringDays.forEach((dayIndex) => {
-        const targetDate = addDays(weekStart, dayIndex);
-        
-        // Skip if the date is in the past
-        if (isBefore(targetDate, today) && !isSameDay(targetDate, today)) {
-          return;
-        }
-        
-        // Calculate scheduled times with timezone conversion
-        let scheduledStartAt: string | undefined;
-        let scheduledEndAt: string | undefined;
-        
-        if (!jobFormData.allDay) {
-          const [hours, minutes] = jobFormData.startTime.split(':').map(Number);
-          const localDateTime = new Date(targetDate);
-          localDateTime.setHours(hours, minutes, 0, 0);
-          
-          // Convert from org timezone to UTC
-          const utcStartDateTime = fromZonedTime(localDateTime, orgTimezone);
-          scheduledStartAt = utcStartDateTime.toISOString();
-          
-          const localEndDateTime = new Date(localDateTime);
-          localEndDateTime.setMinutes(localEndDateTime.getMinutes() + jobFormData.duration);
-          const utcEndDateTime = fromZonedTime(localEndDateTime, orgTimezone);
-          scheduledEndAt = utcEndDateTime.toISOString();
-        } else {
-          // For all-day events, convert the start of day in org timezone to UTC
-          const localStartOfDay = new Date(targetDate);
-          localStartOfDay.setHours(0, 0, 0, 0);
-          const utcStartOfDay = fromZonedTime(localStartOfDay, orgTimezone);
-          scheduledStartAt = utcStartOfDay.toISOString();
-          
-          const localEndDate = addDays(targetDate, jobFormData.durationDays);
-          localEndDate.setHours(0, 0, 0, 0);
-          const utcEndDate = fromZonedTime(localEndDate, orgTimezone);
-          scheduledEndAt = utcEndDate.toISOString();
-        }
-        
-        const payload: any = {
-          title: jobFormData.title,
-          description: jobFormData.description,
-          teamId: jobFormData.teamId,
-          urgency: jobFormData.urgency,
-          propertyId: jobFormData.propertyId,
-          address: jobFormData.address || null,
-          durationDays: jobFormData.durationDays,
-          status: 'Scheduled',
-          isAllDay: jobFormData.allDay,
-          tenantConfirmed: false,
-          notes: notes,
-          scheduledStartAt,
-          scheduledEndAt,
-        };
-        
-        payloads.push(payload);
-      });
-      
-      // Create jobs sequentially to avoid database connection issues
-      for (const payload of payloads) {
-        try {
-          await createJobMutation.mutateAsync(payload);
-        } catch (error) {
-          console.error('Failed to create recurring job:', error);
-        }
-      }
-    } else {
-      // Create single unscheduled job (existing behavior)
-      const payload: any = {
-        title: jobFormData.title,
-        description: jobFormData.description,
-        teamId: jobFormData.teamId,
-        urgency: jobFormData.urgency,
-        propertyId: jobFormData.propertyId,
-        address: jobFormData.address || null,
-        durationDays: jobFormData.durationDays,
-        status: 'Unscheduled',
-        isAllDay: jobFormData.allDay,
-        tenantConfirmed: false,
-        notes: notes,
-      };
-      
-      createJobMutation.mutate(payload);
-    }
+    // All new jobs start unscheduled (no scheduled times)
+    const payload: any = {
+      title: jobFormData.title,
+      description: jobFormData.description,
+      teamId: jobFormData.teamId,
+      urgency: jobFormData.urgency,
+      propertyId: jobFormData.propertyId,
+      address: jobFormData.address || null,
+      durationDays: jobFormData.durationDays,
+      status: 'Unscheduled',
+      isAllDay: jobFormData.allDay,
+      tenantConfirmed: false,
+      notes: notes,
+    };
+    
+    createJobMutation.mutate(payload);
   };
 
   const handleUpdateJob = () => {
@@ -856,13 +767,11 @@ export default function ContractorSchedulePage() {
         timePreferences: timePrefs, 
         description: jobFormData.description,
         addressDetails: addressDetails,
-        recurringDays: jobFormData.recurringDays,
       });
     } else {
       notes = JSON.stringify({ 
         description: jobFormData.description,
         addressDetails: addressDetails,
-        recurringDays: jobFormData.recurringDays,
       });
     }
 
@@ -913,7 +822,6 @@ export default function ContractorSchedulePage() {
       duration: 120,
       durationDays: 1,
       allDay: false,
-      recurringDays: [],
     });
   };
 
@@ -1221,7 +1129,6 @@ export default function ContractorSchedulePage() {
                     tel: '',
                     email: '',
                     contactPerson: '',
-                    recurringDays: [],
                   });
                 }
               }}>
@@ -1462,44 +1369,6 @@ export default function ContractorSchedulePage() {
                       )}
                     </div>
 
-                    {/* Recurring Job Selector */}
-                    <div className="pt-2 border-t border-border dark:border-gray-700">
-                      <Label className="text-sm mb-2 block">Repeat on Multiple Days (optional)</Label>
-                      <div className="grid grid-cols-7 gap-2">
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => {
-                          const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                          const isSelected = jobFormData.recurringDays.includes(index);
-                          return (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => {
-                                const newDays = isSelected
-                                  ? jobFormData.recurringDays.filter(d => d !== index)
-                                  : [...jobFormData.recurringDays, index].sort();
-                                setJobFormData({ ...jobFormData, recurringDays: newDays });
-                              }}
-                              className={cn(
-                                "h-10 rounded-md text-sm font-medium transition-colors",
-                                isSelected
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                              )}
-                              title={dayNames[index]}
-                              data-testid={`button-recurring-day-${index}`}
-                            >
-                              {day}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {jobFormData.recurringDays.length > 0 && (
-                        <p className="text-xs text-muted-foreground dark:text-gray-400 mt-2 flex items-center gap-1">
-                          <Info className="h-3 w-3" />
-                          This job will be created on {jobFormData.recurringDays.length} selected {jobFormData.recurringDays.length === 1 ? 'day' : 'days'} each week
-                        </p>
-                      )}
-                    </div>
                     {editingJob ? (
                       <div className="flex gap-2">
                         <Button
