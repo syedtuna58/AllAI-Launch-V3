@@ -1538,7 +1538,7 @@ function JobCard({
         {...attributes} 
         onClick={onClick}
         className={cn(
-          "cursor-grab active:cursor-grabbing p-2 relative h-full rounded-md",
+          "cursor-grab active:cursor-grabbing px-2 py-1.5 relative h-full rounded-sm",
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
         )}
         style={{ 
