@@ -11,7 +11,7 @@ import Header from "@/components/layout/header";
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  pointerWithin,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -22,6 +22,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay, differenceInCalendarDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths } from "date-fns";
+import { fromZonedTime } from "date-fns-tz";
 import {
   Dialog,
   DialogContent,
@@ -171,6 +172,10 @@ export default function ContractorSchedulePage() {
     queryKey: ['/api/teams'],
   });
 
+  const { data: organization } = useQuery<{ id: string; name: string; timezone: string }>({
+    queryKey: ['/api/organizations/current'],
+  });
+
   const { data: jobs = [], isLoading: loadingJobs } = useQuery<ScheduledJob[]>({
     queryKey: ['/api/scheduled-jobs'],
   });
@@ -310,7 +315,14 @@ export default function ContractorSchedulePage() {
       // Snapshot the previous value
       const previousJobs = queryClient.getQueryData<ScheduledJob[]>(['/api/scheduled-jobs']);
       
-      // Return context with previous value (skip optimistic update to avoid jitter)
+      // Optimistically update the cache to avoid visual glitch
+      if (previousJobs) {
+        const optimisticJobs = previousJobs.map(job => 
+          job.id === id ? { ...job, ...data } : job
+        );
+        queryClient.setQueryData(['/api/scheduled-jobs'], optimisticJobs);
+      }
+      
       return { previousJobs };
     },
     onSuccess: (data: ScheduledJob) => {
@@ -479,6 +491,19 @@ export default function ContractorSchedulePage() {
       let newStartDate: Date;
       let newEndDate: Date;
       
+      // Get organization timezone - abort if not available to avoid wrong timezone
+      if (!organization?.timezone) {
+        console.error('❌ Organization timezone not loaded - cannot schedule job');
+        toast({
+          title: "Scheduling unavailable",
+          description: "Please wait for the page to finish loading before scheduling jobs.",
+          variant: "destructive"
+        });
+        setActiveId(null);
+        return;
+      }
+      const orgTimezone = organization.timezone;
+      
       if (!job.scheduledStartAt) {
         // New job being scheduled - use the dropped time slot
         let durationMinutes = 120; // default 2 hours
@@ -495,16 +520,21 @@ export default function ContractorSchedulePage() {
           }
         }
         
-        // Use the target hour and minute from the drop zone - use UTC to avoid timezone issues
+        // Use fromZonedTime to properly convert from organization timezone to UTC
         const year = targetDate.getFullYear();
-        const month = targetDate.getMonth();
-        const day = targetDate.getDate();
-        newStartDate = new Date(year, month, day, targetHour, targetMinute, 0, 0);
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const hour = String(targetHour).padStart(2, '0');
+        const minute = String(targetMinute).padStart(2, '0');
+        const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
+        
+        newStartDate = fromZonedTime(dateTimeString, orgTimezone);
         
         console.log('📅 NEW JOB SCHEDULE:', {
           targetHour,
           targetMinute,
-          targetDateParts: { year, month, day },
+          orgTimezone,
+          dateTimeString,
           newStartDate: newStartDate.toISOString(),
           willDisplay: format(newStartDate, 'h:mm a')
         });
@@ -517,16 +547,21 @@ export default function ContractorSchedulePage() {
           newEndDate = new Date(addDays(newStartDate, job.durationDays - 1).getTime() + durationMinutes * 60 * 1000);
         }
       } else {
-        // Existing job being rescheduled - use the new time slot - use local date parts to avoid timezone issues
+        // Existing job being rescheduled - use fromZonedTime to properly convert
         const year = targetDate.getFullYear();
-        const month = targetDate.getMonth();
-        const day = targetDate.getDate();
-        newStartDate = new Date(year, month, day, targetHour, targetMinute, 0, 0);
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const hour = String(targetHour).padStart(2, '0');
+        const minute = String(targetMinute).padStart(2, '0');
+        const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
+        
+        newStartDate = fromZonedTime(dateTimeString, orgTimezone);
         
         console.log('📅 RESCHEDULE JOB:', {
           targetHour,
           targetMinute,
-          targetDateParts: { year, month, day },
+          orgTimezone,
+          dateTimeString,
           newStartDate: newStartDate.toISOString(),
           willDisplay: format(newStartDate, 'h:mm a')
         });
@@ -1132,7 +1167,7 @@ export default function ContractorSchedulePage() {
 
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={pointerWithin}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
