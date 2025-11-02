@@ -1512,12 +1512,33 @@ function JobCard({
     id: job.id,
   });
 
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+
   const isMultiDay = spanDays > 1 || extendsBeyondWeek;
   
   // Don't apply transform when dragging - DragOverlay handles the visual
   const style = (transform && !isDragging) ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (!mouseDownPosRef.current || !onClick) return;
+    
+    const deltaX = Math.abs(e.clientX - mouseDownPosRef.current.x);
+    const deltaY = Math.abs(e.clientY - mouseDownPosRef.current.y);
+    
+    // If mouse moved less than 5px, it's a click, not a drag
+    if (deltaX < 5 && deltaY < 5) {
+      e.stopPropagation();
+      onClick();
+    }
+    
+    mouseDownPosRef.current = null;
+  };
   
   // Removed tenant confirmation - not needed for drag/drop workflow
   const showConfirmButton = false;
@@ -1559,7 +1580,8 @@ function JobCard({
       <div 
         {...listeners} 
         {...attributes} 
-        onClick={onClick}
+        onMouseDown={handleMouseDown}
+        onClick={handleClick}
         className={cn(
           "cursor-grab active:cursor-grabbing px-0.5 py-1.5 relative h-full rounded-sm",
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
