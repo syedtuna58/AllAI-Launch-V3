@@ -22,7 +22,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay, differenceInCalendarDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths } from "date-fns";
-import { fromZonedTime } from "date-fns-tz";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import {
   Dialog,
   DialogContent,
