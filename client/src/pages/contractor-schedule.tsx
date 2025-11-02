@@ -1769,8 +1769,11 @@ function JobCard({
     }
   };
 
-  // Use gray for unscheduled jobs (no team), otherwise use team color
+  // Always use team color, but fade it for unscheduled jobs
   const backgroundColor = team?.color || '#6b7280';
+  const isScheduled = !!job.scheduledStartAt;
+  // Scheduled jobs: 87% opacity (dd), Unscheduled jobs: 40% opacity (66)
+  const opacity = isScheduled ? 'dd' : '66';
   
   const wrapperStyle = isMultiDay && job.scheduledStartAt ? {
     ...style,
@@ -1798,8 +1801,8 @@ function JobCard({
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
         )}
         style={{ 
-          backgroundColor: `${backgroundColor}dd`,
-          backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}dd, ${backgroundColor}bb)` : undefined
+          backgroundColor: `${backgroundColor}${opacity}`,
+          backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}${opacity}, ${backgroundColor}${isScheduled ? 'bb' : '55'})` : undefined
         }}
       >
         <div 
