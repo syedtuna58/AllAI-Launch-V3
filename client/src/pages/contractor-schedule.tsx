@@ -174,6 +174,7 @@ export default function ContractorSchedulePage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 })); // 1 = Monday
   const [showJobDialog, setShowJobDialog] = useState(false);
+  const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [jobFormData, setJobFormData] = useState({
@@ -193,8 +194,6 @@ export default function ContractorSchedulePage() {
     durationDays: 1,
     allDay: false,
   });
-  const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null);
-  const [showJobDetailsDialog, setShowJobDetailsDialog] = useState(false);
   const [hideWeekends, setHideWeekends] = useState(true);
   const [legendCollapsed, setLegendCollapsed] = useState(true);
   const [addressExpanded, setAddressExpanded] = useState(false);
@@ -408,6 +407,47 @@ export default function ContractorSchedulePage() {
         duration: 4000
       });
       dragMutationInProgress.current = false;
+    },
+  });
+
+  const deleteJobMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingJob) throw new Error('No job to delete');
+      return apiRequest('DELETE', `/api/scheduled-jobs/${editingJob.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      toast({ 
+        title: "Job deleted successfully",
+        duration: 2000
+      });
+      setShowJobDialog(false);
+      setEditingJob(null);
+      setJobFormData({
+        title: '',
+        description: '',
+        teamId: '',
+        urgency: 'Low',
+        propertyId: null,
+        address: '',
+        city: '',
+        state: '',
+        tel: '',
+        email: '',
+        contactPerson: '',
+        startTime: '08:00',
+        duration: 120,
+        durationDays: 1,
+        allDay: false,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete job",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
     },
   });
 
@@ -713,6 +753,87 @@ export default function ContractorSchedulePage() {
     createJobMutation.mutate(payload);
   };
 
+  const handleUpdateJob = () => {
+    if (!editingJob) return;
+
+    // Build notes with time preferences and address details (same as create)
+    let notes = jobFormData.description || '';
+    const addressDetails = {
+      address: jobFormData.address,
+      city: jobFormData.city,
+      state: jobFormData.state,
+      tel: jobFormData.tel,
+      email: jobFormData.email,
+      contactPerson: jobFormData.contactPerson,
+    };
+    
+    if (!jobFormData.allDay) {
+      const timePrefs = {
+        startTime: jobFormData.startTime,
+        duration: jobFormData.duration,
+      };
+      notes = JSON.stringify({ 
+        timePreferences: timePrefs, 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
+    } else {
+      notes = JSON.stringify({ 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
+    }
+
+    const payload: Partial<InsertScheduledJob> = {
+      title: jobFormData.title,
+      description: jobFormData.description,
+      teamId: jobFormData.teamId || null,
+      urgency: jobFormData.urgency,
+      propertyId: jobFormData.propertyId || null,
+      address: jobFormData.address || null,
+      city: jobFormData.city || null,
+      state: jobFormData.state || null,
+      tel: jobFormData.tel || null,
+      email: jobFormData.email || null,
+      contactPerson: jobFormData.contactPerson || null,
+      durationDays: jobFormData.durationDays,
+      isAllDay: jobFormData.allDay,
+      notes: notes,
+    };
+
+    // If the job is scheduled and end time needs recalculation due to duration change
+    if (editingJob.scheduledStartAt && editingJob.durationDays !== jobFormData.durationDays) {
+      const startDate = parseISO(editingJob.scheduledStartAt);
+      const endDate = addDays(startDate, jobFormData.durationDays);
+      payload.scheduledEndAt = endDate.toISOString();
+    }
+
+    updateJobMutation.mutate({ 
+      id: editingJob.id, 
+      data: payload 
+    });
+    
+    setShowJobDialog(false);
+    setEditingJob(null);
+    setJobFormData({
+      title: '',
+      description: '',
+      teamId: '',
+      urgency: 'Low',
+      propertyId: null,
+      address: '',
+      city: '',
+      state: '',
+      tel: '',
+      email: '',
+      contactPerson: '',
+      startTime: '08:00',
+      duration: 120,
+      durationDays: 1,
+      allDay: false,
+    });
+  };
+
   const handleCreateTeam = () => {
     if (editingTeam) {
       updateTeamMutation.mutate({
@@ -997,7 +1118,28 @@ export default function ContractorSchedulePage() {
                 </DialogContent>
               </Dialog>
 
-              <Dialog open={showJobDialog} onOpenChange={setShowJobDialog}>
+              <Dialog open={showJobDialog} onOpenChange={(open) => {
+                setShowJobDialog(open);
+                if (!open) {
+                  setEditingJob(null);
+                  setJobFormData({
+                    title: '',
+                    description: '',
+                    teamId: '',
+                    urgency: 'Low' as const,
+                    durationDays: 1,
+                    allDay: false,
+                    startTime: '09:00',
+                    duration: 120,
+                    address: '',
+                    city: '',
+                    state: '',
+                    tel: '',
+                    email: '',
+                    contactPerson: '',
+                  });
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-job">
                     <Plus className="mr-2 h-4 w-4" />
@@ -1006,9 +1148,9 @@ export default function ContractorSchedulePage() {
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Create New Job</DialogTitle>
+                    <DialogTitle>{editingJob ? 'Edit Job' : 'Create New Job'}</DialogTitle>
                     <DialogDescription>
-                      Add a new job to the unscheduled queue. Drag it to a day to schedule it.
+                      {editingJob ? 'Update job details and assignment' : 'Add a new job to the unscheduled queue. Drag it to a day to schedule it.'}
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -1219,14 +1361,40 @@ export default function ContractorSchedulePage() {
                         </>
                       )}
                     </div>
-                    <Button
-                      onClick={handleCreateJob}
-                      disabled={!jobFormData.title || !jobFormData.teamId || createJobMutation.isPending}
-                      className="w-full"
-                      data-testid="button-submit-job"
-                    >
-                      {createJobMutation.isPending ? 'Creating...' : 'Create Job'}
-                    </Button>
+                    {editingJob ? (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+                              deleteJobMutation.mutate();
+                            }
+                          }}
+                          disabled={deleteJobMutation.isPending}
+                          data-testid="button-delete-job"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {deleteJobMutation.isPending ? 'Deleting...' : 'Delete'}
+                        </Button>
+                        <Button
+                          onClick={handleUpdateJob}
+                          disabled={!jobFormData.title || !jobFormData.teamId || updateJobMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-update-job"
+                        >
+                          {updateJobMutation.isPending ? 'Updating...' : 'Update Job'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handleCreateJob}
+                        disabled={!jobFormData.title || !jobFormData.teamId || createJobMutation.isPending}
+                        className="w-full"
+                        data-testid="button-submit-job"
+                      >
+                        {createJobMutation.isPending ? 'Creating...' : 'Create Job'}
+                      </Button>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>
@@ -1379,8 +1547,24 @@ export default function ContractorSchedulePage() {
                                 activeId={activeId}
                                 organization={organization}
                                 onClick={(job) => {
-                                  setSelectedJob(job);
-                                  setShowJobDetailsDialog(true);
+                                  setEditingJob(job);
+                                  setJobFormData({
+                                    title: job.title,
+                                    description: job.description || '',
+                                    teamId: job.teamId || '',
+                                    urgency: job.urgency,
+                                    durationDays: job.durationDays,
+                                    allDay: job.isAllDay,
+                                    startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                                    duration: 120,
+                                    address: job.address || '',
+                                    city: job.city || '',
+                                    state: job.state || '',
+                                    tel: job.tel || '',
+                                    email: job.email || '',
+                                    contactPerson: job.contactPerson || '',
+                                  });
+                                  setShowJobDialog(true);
                                 }}
                               />
                             );
@@ -1417,8 +1601,24 @@ export default function ContractorSchedulePage() {
                             hourHeight={60}
                             organization={organization}
                             onClick={(job) => {
-                              setSelectedJob(job);
-                              setShowJobDetailsDialog(true);
+                              setEditingJob(job);
+                              setJobFormData({
+                                title: job.title,
+                                description: job.description || '',
+                                teamId: job.teamId || '',
+                                urgency: job.urgency,
+                                durationDays: job.durationDays,
+                                allDay: job.isAllDay,
+                                startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                                duration: 120,
+                                address: job.address || '',
+                                city: job.city || '',
+                                state: job.state || '',
+                                tel: job.tel || '',
+                                email: job.email || '',
+                                contactPerson: job.contactPerson || '',
+                              });
+                              setShowJobDialog(true);
                             }}
                           />
                         </div>
@@ -1436,8 +1636,25 @@ export default function ContractorSchedulePage() {
                           setViewMode('day');
                         }}
                         onJobClick={(job: ScheduledJob) => {
-                          setSelectedJob(job);
-                          setShowJobDetailsDialog(true);
+                          setEditingJob(job);
+                          // Populate form with job data
+                          setJobFormData({
+                            title: job.title,
+                            description: job.description || '',
+                            teamId: job.teamId || '',
+                            urgency: job.urgency,
+                            durationDays: job.durationDays,
+                            allDay: job.isAllDay,
+                            startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                            duration: 120,
+                            address: job.address || '',
+                            city: job.city || '',
+                            state: job.state || '',
+                            tel: job.tel || '',
+                            email: job.email || '',
+                            contactPerson: job.contactPerson || '',
+                          });
+                          setShowJobDialog(true);
                         }}
                       />
                     )}
@@ -1451,8 +1668,24 @@ export default function ContractorSchedulePage() {
                 teams={teams} 
                 activeId={activeId}
                 onJobClick={(job) => {
-                  setSelectedJob(job);
-                  setShowJobDetailsDialog(true);
+                  setEditingJob(job);
+                  setJobFormData({
+                    title: job.title,
+                    description: job.description || '',
+                    teamId: job.teamId || '',
+                    urgency: job.urgency,
+                    durationDays: job.durationDays,
+                    allDay: job.isAllDay,
+                    startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                    duration: 120,
+                    address: job.address || '',
+                    city: job.city || '',
+                    state: job.state || '',
+                    tel: job.tel || '',
+                    email: job.email || '',
+                    contactPerson: job.contactPerson || '',
+                  });
+                  setShowJobDialog(true);
                 }}
               />
             </div>
@@ -1478,13 +1711,6 @@ export default function ContractorSchedulePage() {
               onToggle={() => setLegendCollapsed(!legendCollapsed)}
             />
           </div>
-
-          <JobDetailsDialog
-            job={selectedJob}
-            team={selectedJob ? teams.find(t => t.id === selectedJob.teamId) : undefined}
-            open={showJobDetailsDialog}
-            onOpenChange={setShowJobDetailsDialog}
-          />
         </main>
       </div>
     </div>
@@ -2128,273 +2354,5 @@ function UnscheduledJobsPanel({
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function JobDetailsDialog({ 
-  job, 
-  team, 
-  open, 
-  onOpenChange 
-}: { 
-  job: ScheduledJob | null; 
-  team?: Team; 
-  open: boolean; 
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { toast } = useToast();
-  const [editedTeamId, setEditedTeamId] = useState<string | null>(null);
-  const [editedDuration, setEditedDuration] = useState<number>(1);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  
-  const { data: teams = [] } = useQuery<Team[]>({ 
-    queryKey: ['/api/teams'] 
-  });
-
-  // Reset form when job changes
-  useEffect(() => {
-    if (job) {
-      setEditedTeamId(job.teamId);
-      setEditedDuration(job.durationDays);
-      setShowDeleteConfirm(false);
-    }
-  }, [job]);
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: Partial<InsertScheduledJob>) => {
-      return apiRequest('PATCH', `/api/scheduled-jobs/${job?.id}`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
-      toast({
-        title: "Job updated",
-        description: "The job has been updated successfully.",
-        duration: 2000,
-      });
-      onOpenChange(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update job",
-        variant: "destructive",
-        duration: 4000,
-      });
-    }
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('DELETE', `/api/scheduled-jobs/${job?.id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
-      toast({
-        title: "Job deleted",
-        description: "The job has been deleted successfully.",
-        duration: 2000,
-      });
-      onOpenChange(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete job",
-        variant: "destructive",
-        duration: 4000,
-      });
-    }
-  });
-
-  const handleSave = () => {
-    if (!job) return;
-
-    const updates: Partial<InsertScheduledJob> = {};
-    
-    if (editedTeamId !== job.teamId) {
-      updates.teamId = editedTeamId;
-    }
-    
-    if (editedDuration !== job.durationDays) {
-      updates.durationDays = editedDuration;
-      // Recalculate end time if we have a start time
-      if (job.scheduledStartAt) {
-        const startDate = parseISO(job.scheduledStartAt);
-        const endDate = addDays(startDate, editedDuration);
-        updates.scheduledEndAt = endDate.toISOString();
-      }
-    }
-
-    if (Object.keys(updates).length > 0) {
-      updateMutation.mutate(updates);
-    } else {
-      onOpenChange(false);
-    }
-  };
-
-  const handleDelete = () => {
-    deleteMutation.mutate();
-  };
-
-  if (!job) return null;
-
-  const selectedTeam = teams.find(t => t.id === editedTeamId);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl" data-testid="dialog-job-details">
-        <DialogHeader>
-          <DialogTitle className="text-xl" data-testid="text-job-details-title">
-            {job.title}
-          </DialogTitle>
-          <DialogDescription>
-            Edit job details, team assignment, and duration
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          {/* Team Selection */}
-          <div>
-            <Label htmlFor="team-select" className="text-sm font-medium">Team Assignment</Label>
-            <Select value={editedTeamId || "none"} onValueChange={(value) => setEditedTeamId(value === "none" ? null : value)}>
-              <SelectTrigger id="team-select" className="mt-1" data-testid="select-job-team">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">
-                  <span className="text-muted-foreground">Unassigned</span>
-                </SelectItem>
-                {teams.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded" style={{ backgroundColor: t.color }} />
-                      <span>{t.name} ({t.specialty})</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Duration Input */}
-          <div>
-            <Label htmlFor="duration-input" className="text-sm font-medium">Duration (days)</Label>
-            <Input
-              id="duration-input"
-              type="number"
-              min="1"
-              max="30"
-              value={editedDuration}
-              onChange={(e) => setEditedDuration(Math.max(1, parseInt(e.target.value) || 1))}
-              className="mt-1"
-              data-testid="input-job-duration"
-            />
-          </div>
-
-          {/* Read-only fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Urgency</Label>
-              <Badge variant="secondary" className={cn("mt-1", URGENCY_COLORS[job.urgency])} data-testid="badge-job-urgency">
-                {job.urgency}
-              </Badge>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-              <p className="text-sm mt-1" data-testid="text-job-status">{job.status}</p>
-            </div>
-          </div>
-
-          {job.address && (
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Address</Label>
-              <p className="text-sm mt-1" data-testid="text-job-address">{job.address}</p>
-            </div>
-          )}
-
-          {job.scheduledStartAt && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">Start Time</Label>
-                <p className="text-sm mt-1" data-testid="text-job-start">
-                  {format(parseISO(job.scheduledStartAt), 'MMM d, yyyy h:mm a')}
-                </p>
-              </div>
-              <div>
-                <Label className="text-sm font-medium text-muted-foreground">End Time</Label>
-                <p className="text-sm mt-1" data-testid="text-job-end">
-                  {job.scheduledEndAt ? format(parseISO(job.scheduledEndAt), 'MMM d, yyyy h:mm a') : 'Not set'}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {job.description && (
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Description</Label>
-              <p className="text-sm mt-1 whitespace-pre-wrap" data-testid="text-job-description">
-                {job.description}
-              </p>
-            </div>
-          )}
-
-          {job.notes && (
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
-              <p className="text-sm mt-1 whitespace-pre-wrap text-muted-foreground" data-testid="text-job-notes">
-                {job.notes}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between border-t pt-4">
-          {!showDeleteConfirm ? (
-            <>
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-                data-testid="button-delete-job"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Job
-              </Button>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleSave} 
-                  disabled={updateMutation.isPending}
-                  data-testid="button-save-job"
-                >
-                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 text-sm text-destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <span>Are you sure? This cannot be undone.</span>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} data-testid="button-cancel-delete">
-                  Cancel
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleDelete}
-                  disabled={deleteMutation.isPending}
-                  data-testid="button-confirm-delete"
-                >
-                  {deleteMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
