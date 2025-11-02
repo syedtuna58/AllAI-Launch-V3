@@ -1679,17 +1679,14 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   return (
     <div
       className={cn(
-        "rounded-lg relative overflow-hidden",
-        "bg-card dark:bg-gray-800"
+        "rounded-lg border relative",
+        "bg-card dark:bg-gray-800 border-border dark:border-gray-700",
+        isToday && "border-primary dark:border-blue-500 border-2"
       )}
       data-testid={`day-column-${dayIndex}`}
     >
       {/* Header - Fixed height to match time labels column spacer */}
-      <div className={cn(
-        "sticky top-0 z-20 px-2 border-b flex flex-col justify-center",
-        "bg-card dark:bg-gray-800",
-        isToday ? "border-primary dark:border-blue-500 border-b-2" : "border-border dark:border-gray-700"
-      )} style={{ height: '60px' }}>
+      <div className="sticky top-0 z-20 bg-card dark:bg-gray-800 px-2 border-b border-border dark:border-gray-700 flex flex-col justify-center" style={{ height: '60px' }}>
         <p className={cn(
           "text-sm font-medium",
           isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
