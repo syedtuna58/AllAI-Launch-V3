@@ -1834,7 +1834,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
         
         {/* Jobs overlay - positioned absolutely */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="relative h-full pointer-events-auto px-1">
+          <div className="relative h-full pointer-events-auto pr-1">
             {jobs.map(job => {
               const team = teams.find(t => t.id === job.teamId);
               const spanInfo = calculateJobSpan(job, date, weekDays);
