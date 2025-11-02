@@ -1247,8 +1247,8 @@ export default function ContractorSchedulePage() {
                       <div className="relative">
                         <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
                           {/* Time labels column */}
-                          <div className="pr-2 border-r border-border dark:border-gray-700 relative">
-                            <div className="h-[60px]"></div> {/* Spacer for header */}
+                          <div className="pr-2 border-r border-border dark:border-gray-700 relative pt-[1px]">
+                            <div className="h-[60px] border-b border-transparent"></div> {/* Spacer for header - match DayColumn header with border */}
                             {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
                               <div key={hour} className="h-[40px] relative">
                                 <div className="absolute top-0 right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none">
@@ -1289,8 +1289,8 @@ export default function ContractorSchedulePage() {
                       <div className="relative">
                         <div className="grid gap-2 grid-cols-[80px_1fr]">
                           {/* Time labels column - wider for day view */}
-                          <div className="pr-3 border-r border-border dark:border-gray-700 relative">
-                            <div className="h-[60px]"></div>
+                          <div className="pr-3 border-r border-border dark:border-gray-700 relative pt-[1px]">
+                            <div className="h-[60px] border-b border-transparent"></div>
                             {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
                               <div key={hour} className="h-[60px] relative">
                                 <div className="absolute top-0 right-3 text-sm text-muted-foreground dark:text-gray-400 font-medium leading-none">
