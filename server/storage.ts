@@ -3320,6 +3320,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTeam(id: string): Promise<void> {
+    // First, check if there are any jobs assigned to this team
+    const jobsWithTeam = await db
+      .select()
+      .from(scheduledJobs)
+      .where(eq(scheduledJobs.teamId, id))
+      .limit(1);
+    
+    if (jobsWithTeam.length > 0) {
+      throw new Error('Cannot delete team with assigned jobs. Please reassign or delete the jobs first.');
+    }
+    
     await db.delete(teams).where(eq(teams.id, id));
   }
 
