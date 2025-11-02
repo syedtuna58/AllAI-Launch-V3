@@ -460,6 +460,15 @@ export default function ContractorSchedulePage() {
       // In Day view, use currentDate; in Week view, use weekDays[dayIndex]
       const targetDate = viewMode === 'day' ? currentDate : weekDays[dayIndex];
       
+      console.log('🎯 Drop zone:', { 
+        id: over.id, 
+        dayIndex, 
+        targetHour, 
+        targetMinute,
+        targetDate: format(targetDate, 'yyyy-MM-dd'),
+        viewMode
+      });
+      
       // Calculate duration in milliseconds to preserve exact time components
       let durationMs = 0;
       if (job.scheduledStartAt && job.scheduledEndAt) {
@@ -492,6 +501,13 @@ export default function ContractorSchedulePage() {
         newStartDate = new Date(targetDate);
         newStartDate.setHours(targetHour, targetMinute, 0, 0);
         
+        console.log('📅 New job scheduling:', {
+          targetHour,
+          targetMinute,
+          newStartDate: format(newStartDate, 'yyyy-MM-dd HH:mm:ss'),
+          displayTime: format(newStartDate, 'h:mm a')
+        });
+        
         // Calculate end time based on duration
         newEndDate = new Date(newStartDate.getTime() + durationMinutes * 60 * 1000);
         
@@ -504,17 +520,34 @@ export default function ContractorSchedulePage() {
         newStartDate = new Date(targetDate);
         newStartDate.setHours(targetHour, targetMinute, 0, 0);
         
+        console.log('📅 Rescheduling job:', {
+          originalStart: job.scheduledStartAt,
+          targetHour,
+          targetMinute,
+          newStartDate: format(newStartDate, 'yyyy-MM-dd HH:mm:ss'),
+          displayTime: format(newStartDate, 'h:mm a')
+        });
+        
         // Preserve the exact duration
         newEndDate = new Date(newStartDate.getTime() + durationMs);
       }
       
       // Update job with new scheduled date - jobs dropped on time slots are not all-day
+      const isoStart = newStartDate.toISOString();
+      const isoEnd = newEndDate.toISOString();
+      
+      console.log('💾 Saving to database:', {
+        isoStart,
+        isoEnd,
+        willDisplayAs: `${format(parseISO(isoStart), 'h:mm a')} - ${format(parseISO(isoEnd), 'h:mm a')}`
+      });
+      
       dragMutationInProgress.current = true;
       updateJobMutation.mutate({
         id: jobId,
         data: {
-          scheduledStartAt: newStartDate.toISOString(),
-          scheduledEndAt: newEndDate.toISOString(),
+          scheduledStartAt: isoStart,
+          scheduledEndAt: isoEnd,
           isAllDay: false, // Time slot scheduling is never all-day
           status: 'Scheduled',
         },
