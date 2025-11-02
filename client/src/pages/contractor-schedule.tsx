@@ -1284,6 +1284,7 @@ export default function ContractorSchedulePage() {
                           {/* Time labels column */}
                           <div className="pr-2 border-r border-border dark:border-gray-700 relative">
                             <div className="h-[60px]"></div> {/* Spacer for header - match DayColumn header */}
+                            <div className="h-[40px]"></div> {/* Extra spacer to align with drop zones */}
                             {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
                               <div key={hour} className="h-[40px] relative">
                                 <div className="absolute top-0 right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none">
@@ -1705,7 +1706,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
       </div>
       
       {/* Hourly slots with 30-minute drop zones */}
-      <div className="relative -mt-[40px]">
+      <div className="relative">
         {hours.map((hour, hourIndex) => {
           const slot00Id = `day-${dayIndex}-time-${hour}-0`;
           const slot30Id = `day-${dayIndex}-time-${hour}-30`;
