@@ -21,7 +21,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay, differenceInCalendarDays } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay, differenceInCalendarDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -123,6 +123,8 @@ const ALL_SPECIALTIES = [
 export default function ContractorSchedulePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 })); // 1 = Monday
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
@@ -272,9 +274,14 @@ export default function ContractorSchedulePage() {
     },
   });
 
-  const updateJobMutation = useMutation({
+  const updateJobMutation = useMutation<
+    ScheduledJob,
+    Error,
+    { id: string; data: any },
+    { previousJobs?: ScheduledJob[] }
+  >({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return apiRequest('PUT', `/api/scheduled-jobs/${id}`, data);
+      return apiRequest('PUT', `/api/scheduled-jobs/${id}`, data) as Promise<ScheduledJob>;
     },
     onMutate: async ({ id, data }) => {
       // Cancel outgoing refetches
@@ -305,7 +312,7 @@ export default function ContractorSchedulePage() {
       // Return context with previous value
       return { previousJobs };
     },
-    onSuccess: (data) => {
+    onSuccess: (data: ScheduledJob) => {
       // Update cache with server response to ensure consistency
       queryClient.setQueryData<ScheduledJob[]>(['/api/scheduled-jobs'], (old) => {
         if (!old) return old;
@@ -314,7 +321,7 @@ export default function ContractorSchedulePage() {
       toast({ title: "Job updated successfully" });
       dragMutationInProgress.current = false;
     },
-    onError: (error: any, variables, context) => {
+    onError: (error: Error, variables, context) => {
       // Rollback on error
       if (context?.previousJobs) {
         queryClient.setQueryData(['/api/scheduled-jobs'], context.previousJobs);
@@ -450,7 +457,8 @@ export default function ContractorSchedulePage() {
       const dayIndex = parseInt(parts[1]);
       const targetHour = parseInt(parts[3]);
       const targetMinute = parseInt(parts[4]);
-      const targetDate = weekDays[dayIndex];
+      // In Day view, use currentDate; in Week view, use weekDays[dayIndex]
+      const targetDate = viewMode === 'day' ? currentDate : weekDays[dayIndex];
       
       // Calculate duration in milliseconds to preserve exact time components
       let durationMs = 0;
@@ -1082,38 +1090,94 @@ export default function ContractorSchedulePage() {
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -7))}
-                          data-testid="button-prev-week"
+                          onClick={() => {
+                            if (viewMode === 'day') {
+                              const newDate = addDays(currentDate, -1);
+                              setCurrentDate(newDate);
+                              setCurrentWeekStart(startOfWeek(newDate, { weekStartsOn: 1 }));
+                            } else if (viewMode === 'week') {
+                              setCurrentWeekStart(addDays(currentWeekStart, -7));
+                            } else {
+                              setCurrentDate(addMonths(currentDate, -1));
+                            }
+                          }}
+                          data-testid="button-prev"
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <CardTitle className="text-xl">
-                          {format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}
+                          {viewMode === 'day' && format(currentDate, 'EEEE, MMM d, yyyy')}
+                          {viewMode === 'week' && `${format(currentWeekStart, 'MMM d')} - ${format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}`}
+                          {viewMode === 'month' && format(currentDate, 'MMMM yyyy')}
                         </CardTitle>
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 7))}
-                          data-testid="button-next-week"
+                          onClick={() => {
+                            if (viewMode === 'day') {
+                              const newDate = addDays(currentDate, 1);
+                              setCurrentDate(newDate);
+                              setCurrentWeekStart(startOfWeek(newDate, { weekStartsOn: 1 }));
+                            } else if (viewMode === 'week') {
+                              setCurrentWeekStart(addDays(currentWeekStart, 7));
+                            } else {
+                              setCurrentDate(addMonths(currentDate, 1));
+                            }
+                          }}
+                          data-testid="button-next"
                         >
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            id="hide-weekends"
-                            checked={hideWeekends}
-                            onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
-                            data-testid="checkbox-hide-weekends"
-                          />
-                          <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
-                            Hide Weekends
-                          </Label>
+                        <div className="flex items-center gap-1 border rounded-md p-1">
+                          <Button
+                            variant={viewMode === 'day' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('day')}
+                            data-testid="button-view-day"
+                          >
+                            Day
+                          </Button>
+                          <Button
+                            variant={viewMode === 'week' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('week')}
+                            data-testid="button-view-week"
+                          >
+                            Week
+                          </Button>
+                          <Button
+                            variant={viewMode === 'month' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('month')}
+                            data-testid="button-view-month"
+                          >
+                            Month
+                          </Button>
                         </div>
+                        {viewMode === 'week' && (
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="hide-weekends"
+                              checked={hideWeekends}
+                              onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
+                              data-testid="checkbox-hide-weekends"
+                            />
+                            <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
+                              Hide Weekends
+                            </Label>
+                          </div>
+                        )}
                         <Button
                           variant="outline"
-                          onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+                          onClick={() => {
+                            const today = new Date();
+                            setCurrentDate(today);
+                            if (viewMode === 'week') {
+                              setCurrentWeekStart(startOfWeek(today, { weekStartsOn: 1 }));
+                            }
+                          }}
                           data-testid="button-today"
                         >
                           <Calendar className="mr-2 h-4 w-4" />
@@ -1123,43 +1187,95 @@ export default function ContractorSchedulePage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="relative">
-                      <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
-                        {/* Time labels column */}
-                        <div className="pr-2 border-r border-border dark:border-gray-700">
-                          <div className="h-[60px]"></div> {/* Spacer for header */}
-                          {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
-                            <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
-                              {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
-                            </div>
-                          ))}
-                        </div>
-                        
-                        {/* Day columns */}
-                        {weekDays.map((day, index) => {
-                          const dayJobs = getJobsForDay(day);
-                          const isToday = isSameDay(day, new Date());
+                    {viewMode === 'week' && (
+                      <div className="relative">
+                        <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
+                          {/* Time labels column */}
+                          <div className="pr-2 border-r border-border dark:border-gray-700">
+                            <div className="h-[60px]"></div> {/* Spacer for header */}
+                            {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
+                              <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
+                                {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                              </div>
+                            ))}
+                          </div>
                           
-                          return (
-                            <DayColumn
-                              key={index}
-                              dayIndex={index}
-                              date={day}
-                              jobs={dayJobs}
-                              teams={teams}
-                              weekDays={weekDays}
-                              calculateJobSpan={calculateJobSpan}
-                              isToday={isToday}
-                              activeId={activeId}
-                              onClick={(job) => {
-                                setSelectedJob(job);
-                                setShowJobDetailsDialog(true);
-                              }}
-                            />
-                          );
-                        })}
+                          {/* Day columns */}
+                          {weekDays.map((day, index) => {
+                            const dayJobs = getJobsForDay(day);
+                            const isToday = isSameDay(day, new Date());
+                            
+                            return (
+                              <DayColumn
+                                key={index}
+                                dayIndex={index}
+                                date={day}
+                                jobs={dayJobs}
+                                teams={teams}
+                                weekDays={weekDays}
+                                calculateJobSpan={calculateJobSpan}
+                                isToday={isToday}
+                                activeId={activeId}
+                                onClick={(job) => {
+                                  setSelectedJob(job);
+                                  setShowJobDetailsDialog(true);
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
+
+                    {viewMode === 'day' && (
+                      <div className="relative">
+                        <div className="grid gap-2 grid-cols-[80px_1fr]">
+                          {/* Time labels column - wider for day view */}
+                          <div className="pr-3 border-r border-border dark:border-gray-700">
+                            <div className="h-[60px]"></div>
+                            {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
+                              <div key={hour} className="h-[60px] text-sm text-muted-foreground dark:text-gray-400 text-right pr-3 font-medium">
+                                {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Single day column */}
+                          <DayColumn
+                            dayIndex={0}
+                            date={currentDate}
+                            jobs={getJobsForDay(currentDate)}
+                            teams={teams}
+                            weekDays={[currentDate]}
+                            calculateJobSpan={calculateJobSpan}
+                            isToday={isSameDay(currentDate, new Date())}
+                            activeId={activeId}
+                            hourHeight={60}
+                            onClick={(job) => {
+                              setSelectedJob(job);
+                              setShowJobDetailsDialog(true);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {viewMode === 'month' && (
+                      <MonthView
+                        currentDate={currentDate}
+                        jobs={scheduledJobs}
+                        teams={teams}
+                        onDayClick={(date: Date) => {
+                          setCurrentDate(date);
+                          setCurrentWeekStart(startOfWeek(date, { weekStartsOn: 1 }));
+                          setViewMode('day');
+                        }}
+                        onJobClick={(job: ScheduledJob) => {
+                          setSelectedJob(job);
+                          setShowJobDetailsDialog(true);
+                        }}
+                      />
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1345,28 +1461,102 @@ function JobCard({
           )}
         </div>
       </div>
-      
-      {showConfirmButton && (
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full mt-1 h-6 text-xs rounded-t-none"
-          onClick={(e) => {
-            e.stopPropagation();
-            onConfirm(job.id);
-          }}
-          data-testid={`button-confirm-${job.id}`}
-        >
-          <Check className="h-3 w-3 mr-1" />
-          Confirm
-        </Button>
-      )}
     </div>
   );
 }
 
+function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
+  currentDate: Date;
+  jobs: ScheduledJob[];
+  teams: Team[];
+  onDayClick: (date: Date) => void;
+  onJobClick: (job: ScheduledJob) => void;
+}) {
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday
+  const endDate = startOfWeek(monthEnd, { weekStartsOn: 0 });
+  const calendarDays = eachDayOfInterval({ start: startDate, end: addDays(endDate, 6) });
+  
+  const getJobsForDay = (date: Date) => {
+    return jobs.filter(job => {
+      if (!job.scheduledStartAt) return false;
+      const jobStart = startOfDay(parseISO(job.scheduledStartAt));
+      const jobEnd = job.scheduledEndAt ? startOfDay(parseISO(job.scheduledEndAt)) : jobStart;
+      const dayStart = startOfDay(date);
+      const dayEnd = endOfDay(date);
+      return jobStart <= dayEnd && jobEnd >= dayStart;
+    });
+  };
+  
+  return (
+    <div className="grid grid-cols-7 gap-1">
+      {/* Day headers */}
+      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+        <div key={day} className="p-2 text-center text-sm font-semibold text-muted-foreground dark:text-gray-400">
+          {day}
+        </div>
+      ))}
+      
+      {/* Calendar days */}
+      {calendarDays.map(day => {
+        const dayJobs = getJobsForDay(day);
+        const isToday = isSameDay(day, new Date());
+        const isCurrentMonth = isSameMonth(day, currentDate);
+        
+        return (
+          <div
+            key={day.toString()}
+            onClick={() => onDayClick(day)}
+            className={cn(
+              "min-h-[100px] p-2 border rounded-lg cursor-pointer transition-colors",
+              "hover:bg-accent/50 dark:hover:bg-gray-700/50",
+              isCurrentMonth ? "bg-card dark:bg-gray-800" : "bg-muted/30 dark:bg-gray-900/30",
+              isToday && "border-primary dark:border-blue-500 border-2"
+            )}
+            data-testid={`month-day-${format(day, 'yyyy-MM-dd')}`}
+          >
+            <div className={cn(
+              "text-sm font-medium mb-1",
+              isToday && "text-primary dark:text-blue-400",
+              !isCurrentMonth && "text-muted-foreground dark:text-gray-600"
+            )}>
+              {format(day, 'd')}
+            </div>
+            
+            {/* Job indicators */}
+            <div className="space-y-1">
+              {dayJobs.slice(0, 3).map(job => {
+                const team = teams.find(t => t.id === job.teamId);
+                return (
+                  <div
+                    key={job.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onJobClick(job);
+                    }}
+                    className="text-xs px-1.5 py-0.5 rounded truncate text-white font-medium"
+                    style={{ backgroundColor: team?.color || '#3b82f6' }}
+                    title={job.title}
+                  >
+                    {job.title}
+                  </div>
+                );
+              })}
+              {dayJobs.length > 3 && (
+                <div className="text-xs text-muted-foreground dark:text-gray-500 px-1.5">
+                  +{dayJobs.length - 3} more
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
-function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, onClick }: {
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick }: {
   dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
@@ -1380,6 +1570,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   };
   isToday: boolean;
   activeId: string | null;
+  hourHeight?: number;
   onClick?: (job: ScheduledJob) => void;
 }) {
   // Generate hours from 6 AM to 8 PM (for visual hourly grid)
@@ -1424,7 +1615,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
           return (
             <div
               key={hour}
-              className="h-[40px] border-b border-border/30 dark:border-gray-700/30 relative"
+              className="border-b border-border/30 dark:border-gray-700/30 relative"
+              style={{ height: `${hourHeight}px` }}
             >
               {/* First half-hour drop zone */}
               <TooltipProvider>
@@ -1433,9 +1625,10 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                     <div
                       ref={setRef00}
                       className={cn(
-                        "absolute top-0 left-0 right-0 h-[20px] transition-colors",
+                        "absolute top-0 left-0 right-0 transition-colors",
                         isOver00 && "bg-primary/20 dark:bg-blue-500/20"
                       )}
+                      style={{ height: `${hourHeight / 2}px` }}
                     />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="text-sm font-medium">
@@ -1451,9 +1644,10 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                     <div
                       ref={setRef30}
                       className={cn(
-                        "absolute bottom-0 left-0 right-0 h-[20px] transition-colors",
+                        "absolute bottom-0 left-0 right-0 transition-colors",
                         isOver30 && "bg-primary/20 dark:bg-blue-500/20"
                       )}
+                      style={{ height: `${hourHeight / 2}px` }}
                     />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="text-sm font-medium">
@@ -1477,24 +1671,24 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
               }
               
               // Calculate vertical position based on job time
-              // Each hour is 40px, starting from 6 AM, with 30-minute precision
+              // Each hour is hourHeight px, starting from 6 AM, with 30-minute precision
               let topPosition = 0;
-              let heightPx = 40; // default height (1 hour)
+              let heightPx = hourHeight; // default height (1 hour)
               
               if (job.scheduledStartAt && !job.isAllDay) {
                 const startTime = parseISO(job.scheduledStartAt);
                 const hours = startTime.getHours();
                 const minutes = startTime.getMinutes();
-                // Position = (hours from 6am * 40px) + (minutes * 40px / 60 min)
-                topPosition = ((hours - 6) * 40) + (minutes * 40 / 60);
+                // Position = (hours from 6am * hourHeight) + (minutes * hourHeight / 60 min)
+                topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
                 
                 // Calculate height based on duration
                 if (job.scheduledEndAt) {
                   const endTime = parseISO(job.scheduledEndAt);
                   const durationMs = endTime.getTime() - startTime.getTime();
                   const durationMinutes = durationMs / (1000 * 60);
-                  // Height = duration in minutes * 40px per hour / 60 minutes
-                  heightPx = Math.max(20, (durationMinutes * 40) / 60);
+                  // Height = duration in minutes * hourHeight per hour / 60 minutes
+                  heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
                 }
               }
               
