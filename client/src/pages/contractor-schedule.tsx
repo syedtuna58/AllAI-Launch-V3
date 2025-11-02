@@ -314,11 +314,8 @@ export default function ContractorSchedulePage() {
       return { previousJobs };
     },
     onSuccess: (data: ScheduledJob) => {
-      // Update cache with server response
-      queryClient.setQueryData<ScheduledJob[]>(['/api/scheduled-jobs'], (old) => {
-        if (!old) return old;
-        return old.map(job => job.id === data.id ? data : job);
-      });
+      // Invalidate queries to refetch from server with new data
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
       toast({ title: "Job updated successfully" });
       dragMutationInProgress.current = false;
     },
@@ -466,6 +463,7 @@ export default function ContractorSchedulePage() {
         parsedHour: targetHour,
         parsedMinute: targetMinute,
         targetDate: format(targetDate, 'yyyy-MM-dd'),
+        targetDateISO: targetDate.toISOString(),
         viewMode
       });
       
