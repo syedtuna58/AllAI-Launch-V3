@@ -1282,8 +1282,8 @@ export default function ContractorSchedulePage() {
                       <div className="relative">
                         <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
                           {/* Time labels column */}
-                          <div className="pr-2 border-r border-border dark:border-gray-700 relative pt-[1px]">
-                            <div className="h-[60px] border-b border-transparent"></div> {/* Spacer for header - match DayColumn header with border */}
+                          <div className="pr-2 border-r border-border dark:border-gray-700 relative">
+                            <div className="h-[60px]"></div> {/* Spacer for header - match DayColumn header */}
                             {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
                               <div key={hour} className="h-[40px] relative">
                                 <div className="absolute top-0 right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none">
@@ -1679,14 +1679,17 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   return (
     <div
       className={cn(
-        "rounded-lg border relative",
-        "bg-card dark:bg-gray-800 border-border dark:border-gray-700",
-        isToday && "border-primary dark:border-blue-500 border-2"
+        "rounded-lg relative overflow-hidden",
+        "bg-card dark:bg-gray-800"
       )}
       data-testid={`day-column-${dayIndex}`}
     >
       {/* Header - Fixed height to match time labels column spacer */}
-      <div className="sticky top-0 z-20 bg-card dark:bg-gray-800 px-2 border-b border-border dark:border-gray-700 flex flex-col justify-center" style={{ height: '60px' }}>
+      <div className={cn(
+        "sticky top-0 z-20 px-2 border-b flex flex-col justify-center",
+        "bg-card dark:bg-gray-800",
+        isToday ? "border-primary dark:border-blue-500 border-b-2" : "border-border dark:border-gray-700"
+      )} style={{ height: '60px' }}>
         <p className={cn(
           "text-sm font-medium",
           isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
