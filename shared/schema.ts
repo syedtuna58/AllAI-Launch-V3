@@ -1457,9 +1457,9 @@ export const insertProposalSlotSchema = createInsertSchema(proposalSlots).omit({
 // Teams and Scheduled Jobs insert schemas
 export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, createdAt: true });
 export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({ id: true, createdAt: true, updatedAt: true }).extend({
-  scheduledStartAt: z.union([z.date(), z.string().transform((str) => new Date(str))]).nullable().optional(),
-  scheduledEndAt: z.union([z.date(), z.string().transform((str) => new Date(str))]).nullable().optional(),
-  tenantConfirmedAt: z.union([z.date(), z.string().transform((str) => new Date(str))]).nullable().optional(),
+  scheduledStartAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]).optional(),
+  scheduledEndAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]).optional(),
+  tenantConfirmedAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]).optional(),
 });
 
 // Types for new tables
