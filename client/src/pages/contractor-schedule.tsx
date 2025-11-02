@@ -1824,21 +1824,17 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
             const topPosition = ((nowHours - 6) * hourHeight) + (nowMinutes * hourHeight / 60);
             return (
               <div 
-                className="absolute left-0 right-0 border-t-2 border-dashed border-red-500 z-30 pointer-events-none"
+                className="absolute left-0 right-0 border-t border-dashed border-red-500/40 z-30 pointer-events-none"
                 style={{ top: `${topPosition}px` }}
-              >
-                <div className="absolute -top-2 left-2 text-[10px] font-bold text-red-500 bg-white dark:bg-gray-900 px-1 rounded">
-                  NOW
-                </div>
-              </div>
+              />
             );
           }
           return null;
         })()}
         
         {/* Jobs overlay - positioned absolutely */}
-        <div className="absolute inset-0 pointer-events-none px-2">
-          <div className="relative h-full pointer-events-auto">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="relative h-full pointer-events-auto px-1">
             {jobs.map(job => {
               const team = teams.find(t => t.id === job.teamId);
               const spanInfo = calculateJobSpan(job, date, weekDays);
