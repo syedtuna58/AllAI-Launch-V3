@@ -1573,8 +1573,12 @@ function JobCard({
         />
         
         <button
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
           onClick={(e) => {
             e.stopPropagation();
+            e.preventDefault();
             onClick?.();
           }}
           className="absolute top-0.5 left-0.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded p-1 pointer-events-auto"
