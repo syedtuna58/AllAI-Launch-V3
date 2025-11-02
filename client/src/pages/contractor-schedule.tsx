@@ -552,7 +552,7 @@ export default function ContractorSchedulePage() {
       return;
     }
 
-    // If dropped on unscheduled area
+    // If dropped on unscheduled area - keep team color but remove schedule
     if (over.id === 'unscheduled') {
       dragMutationInProgress.current = true;
       updateJobMutation.mutate({
@@ -560,7 +560,6 @@ export default function ContractorSchedulePage() {
         data: {
           scheduledStartAt: null,
           scheduledEndAt: null,
-          teamId: null,
           status: 'Unscheduled',
         },
       });
