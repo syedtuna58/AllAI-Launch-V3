@@ -460,13 +460,6 @@ export default function ContractorSchedulePage() {
       // In Day view, use currentDate; in Week view, use weekDays[dayIndex]
       const targetDate = viewMode === 'day' ? currentDate : weekDays[dayIndex];
       
-      console.log('🎯 DROP ZONE:', { 
-        dropZoneId: over.id.toString(),
-        parsedHour: targetHour, 
-        parsedMinute: targetMinute,
-        willScheduleAt: `${targetHour}:${targetMinute.toString().padStart(2, '0')}`
-      });
-      
       // Calculate duration in milliseconds to preserve exact time components
       let durationMs = 0;
       if (job.scheduledStartAt && job.scheduledEndAt) {
@@ -1204,7 +1197,7 @@ export default function ContractorSchedulePage() {
                           <div className="pr-2 border-r border-border dark:border-gray-700">
                             <div className="h-[60px]"></div> {/* Spacer for header */}
                             {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
-                              <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2 flex items-start pt-0.5">
+                              <div key={hour} className="h-[40px] text-xs text-muted-foreground dark:text-gray-400 text-right pr-2">
                                 {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
                               </div>
                             ))}
@@ -1244,7 +1237,7 @@ export default function ContractorSchedulePage() {
                           <div className="pr-3 border-r border-border dark:border-gray-700">
                             <div className="h-[60px]"></div>
                             {Array.from({ length: 15 }, (_, i) => i + 6).map(hour => (
-                              <div key={hour} className="h-[60px] text-sm text-muted-foreground dark:text-gray-400 text-right pr-3 font-medium flex items-start pt-1">
+                              <div key={hour} className="h-[60px] text-sm text-muted-foreground dark:text-gray-400 text-right pr-3 font-medium">
                                 {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
                               </div>
                             ))}
