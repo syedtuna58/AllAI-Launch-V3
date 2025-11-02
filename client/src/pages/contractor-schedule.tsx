@@ -1781,7 +1781,10 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
               let heightPx = hourHeight; // default height (1 hour)
               
               if (job.scheduledStartAt && !job.isAllDay) {
-                const startTime = parseISO(job.scheduledStartAt);
+                const startTimeUTC = parseISO(job.scheduledStartAt);
+                // Convert UTC time to organization timezone for display
+                const orgTimezone = organization?.timezone || 'America/New_York';
+                const startTime = toZonedTime(startTimeUTC, orgTimezone);
                 const hours = startTime.getHours();
                 const minutes = startTime.getMinutes();
                 // Position = (hours from 6am * hourHeight) + (minutes * hourHeight / 60 min)
@@ -1789,8 +1792,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                 
                 // Calculate height based on duration
                 if (job.scheduledEndAt) {
-                  const endTime = parseISO(job.scheduledEndAt);
-                  const durationMs = endTime.getTime() - startTime.getTime();
+                  const endTimeUTC = parseISO(job.scheduledEndAt);
+                  const durationMs = endTimeUTC.getTime() - startTimeUTC.getTime();
                   const durationMinutes = durationMs / (1000 * 60);
                   // Height = duration in minutes * hourHeight per hour / 60 minutes
                   heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
