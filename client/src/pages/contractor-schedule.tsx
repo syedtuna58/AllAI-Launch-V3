@@ -700,7 +700,7 @@ export default function ContractorSchedulePage() {
     setActiveId(null);
   };
 
-  const handleCreateJob = () => {
+  const handleCreateJob = async () => {
     // Calculate end time from duration
     const calculateEndTime = (start: string, durationMinutes: number): string => {
       const [hours, minutes] = start.split(':').map(Number);
@@ -745,6 +745,8 @@ export default function ContractorSchedulePage() {
       const orgTimezone = organization?.timezone || 'America/New_York';
       const today = new Date();
       const weekStart = startOfWeek(today, { weekStartsOn: 0 }); // 0 = Sunday
+      
+      const payloads: any[] = [];
       
       jobFormData.recurringDays.forEach((dayIndex) => {
         const targetDate = addDays(weekStart, dayIndex);
@@ -800,8 +802,17 @@ export default function ContractorSchedulePage() {
           scheduledEndAt,
         };
         
-        createJobMutation.mutate(payload);
+        payloads.push(payload);
       });
+      
+      // Create jobs sequentially to avoid database connection issues
+      for (const payload of payloads) {
+        try {
+          await createJobMutation.mutateAsync(payload);
+        } catch (error) {
+          console.error('Failed to create recurring job:', error);
+        }
+      }
     } else {
       // Create single unscheduled job (existing behavior)
       const payload: any = {
