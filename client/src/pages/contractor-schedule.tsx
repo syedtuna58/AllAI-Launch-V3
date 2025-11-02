@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2 } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import {
@@ -239,6 +239,26 @@ export default function ContractorSchedulePage() {
     },
   });
 
+  const deleteTeamMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('DELETE', `/api/teams/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+      toast({ title: "Team deleted successfully" });
+      setShowTeamDialog(false);
+      setEditingTeam(null);
+      setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete team",
+        description: error.message,
+        variant: "destructive"
+      });
+    },
+  });
+
   const createJobMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest('POST', '/api/scheduled-jobs', data);
@@ -290,30 +310,11 @@ export default function ContractorSchedulePage() {
       // Snapshot the previous value
       const previousJobs = queryClient.getQueryData<ScheduledJob[]>(['/api/scheduled-jobs']);
       
-      // Optimistically update the cache
-      queryClient.setQueryData<ScheduledJob[]>(['/api/scheduled-jobs'], (old) => {
-        if (!old) return old;
-        return old.map(job => {
-          if (job.id !== id) return job;
-          
-          // Calculate durationDays if we're updating scheduled times
-          let updatedData = { ...data };
-          if (data.scheduledStartAt && data.scheduledEndAt) {
-            const start = parseISO(data.scheduledStartAt);
-            const end = parseISO(data.scheduledEndAt);
-            const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-            updatedData.durationDays = Math.max(1, daysDiff);
-          }
-          
-          return { ...job, ...updatedData };
-        });
-      });
-      
-      // Return context with previous value
+      // Return context with previous value (skip optimistic update to avoid jitter)
       return { previousJobs };
     },
     onSuccess: (data: ScheduledJob) => {
-      // Update cache with server response to ensure consistency
+      // Update cache with server response
       queryClient.setQueryData<ScheduledJob[]>(['/api/scheduled-jobs'], (old) => {
         if (!old) return old;
         return old.map(job => job.id === data.id ? data : job);
@@ -460,6 +461,14 @@ export default function ContractorSchedulePage() {
       // In Day view, use currentDate; in Week view, use weekDays[dayIndex]
       const targetDate = viewMode === 'day' ? currentDate : weekDays[dayIndex];
       
+      console.log('🎯 DROP ZONE DEBUG:', {
+        dropZoneId: over.id,
+        parsedHour: targetHour,
+        parsedMinute: targetMinute,
+        targetDate: format(targetDate, 'yyyy-MM-dd'),
+        viewMode
+      });
+      
       // Calculate duration in milliseconds to preserve exact time components
       let durationMs = 0;
       if (job.scheduledStartAt && job.scheduledEndAt) {
@@ -492,6 +501,13 @@ export default function ContractorSchedulePage() {
         newStartDate = new Date(targetDate);
         newStartDate.setHours(targetHour, targetMinute, 0, 0);
         
+        console.log('📅 NEW JOB SCHEDULE:', {
+          targetHour,
+          targetMinute,
+          newStartDate: newStartDate.toISOString(),
+          willDisplay: format(newStartDate, 'h:mm a')
+        });
+        
         // Calculate end time based on duration
         newEndDate = new Date(newStartDate.getTime() + durationMinutes * 60 * 1000);
         
@@ -503,6 +519,13 @@ export default function ContractorSchedulePage() {
         // Existing job being rescheduled - use the new time slot
         newStartDate = new Date(targetDate);
         newStartDate.setHours(targetHour, targetMinute, 0, 0);
+        
+        console.log('📅 RESCHEDULE JOB:', {
+          targetHour,
+          targetMinute,
+          newStartDate: newStartDate.toISOString(),
+          willDisplay: format(newStartDate, 'h:mm a')
+        });
         
         // Preserve the exact duration
         newEndDate = new Date(newStartDate.getTime() + durationMs);
@@ -721,7 +744,6 @@ export default function ContractorSchedulePage() {
                           value={teamFormData.specialty}
                           onValueChange={(value: any) => {
                             setTeamFormData({ ...teamFormData, specialty: value });
-                            toggleFavoriteSpecialty(value);
                           }}
                         >
                           <SelectTrigger id="team-specialty" data-testid="select-team-specialty">
@@ -755,9 +777,21 @@ export default function ContractorSchedulePage() {
                             })()}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Selected specialties are automatically starred
-                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleFavoriteSpecialty(teamFormData.specialty)}
+                          className="mt-1"
+                          data-testid="button-toggle-favorite-specialty"
+                        >
+                          <Star className={cn(
+                            "h-4 w-4 mr-1",
+                            getFavoriteSpecialties().includes(teamFormData.specialty)
+                              ? "fill-yellow-500 text-yellow-500"
+                              : "text-muted-foreground"
+                          )} />
+                          {getFavoriteSpecialties().includes(teamFormData.specialty) ? 'Remove from' : 'Add to'} favorites
+                        </Button>
                       </div>
                       <div>
                         <Label htmlFor="team-color">Team Color</Label>
@@ -794,6 +828,21 @@ export default function ContractorSchedulePage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
+                        {editingTeam && (
+                          <Button
+                            variant="destructive"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
+                                deleteTeamMutation.mutate(editingTeam.id);
+                              }
+                            }}
+                            disabled={deleteTeamMutation.isPending}
+                            data-testid="button-delete-team"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        )}
                         {(editingTeam || creatingNewTeam) && (
                           <Button
                             variant="outline"
