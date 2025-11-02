@@ -495,13 +495,16 @@ export default function ContractorSchedulePage() {
           }
         }
         
-        // Use the target hour and minute from the drop zone
-        newStartDate = new Date(targetDate);
-        newStartDate.setHours(targetHour, targetMinute, 0, 0);
+        // Use the target hour and minute from the drop zone - use UTC to avoid timezone issues
+        const year = targetDate.getFullYear();
+        const month = targetDate.getMonth();
+        const day = targetDate.getDate();
+        newStartDate = new Date(year, month, day, targetHour, targetMinute, 0, 0);
         
         console.log('📅 NEW JOB SCHEDULE:', {
           targetHour,
           targetMinute,
+          targetDateParts: { year, month, day },
           newStartDate: newStartDate.toISOString(),
           willDisplay: format(newStartDate, 'h:mm a')
         });
@@ -514,13 +517,16 @@ export default function ContractorSchedulePage() {
           newEndDate = new Date(addDays(newStartDate, job.durationDays - 1).getTime() + durationMinutes * 60 * 1000);
         }
       } else {
-        // Existing job being rescheduled - use the new time slot
-        newStartDate = new Date(targetDate);
-        newStartDate.setHours(targetHour, targetMinute, 0, 0);
+        // Existing job being rescheduled - use the new time slot - use local date parts to avoid timezone issues
+        const year = targetDate.getFullYear();
+        const month = targetDate.getMonth();
+        const day = targetDate.getDate();
+        newStartDate = new Date(year, month, day, targetHour, targetMinute, 0, 0);
         
         console.log('📅 RESCHEDULE JOB:', {
           targetHour,
           targetMinute,
+          targetDateParts: { year, month, day },
           newStartDate: newStartDate.toISOString(),
           willDisplay: format(newStartDate, 'h:mm a')
         });
