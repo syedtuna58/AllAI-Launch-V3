@@ -1512,33 +1512,12 @@ function JobCard({
     id: job.id,
   });
 
-  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
-
   const isMultiDay = spanDays > 1 || extendsBeyondWeek;
   
   // Don't apply transform when dragging - DragOverlay handles the visual
   const style = (transform && !isDragging) ? {
     transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
   } : undefined;
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (!mouseDownPosRef.current || !onClick) return;
-    
-    const deltaX = Math.abs(e.clientX - mouseDownPosRef.current.x);
-    const deltaY = Math.abs(e.clientY - mouseDownPosRef.current.y);
-    
-    // If mouse moved less than 5px, it's a click, not a drag
-    if (deltaX < 5 && deltaY < 5) {
-      e.stopPropagation();
-      onClick();
-    }
-    
-    mouseDownPosRef.current = null;
-  };
   
   // Removed tenant confirmation - not needed for drag/drop workflow
   const showConfirmButton = false;
@@ -1579,9 +1558,7 @@ function JobCard({
     >
       <div 
         {...listeners} 
-        {...attributes} 
-        onMouseDown={handleMouseDown}
-        onClick={handleClick}
+        {...attributes}
         className={cn(
           "cursor-grab active:cursor-grabbing px-0.5 py-1.5 relative h-full rounded-sm",
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
@@ -1594,6 +1571,18 @@ function JobCard({
         <div 
           className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
         />
+        
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick?.();
+          }}
+          className="absolute top-0.5 left-0.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded p-1 pointer-events-auto"
+          data-testid={`button-edit-job-${job.id}`}
+          title="Edit job"
+        >
+          <Edit2 className="h-3 w-3 text-white" />
+        </button>
         
         <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
           {isMultiDay && (
