@@ -1705,7 +1705,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
       </div>
       
       {/* Hourly slots with 30-minute drop zones */}
-      <div className="relative">
+      <div className="relative -mt-[40px]">
         {hours.map((hour, hourIndex) => {
           const slot00Id = `day-${dayIndex}-time-${hour}-0`;
           const slot30Id = `day-${dayIndex}-time-${hour}-30`;
