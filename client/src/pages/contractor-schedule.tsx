@@ -1735,7 +1735,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       ref={setRef00}
                       className={cn(
                         "absolute top-0 left-0 right-0 transition-colors",
-                        isOver00 && "bg-primary/20 dark:bg-blue-500/20"
+                        isOver00 ? "bg-primary/20 dark:bg-blue-500/20" : "bg-green-100/20 dark:bg-green-500/10"
                       )}
                       style={{ height: `${hourHeight / 2}px` }}
                     />
@@ -1754,7 +1754,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       ref={setRef30}
                       className={cn(
                         "absolute bottom-0 left-0 right-0 transition-colors",
-                        isOver30 && "bg-primary/20 dark:bg-blue-500/20"
+                        isOver30 ? "bg-primary/20 dark:bg-blue-500/20" : "bg-yellow-100/20 dark:bg-yellow-500/10"
                       )}
                       style={{ height: `${hourHeight / 2}px` }}
                     />
