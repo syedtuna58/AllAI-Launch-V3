@@ -1709,9 +1709,13 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
       <div className="relative border-t border-border dark:border-gray-700">
         {hours.map((hour, hourIndex) => {
           const slot00Id = `day-${dayIndex}-time-${hour}-0`;
+          const slot15Id = `day-${dayIndex}-time-${hour}-15`;
           const slot30Id = `day-${dayIndex}-time-${hour}-30`;
+          const slot45Id = `day-${dayIndex}-time-${hour}-45`;
           const { setNodeRef: setRef00, isOver: isOver00 } = useDroppable({ id: slot00Id });
+          const { setNodeRef: setRef15, isOver: isOver15 } = useDroppable({ id: slot15Id });
           const { setNodeRef: setRef30, isOver: isOver30 } = useDroppable({ id: slot30Id });
+          const { setNodeRef: setRef45, isOver: isOver45 } = useDroppable({ id: slot45Id });
           
           const period = hour >= 12 ? 'PM' : 'AM';
           const hour12 = hour % 12 || 12;
@@ -1728,36 +1732,55 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
               className="border-b border-border/30 dark:border-gray-700/30 relative"
               style={{ height: `${hourHeight}px` }}
             >
-              {/* First half-hour drop zone */}
+              {/* :00 drop zone */}
               <TooltipProvider>
                 <Tooltip open={isOver00} delayDuration={0}>
                   <TooltipTrigger asChild>
                     <div
                       ref={setRef00}
                       className={cn(
-                        "absolute top-0 left-0 right-0 transition-colors",
+                        "absolute left-0 right-0 transition-colors",
                         isOver00 && "bg-primary/20 dark:bg-blue-500/20"
                       )}
-                      style={{ height: `${hourHeight / 2}px` }}
+                      style={{ top: 0, height: `${hourHeight / 4}px` }}
                     />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="text-sm font-medium">
-                    {format(date, 'EEE MMM d')} at {`${hour12} ${period}`}
+                    {format(date, 'EEE MMM d')} at {`${hour12}:00 ${period}`}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               
-              {/* Second half-hour drop zone */}
+              {/* :15 drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver15} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef15}
+                      className={cn(
+                        "absolute left-0 right-0 transition-colors",
+                        isOver15 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                      style={{ top: `${hourHeight / 4}px`, height: `${hourHeight / 4}px` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12}:15 ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* :30 drop zone */}
               <TooltipProvider>
                 <Tooltip open={isOver30} delayDuration={0}>
                   <TooltipTrigger asChild>
                     <div
                       ref={setRef30}
                       className={cn(
-                        "absolute bottom-0 left-0 right-0 transition-colors",
+                        "absolute left-0 right-0 transition-colors",
                         isOver30 && "bg-primary/20 dark:bg-blue-500/20"
                       )}
-                      style={{ height: `${hourHeight / 2}px` }}
+                      style={{ top: `${hourHeight / 2}px`, height: `${hourHeight / 4}px` }}
                     />
                   </TooltipTrigger>
                   <TooltipContent side="right" className="text-sm font-medium">
@@ -1765,9 +1788,53 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              
+              {/* :45 drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver45} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef45}
+                      className={cn(
+                        "absolute left-0 right-0 transition-colors",
+                        isOver45 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                      style={{ top: `${(hourHeight / 4) * 3}px`, height: `${hourHeight / 4}px` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12}:45 ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           );
         })}
+        
+        {/* Current time indicator */}
+        {(() => {
+          const now = new Date();
+          const orgTimezone = organization?.timezone || 'America/New_York';
+          const nowInOrgTz = toZonedTime(now, orgTimezone);
+          const nowHours = nowInOrgTz.getHours();
+          const nowMinutes = nowInOrgTz.getMinutes();
+          
+          // Only show if current time is within display range (6 AM to 8 PM) and on this day
+          if (isToday && nowHours >= 6 && nowHours <= 20) {
+            const topPosition = ((nowHours - 6) * hourHeight) + (nowMinutes * hourHeight / 60);
+            return (
+              <div 
+                className="absolute left-0 right-0 border-t-2 border-dashed border-red-500 z-30 pointer-events-none"
+                style={{ top: `${topPosition}px` }}
+              >
+                <div className="absolute -top-2 left-2 text-[10px] font-bold text-red-500 bg-white dark:bg-gray-900 px-1 rounded">
+                  NOW
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
         
         {/* Jobs overlay - positioned absolutely */}
         <div className="absolute inset-0 pointer-events-none px-2">
