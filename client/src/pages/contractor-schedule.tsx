@@ -621,8 +621,6 @@ export default function ContractorSchedulePage() {
       const isoEnd = newEndDate.toISOString();
       
       dragMutationInProgress.current = true;
-      
-      // Keep activeId set during mutation to prevent visual bounce
       updateJobMutation.mutate({
         id: jobId,
         data: {
@@ -632,10 +630,6 @@ export default function ContractorSchedulePage() {
           status: 'Scheduled',
         },
       });
-      
-      // Clear activeId after a brief delay to let optimistic update render first
-      setTimeout(() => setActiveId(null), 50);
-      return;
     }
 
     setActiveId(null);
