@@ -1286,7 +1286,7 @@ export default function ContractorSchedulePage() {
                             <div className="h-[60px]"></div> {/* Spacer for header - match DayColumn header */}
                             {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
                               <div key={hour} className="h-[40px] relative">
-                                <div className="absolute top-0 right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none">
+                                <div className="absolute top-[10px] right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none -translate-y-1/2">
                                   {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
                                 </div>
                               </div>
