@@ -1285,8 +1285,8 @@ export default function ContractorSchedulePage() {
                           <div className="pr-2 border-r border-border dark:border-gray-700 relative">
                             <div className="h-[60px]"></div> {/* Spacer for header - match DayColumn header */}
                             {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
-                              <div key={hour} className="h-[40px] relative flex items-center">
-                                <div className="absolute right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none">
+                              <div key={hour} className="h-[40px] relative">
+                                <div className="absolute top-0 right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none">
                                   {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
                                 </div>
                               </div>
@@ -1682,9 +1682,9 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   return (
     <div
       className={cn(
-        "rounded-lg border relative",
-        "bg-card dark:bg-gray-800 border-border dark:border-gray-700",
-        isToday && "border-primary dark:border-blue-500 border-2"
+        "rounded-lg border-0 relative",
+        "bg-card dark:bg-gray-800",
+        isToday && "ring-2 ring-primary dark:ring-blue-500"
       )}
       data-testid={`day-column-${dayIndex}`}
     >
@@ -1715,9 +1715,10 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
           const period = hour >= 12 ? 'PM' : 'AM';
           const hour12 = hour % 12 || 12;
           
-          // Debug: log drop zone creation for first column's first few hours
+          // Debug: log drop zone creation and positioning for first column
           if (dayIndex === 0 && hourIndex < 3) {
-            console.log(`🎯 Creating drop zones for hour ${hour}: ${slot00Id}, ${slot30Id} (displays as "${hour12} ${period}")`);
+            const expectedTopPx = hourIndex * hourHeight;
+            console.log(`🎯 Creating drop zone for hour ${hour} (index ${hourIndex}): ${slot00Id} at top=${expectedTopPx}px (displays as "${hour12} ${period}")`);
           }
           
           return (
