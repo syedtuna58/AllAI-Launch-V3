@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -2127,7 +2127,103 @@ function JobDetailsDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void;
 }) {
+  const { toast } = useToast();
+  const [editedTeamId, setEditedTeamId] = useState<string | null>(null);
+  const [editedDuration, setEditedDuration] = useState<number>(1);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  const { data: teams = [] } = useQuery<Team[]>({ 
+    queryKey: ['/api/teams'] 
+  });
+
+  // Reset form when job changes
+  useEffect(() => {
+    if (job) {
+      setEditedTeamId(job.teamId);
+      setEditedDuration(job.durationDays);
+      setShowDeleteConfirm(false);
+    }
+  }, [job]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<InsertScheduledJob>) => {
+      return apiRequest('PATCH', `/api/scheduled-jobs/${job?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      toast({
+        title: "Job updated",
+        description: "The job has been updated successfully.",
+        duration: 2000,
+      });
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update job",
+        variant: "destructive",
+        duration: 4000,
+      });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('DELETE', `/api/scheduled-jobs/${job?.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      toast({
+        title: "Job deleted",
+        description: "The job has been deleted successfully.",
+        duration: 2000,
+      });
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete job",
+        variant: "destructive",
+        duration: 4000,
+      });
+    }
+  });
+
+  const handleSave = () => {
+    if (!job) return;
+
+    const updates: Partial<InsertScheduledJob> = {};
+    
+    if (editedTeamId !== job.teamId) {
+      updates.teamId = editedTeamId;
+    }
+    
+    if (editedDuration !== job.durationDays) {
+      updates.durationDays = editedDuration;
+      // Recalculate end time if we have a start time
+      if (job.scheduledStartAt) {
+        const startDate = parseISO(job.scheduledStartAt);
+        const endDate = addDays(startDate, editedDuration);
+        updates.scheduledEndAt = endDate.toISOString();
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      updateMutation.mutate(updates);
+    } else {
+      onOpenChange(false);
+    }
+  };
+
+  const handleDelete = () => {
+    deleteMutation.mutate();
+  };
+
   if (!job) return null;
+
+  const selectedTeam = teams.find(t => t.id === editedTeamId);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2137,34 +2233,60 @@ function JobDetailsDialog({
             {job.title}
           </DialogTitle>
           <DialogDescription>
-            View job details and information
+            Edit job details, team assignment, and duration
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          {/* Team Selection */}
+          <div>
+            <Label htmlFor="team-select" className="text-sm font-medium">Team Assignment</Label>
+            <Select value={editedTeamId || "none"} onValueChange={(value) => setEditedTeamId(value === "none" ? null : value)}>
+              <SelectTrigger id="team-select" className="mt-1" data-testid="select-job-team">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">Unassigned</span>
+                </SelectItem>
+                {teams.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: t.color }} />
+                      <span>{t.name} ({t.specialty})</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Duration Input */}
+          <div>
+            <Label htmlFor="duration-input" className="text-sm font-medium">Duration (days)</Label>
+            <Input
+              id="duration-input"
+              type="number"
+              min="1"
+              max="30"
+              value={editedDuration}
+              onChange={(e) => setEditedDuration(Math.max(1, parseInt(e.target.value) || 1))}
+              className="mt-1"
+              data-testid="input-job-duration"
+            />
+          </div>
+
+          {/* Read-only fields */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Team</Label>
-              <div className="flex items-center gap-2 mt-1">
-                {team && (
-                  <>
-                    <div
-                      className="w-3 h-3 rounded"
-                      style={{ backgroundColor: team.color }}
-                    />
-                    <p className="text-sm font-medium" data-testid="text-job-team">
-                      {team.name} ({team.specialty})
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-            
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Urgency</Label>
               <Badge variant="secondary" className={cn("mt-1", URGENCY_COLORS[job.urgency])} data-testid="badge-job-urgency">
                 {job.urgency}
               </Badge>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+              <p className="text-sm mt-1" data-testid="text-job-status">{job.status}</p>
             </div>
           </div>
 
@@ -2192,19 +2314,6 @@ function JobDetailsDialog({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Status</Label>
-              <p className="text-sm mt-1" data-testid="text-job-status">{job.status}</p>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">Duration</Label>
-              <p className="text-sm mt-1" data-testid="text-job-duration">
-                {job.durationDays} {job.durationDays === 1 ? 'day' : 'days'}
-              </p>
-            </div>
-          </div>
-
           {job.description && (
             <div>
               <Label className="text-sm font-medium text-muted-foreground">Description</Label>
@@ -2222,14 +2331,52 @@ function JobDetailsDialog({
               </p>
             </div>
           )}
+        </div>
 
-          {!job.tenantConfirmed && job.scheduledStartAt && (
-            <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
-              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                Awaiting tenant confirmation
-              </p>
-            </div>
+        <div className="flex items-center justify-between border-t pt-4">
+          {!showDeleteConfirm ? (
+            <>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteConfirm(true)}
+                data-testid="button-delete-job"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Job
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)} data-testid="button-cancel">
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={updateMutation.isPending}
+                  data-testid="button-save-job"
+                >
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-sm text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Are you sure? This cannot be undone.</span>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} data-testid="button-cancel-delete">
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDelete}
+                  disabled={deleteMutation.isPending}
+                  data-testid="button-confirm-delete"
+                >
+                  {deleteMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </DialogContent>

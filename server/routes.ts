@@ -6835,6 +6835,18 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     }
   });
 
+  // Update scheduled job (PATCH)
+  app.patch('/api/scheduled-jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const validatedData = insertScheduledJobSchema.partial().parse(req.body);
+      const job = await storage.updateScheduledJob(req.params.id, validatedData);
+      res.json(job);
+    } catch (error) {
+      console.error("Error updating scheduled job:", error);
+      res.status(500).json({ message: "Failed to update scheduled job" });
+    }
+  });
+
   // Delete scheduled job
   app.delete('/api/scheduled-jobs/:id', isAuthenticated, async (req: any, res) => {
     try {
