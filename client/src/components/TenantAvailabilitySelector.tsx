@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { format, addDays, startOfWeek, parseISO, addMinutes, isSameMinute, isWithinInterval, areIntervalsOverlapping } from "date-fns";
-import { formatInTimeZone, toZonedTime, zonedTimeToUtc } from "date-fns-tz";
+import { formatInTimeZone, toZonedTime, fromZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 
 const TIMEZONE = "America/New_York";
@@ -76,8 +76,8 @@ export default function TenantAvailabilitySelector({
     // Create ISO string for the wall time in America/New_York
     const dateTimeStr = `${dateStr}T${hours}:${minutes}:00`;
     
-    // Convert from America/New_York time to UTC
-    return zonedTimeToUtc(dateTimeStr, TIMEZONE);
+    // Parse string as America/New_York time and convert to UTC
+    return fromZonedTime(dateTimeStr, TIMEZONE);
   };
 
   // Check if a cell is the proposed time
