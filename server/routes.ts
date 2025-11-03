@@ -6933,28 +6933,31 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           try {
             const smartCase = await storage.getSmartCase(job.caseId);
             if (smartCase && smartCase.reporterUserId) {
-              const { notificationService } = await import('./notificationService');
-              const startDate = new Date(job.scheduledStartAt);
-              const endDate = new Date(job.scheduledEndAt);
-              const formattedStart = startDate.toLocaleString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              });
-              const formattedTime = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-              
-              await notificationService.notifyTenant({
-                message: `Your maintenance request "${smartCase.title}" has been scheduled for ${formattedStart} (${formattedTime}). Please approve or reject this time slot.`,
-                type: 'schedule_approval_request',
-                title: 'Schedule Approval Needed',
-                caseId: smartCase.id,
-                jobId: job.id,
-                orgId: job.orgId
-              }, smartCase.reporterUserId, job.orgId);
-              console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+              const tenantUser = await storage.getUser(smartCase.reporterUserId);
+              if (tenantUser) {
+                const { notificationService } = await import('./notificationService');
+                const startDate = new Date(job.scheduledStartAt);
+                const endDate = new Date(job.scheduledEndAt);
+                const formattedStart = startDate.toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                });
+                const formattedTime = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                
+                await notificationService.notifyTenant({
+                  message: `Your maintenance request "${smartCase.title}" has been scheduled for ${formattedStart} (${formattedTime}). Please approve or reject this time slot.`,
+                  type: 'schedule_approval_request',
+                  title: 'Schedule Approval Needed',
+                  caseId: smartCase.id,
+                  jobId: job.id,
+                  orgId: job.orgId
+                }, tenantUser.email, smartCase.reporterUserId, job.orgId);
+                console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+              }
             }
           } catch (error) {
             console.error('Error sending tenant notification:', error);
@@ -7002,28 +7005,31 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           try {
             const smartCase = await storage.getSmartCase(job.caseId);
             if (smartCase && smartCase.reporterUserId) {
-              const { notificationService } = await import('./notificationService');
-              const startDate = new Date(job.scheduledStartAt);
-              const endDate = new Date(job.scheduledEndAt);
-              const formattedStart = startDate.toLocaleString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              });
-              const formattedTime = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-              
-              await notificationService.notifyTenant({
-                message: `Your maintenance request "${smartCase.title}" has been scheduled for ${formattedStart} (${formattedTime}). Please approve or reject this time slot.`,
-                type: 'schedule_approval_request',
-                title: 'Schedule Approval Needed',
-                caseId: smartCase.id,
-                jobId: job.id,
-                orgId: job.orgId
-              }, smartCase.reporterUserId, job.orgId);
-              console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+              const tenantUser = await storage.getUser(smartCase.reporterUserId);
+              if (tenantUser) {
+                const { notificationService } = await import('./notificationService');
+                const startDate = new Date(job.scheduledStartAt);
+                const endDate = new Date(job.scheduledEndAt);
+                const formattedStart = startDate.toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                });
+                const formattedTime = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                
+                await notificationService.notifyTenant({
+                  message: `Your maintenance request "${smartCase.title}" has been scheduled for ${formattedStart} (${formattedTime}). Please approve or reject this time slot.`,
+                  type: 'schedule_approval_request',
+                  title: 'Schedule Approval Needed',
+                  caseId: smartCase.id,
+                  jobId: job.id,
+                  orgId: job.orgId
+                }, tenantUser.email, smartCase.reporterUserId, job.orgId);
+                console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+              }
             }
           } catch (error) {
             console.error('Error sending tenant notification:', error);
