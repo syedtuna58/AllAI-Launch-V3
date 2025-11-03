@@ -18,6 +18,7 @@ import Sidebar from "@/components/layout/sidebar";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import TenantCalendar from "@/components/TenantCalendar";
 
 interface TenantCase {
   id: string;
@@ -103,6 +104,8 @@ export default function TenantDashboard() {
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<TenantAppointment | null>(null);
   const [declineReason, setDeclineReason] = useState("");
+  const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null);
+  const [jobDialogOpen, setJobDialogOpen] = useState(false);
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -620,9 +623,12 @@ export default function TenantDashboard() {
             </div>
 
             <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="cases" data-testid="tab-cases">
-                  My Cases ({myCases.length})
+                  My Requests ({myCases.length})
+                </TabsTrigger>
+                <TabsTrigger value="calendar" data-testid="tab-calendar">
+                  Calendar
                 </TabsTrigger>
                 <TabsTrigger value="appointments" data-testid="tab-appointments">
                   Appointments ({appointments.length})
@@ -761,6 +767,17 @@ export default function TenantDashboard() {
                     ))
                   )}
                 </div>
+              </TabsContent>
+
+              <TabsContent value="calendar" className="mt-6">
+                <TenantCalendar
+                  scheduledJobs={scheduledJobs}
+                  myCases={myCases}
+                  onJobClick={(job) => {
+                    setSelectedJob(job);
+                    setJobDialogOpen(true);
+                  }}
+                />
               </TabsContent>
 
               <TabsContent value="approval" className="mt-6">
@@ -906,6 +923,94 @@ export default function TenantDashboard() {
           userId={user.id}
         />
       )}
+
+      <Dialog open={jobDialogOpen} onOpenChange={setJobDialogOpen}>
+        <DialogContent data-testid="dialog-job-details">
+          <DialogHeader>
+            <DialogTitle>{selectedJob?.title}</DialogTitle>
+            <DialogDescription>
+              {selectedJob?.status === 'Pending Approval' ? 'Please review and approve or reject this proposed schedule' : 'Scheduled maintenance details'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedJob?.description && (
+              <div>
+                <p className="text-sm font-medium mb-1">Description</p>
+                <p className="text-sm text-muted-foreground">{selectedJob.description}</p>
+              </div>
+            )}
+            {selectedJob?.scheduledStartAt && selectedJob?.scheduledEndAt && (
+              <div>
+                <p className="text-sm font-medium mb-1">Proposed Time</p>
+                <div className="flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>{format(new Date(selectedJob.scheduledStartAt), "MMM d, yyyy")}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      {format(new Date(selectedJob.scheduledStartAt), "h:mm a")} - 
+                      {format(new Date(selectedJob.scheduledEndAt), "h:mm a")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium mb-1">Status</p>
+              <Badge variant="outline" className={selectedJob?.status === 'Pending Approval' ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 'bg-green-50 text-green-700 border-green-300'}>
+                {selectedJob?.status}
+              </Badge>
+            </div>
+          </div>
+          {selectedJob?.status === 'Pending Approval' && (
+            <DialogFooter className="sm:space-x-2">
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setJobDialogOpen(false);
+                  toast({
+                    title: "Counter-Propose Feature",
+                    description: "Counter-proposal feature coming soon!",
+                  });
+                }}
+                data-testid="button-counter-propose"
+              >
+                Counter-Propose Times
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => {
+                  if (selectedJob) {
+                    rejectJobMutation.mutate(selectedJob.id);
+                    setJobDialogOpen(false);
+                  }
+                }}
+                disabled={rejectJobMutation.isPending}
+                data-testid="button-reject-schedule"
+              >
+                <ThumbsDown className="h-4 w-4 mr-2" />
+                Reject
+              </Button>
+              <Button 
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => {
+                  if (selectedJob) {
+                    approveJobMutation.mutate(selectedJob.id);
+                    setJobDialogOpen(false);
+                  }
+                }}
+                disabled={approveJobMutation.isPending}
+                data-testid="button-approve-schedule"
+              >
+                <ThumbsUp className="h-4 w-4 mr-2" />
+                Approve
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
         <DialogContent data-testid="dialog-decline">
