@@ -615,16 +615,23 @@ export default function ContractorSchedulePage() {
       if (!job.scheduledStartAt) {
         // New job being scheduled - use the dropped time slot
         let durationMinutes = 120; // default 2 hours
+        let useAllDayTimes = false;
         
-        // Try to parse time preferences from notes field
-        if (job.notes) {
-          try {
-            const parsed = JSON.parse(job.notes);
-            if (parsed.timePreferences) {
-              durationMinutes = parsed.timePreferences.duration || 120;
+        // If this is an all-day job, set it to 8am-5pm (540 minutes = 9 hours)
+        if (job.isAllDay) {
+          durationMinutes = 540; // 9 hours: 8am to 5pm
+          useAllDayTimes = true;
+        } else {
+          // Try to parse time preferences from notes field
+          if (job.notes) {
+            try {
+              const parsed = JSON.parse(job.notes);
+              if (parsed.timePreferences) {
+                durationMinutes = parsed.timePreferences.duration || 120;
+              }
+            } catch (e) {
+              // If notes isn't JSON or doesn't have timePreferences, use defaults
             }
-          } catch (e) {
-            // If notes isn't JSON or doesn't have timePreferences, use defaults
           }
         }
         
@@ -632,15 +639,20 @@ export default function ContractorSchedulePage() {
         const year = targetDate.getFullYear();
         const month = String(targetDate.getMonth() + 1).padStart(2, '0');
         const day = String(targetDate.getDate()).padStart(2, '0');
-        const hour = String(targetHour).padStart(2, '0');
-        const minute = String(targetMinute).padStart(2, '0');
+        
+        // For all-day jobs, force start at 8am regardless of drop position
+        const hour = String(useAllDayTimes ? 8 : targetHour).padStart(2, '0');
+        const minute = String(useAllDayTimes ? 0 : targetMinute).padStart(2, '0');
         const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
         
         newStartDate = fromZonedTime(dateTimeString, orgTimezone);
         
         console.log('📅 NEW JOB SCHEDULE:', {
+          isAllDay: job.isAllDay,
           targetHour,
           targetMinute,
+          actualHour: useAllDayTimes ? 8 : targetHour,
+          actualMinute: useAllDayTimes ? 0 : targetMinute,
           orgTimezone,
           dateTimeString,
           newStartDate: newStartDate.toISOString(),
@@ -681,6 +693,36 @@ export default function ContractorSchedulePage() {
       // Update job with new scheduled date - jobs dropped on time slots are not all-day
       const isoStart = newStartDate.toISOString();
       const isoEnd = newEndDate.toISOString();
+      
+      // Check for same-team conflicts (different teams can overlap)
+      const hasConflict = scheduledJobs?.some(existingJob => {
+        // Skip the job being moved
+        if (existingJob.id === jobId) return false;
+        
+        // Only check jobs from the same team
+        if (existingJob.teamId !== job.teamId) return false;
+        
+        // Skip unscheduled jobs
+        if (!existingJob.scheduledStartAt || !existingJob.scheduledEndAt) return false;
+        
+        // Check for time overlap
+        const existingStart = parseISO(existingJob.scheduledStartAt);
+        const existingEnd = parseISO(existingJob.scheduledEndAt);
+        
+        // Two time ranges overlap if: start1 < end2 AND start2 < end1
+        return newStartDate < existingEnd && existingStart < newEndDate;
+      });
+      
+      if (hasConflict) {
+        toast({
+          title: "Schedule conflict",
+          description: "This team already has a job scheduled during this time. Different teams can share time slots, but the same team cannot.",
+          variant: "destructive",
+          duration: 5000
+        });
+        setActiveId(null);
+        return;
+      }
       
       dragMutationInProgress.current = true;
       updateJobMutation.mutate({
