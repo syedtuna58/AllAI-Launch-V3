@@ -31,6 +31,8 @@ import { useRole } from "@/contexts/RoleContext";
 import { TimePicker15Min } from "@/components/ui/time-picker-15min";
 import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
+import TenantCalendar from "@/components/TenantCalendar";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 // Helper function to convert days to human-friendly relative time
 function formatDaysToRelativeTime(days: number): string {
@@ -174,6 +176,7 @@ export default function Maintenance() {
   const [predictiveEntityFilter, setPredictiveEntityFilter] = useState<string>("all");
   const [timelineFilter, setTimelineFilter] = useState<string>("5"); // Default to "Due Within 5 Years"
   const [activeTab, setActiveTab] = useState<"maintenance" | "predictive">("maintenance");
+  const [tenantTab, setTenantTab] = useState<"requests" | "calendar" | "appointments" | "approval">("requests");
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [viewingProposalsCase, setViewingProposalsCase] = useState<SmartCase | null>(null);
@@ -229,6 +232,25 @@ export default function Maintenance() {
   const { data: contractorProfile } = useQuery<any>({
     queryKey: ["/api/contractors/me"],
     enabled: role === "contractor",
+    retry: false,
+  });
+
+  // Tenant-specific queries
+  const { data: tenantCases = [], isLoading: tenantCasesLoading } = useQuery<any[]>({
+    queryKey: ['/api/tenant/cases'],
+    enabled: role === "tenant",
+    retry: false,
+  });
+
+  const { data: tenantAppointments = [] } = useQuery<any[]>({
+    queryKey: ['/api/tenant/appointments'],
+    enabled: role === "tenant",
+    retry: false,
+  });
+
+  const { data: tenantScheduledJobs = [] } = useQuery<any[]>({
+    queryKey: ['/api/scheduled-jobs'],
+    enabled: role === "tenant",
     retry: false,
   });
 
@@ -538,6 +560,79 @@ export default function Maintenance() {
     deleteCaseMutation.mutate(id);
   };
 
+  // Tenant-specific mutations
+  const approveJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await apiRequest("PATCH", `/api/scheduled-jobs/${jobId}/approve`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
+      toast({
+        title: "Success",
+        description: "Schedule approved successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to approve schedule",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const response = await apiRequest("PATCH", `/api/scheduled-jobs/${jobId}/reject`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
+      toast({
+        title: "Success",
+        description: "Schedule rejected",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to reject schedule",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const approveTenantAppointmentMutation = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}/approve`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/appointments'] });
+      toast({
+        title: "Success",
+        description: "Appointment approved",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to approve appointment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Tenant-specific computed values
+  const tenantCaseIds = new Set(tenantCases.map((c: any) => c.id));
+  const pendingJobApprovals = tenantScheduledJobs.filter((job: any) => 
+    job.status === 'Pending Approval' && job.caseId && tenantCaseIds.has(job.caseId)
+  );
+  const pendingTenantApproval = tenantAppointments.filter((a: any) => a.requiresTenantAccess && !a.tenantApproved);
+
   if (isLoading || !isAuthenticated) {
     return null;
   }
@@ -721,6 +816,274 @@ export default function Maintenance() {
     }
   };
 
+  // Tenant-specific view
+  if (role === "tenant") {
+    return (
+      <div className="flex h-screen bg-background" data-testid="page-maintenance">
+        <Sidebar />
+        
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Requests & Calendar" />
+          
+          <main className="flex-1 overflow-auto p-6">
+            <div className="max-w-7xl mx-auto">
+              <Tabs value={tenantTab} onValueChange={(val) => setTenantTab(val as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="requests" data-testid="tab-tenant-requests">
+                    My Requests ({tenantCases.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="calendar" data-testid="tab-tenant-calendar">
+                    Calendar
+                  </TabsTrigger>
+                  <TabsTrigger value="appointments" data-testid="tab-tenant-appointments">
+                    Appointments ({tenantAppointments.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="approval" data-testid="tab-tenant-approval">
+                    Pending Approval ({pendingTenantApproval.length + pendingJobApprovals.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="requests" className="mt-6">
+                  <div className="grid gap-4">
+                    {tenantCasesLoading ? (
+                      <div className="text-center py-8">Loading your cases...</div>
+                    ) : tenantCases.length === 0 ? (
+                      <Card>
+                        <CardContent className="p-6 text-center text-muted-foreground">
+                          <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No maintenance requests yet</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      tenantCases.map((case_: any) => (
+                        <Card key={case_.id} className="w-full" data-testid={`card-case-${case_.id}`}>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {getStatusIcon(case_.status)}
+                                <div>
+                                  <CardTitle className="text-lg" data-testid={`text-case-title-${case_.id}`}>
+                                    {case_.title}
+                                  </CardTitle>
+                                  <Badge variant="outline" className="text-xs font-mono mt-1">
+                                    Case: {case_.caseNumber}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" data-testid={`badge-priority-${case_.id}`}>
+                                  {case_.priority}
+                                </Badge>
+                                <Badge variant="outline" data-testid={`badge-status-${case_.id}`}>
+                                  {case_.status}
+                                </Badge>
+                              </div>
+                            </div>
+                            <CardDescription className="text-sm text-muted-foreground mt-2">
+                              {case_.category} • Reported {new Date(case_.createdAt).toLocaleDateString()}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm mb-3" data-testid={`text-case-description-${case_.id}`}>
+                              {case_.description}
+                            </p>
+                            {(case_.buildingName || case_.roomNumber) && (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <MapPin className="h-4 w-4" />
+                                <span>{case_.buildingName} {case_.roomNumber && `Room ${case_.roomNumber}`}</span>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="calendar" className="mt-6">
+                  <TenantCalendar
+                    scheduledJobs={tenantScheduledJobs}
+                    myCases={tenantCases}
+                    onJobClick={() => {}}
+                  />
+                </TabsContent>
+
+                <TabsContent value="appointments" className="mt-6">
+                  <div className="grid gap-4">
+                    {tenantAppointments.length === 0 ? (
+                      <Card>
+                        <CardContent className="p-6 text-center text-muted-foreground">
+                          <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No appointments scheduled</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      tenantAppointments.map((appointment: any) => (
+                        <Card key={appointment.id} data-testid={`card-appointment-${appointment.id}`}>
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-lg">Service Appointment</CardTitle>
+                              <Badge variant="outline" className={appointment.tenantApproved ? "bg-green-50" : "bg-amber-50"}>
+                                {appointment.tenantApproved ? 'Approved' : 'Pending Approval'}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-1">
+                                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                                <span>{format(new Date(appointment.scheduledStartAt), "MMM d, yyyy")}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span>
+                                  {format(new Date(appointment.scheduledStartAt), "h:mm a")} - 
+                                  {format(new Date(appointment.scheduledEndAt), "h:mm a")}
+                                </span>
+                              </div>
+                            </div>
+                            {appointment.notes && (
+                              <div className="bg-muted p-3 rounded-lg text-sm">
+                                <p className="font-medium mb-1">Notes:</p>
+                                <p className="text-muted-foreground">{appointment.notes}</p>
+                              </div>
+                            )}
+                            {appointment.requiresTenantAccess && !appointment.tenantApproved && (
+                              <Button 
+                                className="w-full"
+                                onClick={() => approveTenantAppointmentMutation.mutate(appointment.id)}
+                                disabled={approveTenantAppointmentMutation.isPending}
+                              >
+                                Approve Access
+                              </Button>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="approval" className="mt-6">
+                  <div className="grid gap-4">
+                    {pendingJobApprovals.map((job: any) => {
+                      const relatedCase = tenantCases.find((c: any) => c.id === job.caseId);
+                      return (
+                        <Card key={job.id} className="border-l-4 border-l-yellow-400">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-lg">{job.title}</CardTitle>
+                              <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                                Pending Approval
+                              </Badge>
+                            </div>
+                            <CardDescription>
+                              Please approve or reject this proposed schedule
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {job.description && (
+                              <p className="text-sm text-muted-foreground">{job.description}</p>
+                            )}
+                            {job.scheduledStartAt && job.scheduledEndAt && (
+                              <div className="flex items-center gap-4 text-sm">
+                                <div className="flex items-center gap-1">
+                                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                                  <span>{format(new Date(job.scheduledStartAt), "MMM d, yyyy")}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-4 w-4 text-muted-foreground" />
+                                  <span>
+                                    {format(new Date(job.scheduledStartAt), "h:mm a")} - 
+                                    {format(new Date(job.scheduledEndAt), "h:mm a")}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            {relatedCase && (
+                              <div className="text-sm text-muted-foreground">
+                                Related to: <span className="font-medium">{relatedCase.title}</span>
+                              </div>
+                            )}
+                            <div className="flex gap-2 pt-2">
+                              <Button 
+                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                onClick={() => approveJobMutation.mutate(job.id)}
+                                disabled={approveJobMutation.isPending}
+                              >
+                                <ThumbsUp className="h-4 w-4 mr-2" />
+                                Approve Schedule
+                              </Button>
+                              <Button 
+                                variant="destructive"
+                                className="flex-1"
+                                onClick={() => rejectJobMutation.mutate(job.id)}
+                                disabled={rejectJobMutation.isPending}
+                              >
+                                <ThumbsDown className="h-4 w-4 mr-2" />
+                                Reject
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+
+                    {pendingTenantApproval.length === 0 && pendingJobApprovals.length === 0 && (
+                      <Card>
+                        <CardContent className="p-6 text-center text-muted-foreground">
+                          <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p>No schedules pending approval</p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {pendingTenantApproval.map((appointment: any) => (
+                      <Card key={appointment.id} className="border-l-4 border-l-blue-400">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-lg">Access Approval Required</CardTitle>
+                          <CardDescription>
+                            A contractor needs access to your unit to complete maintenance
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-1">
+                              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                              <span>{format(new Date(appointment.scheduledStartAt), "MMM d, yyyy")}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span>
+                                {format(new Date(appointment.scheduledStartAt), "h:mm a")} - 
+                                {format(new Date(appointment.scheduledEndAt), "h:mm a")}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button 
+                              className="flex-1 bg-green-600 hover:bg-green-700"
+                              onClick={() => approveTenantAppointmentMutation.mutate(appointment.id)}
+                              disabled={approveTenantAppointmentMutation.isPending}
+                            >
+                              <ThumbsUp className="h-4 w-4 mr-2" />
+                              Approve
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin/Contractor view
   return (
     <div className="flex h-screen bg-background" data-testid="page-maintenance">
       <Sidebar />

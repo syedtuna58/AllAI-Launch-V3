@@ -1,14 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar, Clock, AlertTriangle, CheckCircle, MapPin, Wrench, ThumbsUp, ThumbsDown, Bot, Send, ChevronDown, ChevronUp, Home, Building, Camera, Loader2 } from "lucide-react";
+import { Calendar, Clock, AlertTriangle, CheckCircle, Wrench, ThumbsUp, ThumbsDown, Bot, Send, Home, Building, Camera, Loader2 } from "lucide-react";
 import { LiveNotification } from "@/components/ui/live-notification";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -16,9 +13,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import { Link, useLocation } from "wouter";
-import { format } from "date-fns";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import TenantCalendar from "@/components/TenantCalendar";
+import RemindersWidget from "@/components/widgets/reminders-widget";
+import NotificationsWidget from "@/components/widgets/notifications-widget";
 
 interface TenantCase {
   id: string;
@@ -100,15 +97,6 @@ export default function TenantDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const [selectedTab, setSelectedTab] = useState("cases");
-  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<TenantAppointment | null>(null);
-  const [declineReason, setDeclineReason] = useState("");
-  const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null);
-  const [jobDialogOpen, setJobDialogOpen] = useState(false);
-  const [counterProposeDialogOpen, setCounterProposeDialogOpen] = useState(false);
-  const [availabilitySlots, setAvailabilitySlots] = useState<Array<{startAt: string, endAt: string}>>([{startAt: '', endAt: ''}]);
-  const [counterProposeReason, setCounterProposeReason] = useState('');
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -126,6 +114,7 @@ export default function TenantDashboard() {
   const [issueDescription, setIssueDescription] = useState("");
   const [triageData, setTriageData] = useState<any>(null);
   const [uploadedMedia, setUploadedMedia] = useState<string[]>([]);
+  const [mayaOpen, setMayaOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -137,7 +126,7 @@ export default function TenantDashboard() {
     enabled: !!user
   });
 
-  const { data: appointments = [], isLoading: appointmentsLoading } = useQuery<TenantAppointment[]>({
+  const { data: appointments = [] } = useQuery<TenantAppointment[]>({
     queryKey: ['/api/tenant/appointments'],
     enabled: !!user
   });
@@ -158,143 +147,6 @@ export default function TenantDashboard() {
   const upcomingAppointments = appointments.filter(a => 
     new Date(a.scheduledStartAt) > new Date() && a.status !== 'Cancelled'
   );
-
-  const approveMutation = useMutation({
-    mutationFn: async (appointmentId: string) => {
-      const res = await apiRequest('POST', `/api/appointments/${appointmentId}/tenant-approve`, {
-        token: 'mock-token-for-testing'
-      });
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tenant/appointments'] });
-      toast({
-        title: "Appointment Approved",
-        description: "The contractor has been notified of your approval.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Approval Failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const declineMutation = useMutation({
-    mutationFn: async ({ appointmentId, reason }: { appointmentId: string; reason: string }) => {
-      const res = await apiRequest('POST', `/api/appointments/${appointmentId}/tenant-decline`, {
-        token: 'mock-token-for-testing',
-        reason
-      });
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/tenant/appointments'] });
-      setDeclineDialogOpen(false);
-      setDeclineReason("");
-      toast({
-        title: "Appointment Declined",
-        description: "The contractor has been notified.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Decline Failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const approveJobMutation = useMutation({
-    mutationFn: async (jobId: string) => {
-      return await apiRequest('POST', `/api/scheduled-jobs/${jobId}/approve`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
-      toast({
-        title: "Schedule Approved",
-        description: "The contractor has been notified of your approval.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Approval Failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const rejectJobMutation = useMutation({
-    mutationFn: async (jobId: string) => {
-      return await apiRequest('POST', `/api/scheduled-jobs/${jobId}/reject`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
-      toast({
-        title: "Schedule Rejected",
-        description: "The contractor will propose a new time.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Rejection Failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const counterProposeMutation = useMutation({
-    mutationFn: async ({ jobId, availabilitySlots, reason }: { jobId: string; availabilitySlots: Array<{startAt: string, endAt: string}>; reason: string }) => {
-      return await apiRequest('POST', `/api/scheduled-jobs/${jobId}/counter-propose`, {
-        availabilitySlots,
-        reason
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
-      setCounterProposeDialogOpen(false);
-      setJobDialogOpen(false);
-      setAvailabilitySlots([{startAt: '', endAt: ''}]);
-      setCounterProposeReason('');
-      toast({
-        title: "Counter-Proposal Submitted",
-        description: "The contractor will review your proposed times.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        variant: "destructive",
-        title: "Submission Failed",
-        description: error.message,
-      });
-    },
-  });
-
-  const handleApprove = (appointment: TenantAppointment) => {
-    approveMutation.mutate(appointment.id);
-  };
-
-  const handleDeclineClick = (appointment: TenantAppointment) => {
-    setSelectedAppointment(appointment);
-    setDeclineDialogOpen(true);
-  };
-
-  const handleDeclineConfirm = () => {
-    if (selectedAppointment) {
-      declineMutation.mutate({
-        appointmentId: selectedAppointment.id,
-        reason: declineReason
-      });
-    }
-  };
 
   const sendMayaMessage = async (content: string) => {
     if (!content.trim()) return;
@@ -427,18 +279,12 @@ export default function TenantDashboard() {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h1 className="text-3xl font-bold text-foreground" data-testid="text-tenant-dashboard-title">
-                  My Maintenance Requests
+                  Dashboard
                 </h1>
                 <p className="text-muted-foreground mt-2">
-                  Track your maintenance cases and approve service appointments
+                  Overview of your maintenance requests and reminders
                 </p>
               </div>
-              <Link href="/tenant-request">
-                <Button data-testid="button-new-request">
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  New Request
-                </Button>
-              </Link>
             </div>
 
             {/* Maya AI Chat Widget */}
@@ -653,297 +499,11 @@ export default function TenantDashboard() {
               </Card>
             </div>
 
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="cases" data-testid="tab-cases">
-                  My Requests ({myCases.length})
-                </TabsTrigger>
-                <TabsTrigger value="calendar" data-testid="tab-calendar">
-                  Calendar
-                </TabsTrigger>
-                <TabsTrigger value="appointments" data-testid="tab-appointments">
-                  Appointments ({appointments.length})
-                </TabsTrigger>
-                <TabsTrigger value="approval" data-testid="tab-approval">
-                  Pending Approval ({pendingApproval.length + pendingJobApprovals.length})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="cases" className="mt-6">
-                <div className="grid gap-4">
-                  {casesLoading ? (
-                    <div className="text-center py-8">Loading your cases...</div>
-                  ) : myCases.length === 0 ? (
-                    <Card>
-                      <CardContent className="p-6 text-center text-muted-foreground">
-                        <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No maintenance requests yet</p>
-                        <Link href="/tenant-request">
-                          <Button className="mt-4" data-testid="button-create-first-request">
-                            Create Your First Request
-                          </Button>
-                        </Link>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    myCases.map((case_) => (
-                      <Card key={case_.id} className="w-full" data-testid={`card-case-${case_.id}`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {getStatusIcon(case_.status)}
-                              <div>
-                                <CardTitle className="text-lg" data-testid={`text-case-title-${case_.id}`}>
-                                  {case_.title}
-                                </CardTitle>
-                                <Badge variant="outline" className="text-xs font-mono mt-1" data-testid={`text-case-number-${case_.caseNumber}`}>
-                                  Case: {case_.caseNumber}
-                                </Badge>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className={`${PRIORITY_COLORS[case_.priority as keyof typeof PRIORITY_COLORS]} border`}
-                                data-testid={`badge-priority-${case_.id}`}
-                              >
-                                {case_.priority}
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className={`${STATUS_COLORS[case_.status as keyof typeof STATUS_COLORS]} border`}
-                                data-testid={`badge-status-${case_.id}`}
-                              >
-                                {case_.status}
-                              </Badge>
-                            </div>
-                          </div>
-                          <CardDescription className="text-sm text-muted-foreground mt-2">
-                            {case_.category} • Reported {new Date(case_.createdAt).toLocaleDateString()}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm mb-3" data-testid={`text-case-description-${case_.id}`}>
-                            {case_.description}
-                          </p>
-
-                          {(case_.buildingName || case_.roomNumber) && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <MapPin className="h-4 w-4" />
-                              <span data-testid={`text-case-location-${case_.id}`}>
-                                {case_.buildingName} {case_.roomNumber && `Room ${case_.roomNumber}`}
-                              </span>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="appointments" className="mt-6">
-                <div className="grid gap-4">
-                  {appointmentsLoading ? (
-                    <div className="text-center py-8">Loading appointments...</div>
-                  ) : appointments.length === 0 ? (
-                    <Card>
-                      <CardContent className="p-6 text-center text-muted-foreground">
-                        <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No appointments scheduled</p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    appointments.map((appointment) => (
-                      <Card key={appointment.id} data-testid={`card-appointment-${appointment.id}`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">Service Appointment</CardTitle>
-                            <Badge variant="outline" className={appointment.tenantApproved ? "bg-green-50" : "bg-amber-50"}>
-                              {appointment.tenantApproved ? 'Approved' : 'Pending Approval'}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span data-testid={`text-appointment-date-${appointment.id}`}>
-                                {format(new Date(appointment.scheduledStartAt), "MMM d, yyyy")}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span data-testid={`text-appointment-time-${appointment.id}`}>
-                                {format(new Date(appointment.scheduledStartAt), "h:mm a")} - 
-                                {format(new Date(appointment.scheduledEndAt), "h:mm a")}
-                              </span>
-                            </div>
-                          </div>
-
-                          {appointment.notes && (
-                            <div className="bg-muted p-3 rounded-lg text-sm">
-                              <p className="font-medium mb-1">Notes:</p>
-                              <p className="text-muted-foreground">{appointment.notes}</p>
-                            </div>
-                          )}
-
-                          {appointment.requiresTenantAccess && !appointment.tenantApproved && (
-                            <Button className="w-full" data-testid={`button-approve-${appointment.id}`}>
-                              Approve Access
-                            </Button>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="calendar" className="mt-6">
-                <TenantCalendar
-                  scheduledJobs={scheduledJobs}
-                  myCases={myCases}
-                  onJobClick={(job) => {
-                    setSelectedJob(job);
-                    setJobDialogOpen(true);
-                  }}
-                />
-              </TabsContent>
-
-              <TabsContent value="approval" className="mt-6">
-                <div className="grid gap-4">
-                  {/* Scheduled Jobs Pending Approval */}
-                  {pendingJobApprovals.map((job) => {
-                    const relatedCase = myCases.find(c => c.id === job.caseId);
-                    return (
-                      <Card key={job.id} className="border-l-4 border-l-yellow-400">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg">{job.title}</CardTitle>
-                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
-                              Pending Approval
-                            </Badge>
-                          </div>
-                          <CardDescription>
-                            Please approve or reject this proposed schedule
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {job.description && (
-                            <p className="text-sm text-muted-foreground">{job.description}</p>
-                          )}
-                          {job.scheduledStartAt && job.scheduledEndAt && (
-                            <div className="flex items-center gap-4 text-sm">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                <span data-testid={`text-job-date-${job.id}`}>
-                                  {format(new Date(job.scheduledStartAt), "MMM d, yyyy")}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span data-testid={`text-job-time-${job.id}`}>
-                                  {format(new Date(job.scheduledStartAt), "h:mm a")} - 
-                                  {format(new Date(job.scheduledEndAt), "h:mm a")}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                          {relatedCase && (
-                            <div className="text-sm text-muted-foreground">
-                              Related to: <span className="font-medium">{relatedCase.title}</span>
-                            </div>
-                          )}
-
-                          <div className="flex gap-2 pt-2">
-                            <Button 
-                              className="flex-1 bg-green-600 hover:bg-green-700"
-                              onClick={() => approveJobMutation.mutate(job.id)}
-                              disabled={approveJobMutation.isPending}
-                              data-testid={`button-approve-job-${job.id}`}
-                            >
-                              <ThumbsUp className="h-4 w-4 mr-2" />
-                              Approve Schedule
-                            </Button>
-                            <Button 
-                              variant="destructive"
-                              className="flex-1"
-                              onClick={() => rejectJobMutation.mutate(job.id)}
-                              disabled={rejectJobMutation.isPending}
-                              data-testid={`button-reject-job-${job.id}`}
-                            >
-                              <ThumbsDown className="h-4 w-4 mr-2" />
-                              Reject
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-
-                  {/* Appointments Pending Approval */}
-                  {pendingApproval.length === 0 && pendingJobApprovals.length === 0 ? (
-                    <Card>
-                      <CardContent className="p-6 text-center text-muted-foreground">
-                        <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No schedules pending approval</p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    pendingApproval.map((appointment) => (
-                      <Card key={appointment.id} className="border-l-4 border-l-blue-400">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-lg">Access Approval Required</CardTitle>
-                          <CardDescription>
-                            A contractor needs access to your unit to complete maintenance
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <div className="flex items-center gap-4 text-sm">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span>
-                                {format(new Date(appointment.scheduledStartAt), "MMM d, yyyy")}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span>
-                                {format(new Date(appointment.scheduledStartAt), "h:mm a")} - 
-                                {format(new Date(appointment.scheduledEndAt), "h:mm a")}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button 
-                              className="flex-1 bg-green-600 hover:bg-green-700"
-                              onClick={() => handleApprove(appointment)}
-                              disabled={approveMutation.isPending}
-                              data-testid={`button-approve-${appointment.id}`}
-                            >
-                              <ThumbsUp className="h-4 w-4 mr-2" />
-                              Approve
-                            </Button>
-                            <Button 
-                              variant="destructive"
-                              className="flex-1"
-                              onClick={() => handleDeclineClick(appointment)}
-                              disabled={declineMutation.isPending}
-                              data-testid={`button-decline-${appointment.id}`}
-                            >
-                              <ThumbsDown className="h-4 w-4 mr-2" />
-                              Decline
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+            {/* Reminders and Notifications */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <RemindersWidget />
+              <NotificationsWidget />
+            </div>
           </div>
         </main>
       </div>
@@ -954,244 +514,6 @@ export default function TenantDashboard() {
           userId={user.id}
         />
       )}
-
-      <Dialog open={jobDialogOpen} onOpenChange={setJobDialogOpen}>
-        <DialogContent data-testid="dialog-job-details">
-          <DialogHeader>
-            <DialogTitle>{selectedJob?.title}</DialogTitle>
-            <DialogDescription>
-              {selectedJob?.status === 'Pending Approval' ? 'Please review and approve or reject this proposed schedule' : 'Scheduled maintenance details'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedJob?.description && (
-              <div>
-                <p className="text-sm font-medium mb-1">Description</p>
-                <p className="text-sm text-muted-foreground">{selectedJob.description}</p>
-              </div>
-            )}
-            {selectedJob?.scheduledStartAt && selectedJob?.scheduledEndAt && (
-              <div>
-                <p className="text-sm font-medium mb-1">Proposed Time</p>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span>{format(new Date(selectedJob.scheduledStartAt), "MMM d, yyyy")}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span>
-                      {format(new Date(selectedJob.scheduledStartAt), "h:mm a")} - 
-                      {format(new Date(selectedJob.scheduledEndAt), "h:mm a")}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div>
-              <p className="text-sm font-medium mb-1">Status</p>
-              <Badge variant="outline" className={selectedJob?.status === 'Pending Approval' ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 'bg-green-50 text-green-700 border-green-300'}>
-                {selectedJob?.status}
-              </Badge>
-            </div>
-          </div>
-          {selectedJob?.status === 'Pending Approval' && (
-            <DialogFooter className="sm:space-x-2">
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  setJobDialogOpen(false);
-                  setCounterProposeDialogOpen(true);
-                }}
-                data-testid="button-counter-propose"
-              >
-                Counter-Propose Times
-              </Button>
-              <Button 
-                variant="destructive"
-                onClick={() => {
-                  if (selectedJob) {
-                    rejectJobMutation.mutate(selectedJob.id);
-                    setJobDialogOpen(false);
-                  }
-                }}
-                disabled={rejectJobMutation.isPending}
-                data-testid="button-reject-schedule"
-              >
-                <ThumbsDown className="h-4 w-4 mr-2" />
-                Reject
-              </Button>
-              <Button 
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => {
-                  if (selectedJob) {
-                    approveJobMutation.mutate(selectedJob.id);
-                    setJobDialogOpen(false);
-                  }
-                }}
-                disabled={approveJobMutation.isPending}
-                data-testid="button-approve-schedule"
-              >
-                <ThumbsUp className="h-4 w-4 mr-2" />
-                Approve
-              </Button>
-            </DialogFooter>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
-        <DialogContent data-testid="dialog-decline">
-          <DialogHeader>
-            <DialogTitle>Decline Appointment</DialogTitle>
-            <DialogDescription>
-              Please provide a reason for declining this appointment. This will help us reschedule at a better time.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              data-testid="input-decline-reason"
-              placeholder="e.g., I won't be available at this time"
-              value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setDeclineDialogOpen(false)}
-              data-testid="button-cancel-decline"
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleDeclineConfirm}
-              disabled={declineMutation.isPending}
-              data-testid="button-confirm-decline"
-            >
-              Confirm Decline
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={counterProposeDialogOpen} onOpenChange={setCounterProposeDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="dialog-counter-propose">
-          <DialogHeader>
-            <DialogTitle>Counter-Propose Alternative Times</DialogTitle>
-            <DialogDescription>
-              Suggest times when you're available for this maintenance visit. You can propose multiple time slots.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {availabilitySlots.map((slot, index) => (
-              <Card key={index}>
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">Start Time</label>
-                        <Input
-                          type="datetime-local"
-                          value={slot.startAt}
-                          onChange={(e) => {
-                            const newSlots = [...availabilitySlots];
-                            newSlots[index].startAt = e.target.value;
-                            setAvailabilitySlots(newSlots);
-                          }}
-                          data-testid={`input-start-time-${index}`}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1.5 block">End Time</label>
-                        <Input
-                          type="datetime-local"
-                          value={slot.endAt}
-                          onChange={(e) => {
-                            const newSlots = [...availabilitySlots];
-                            newSlots[index].endAt = e.target.value;
-                            setAvailabilitySlots(newSlots);
-                          }}
-                          data-testid={`input-end-time-${index}`}
-                        />
-                      </div>
-                    </div>
-                    {availabilitySlots.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-8"
-                        onClick={() => {
-                          setAvailabilitySlots(availabilitySlots.filter((_, i) => i !== index));
-                        }}
-                        data-testid={`button-remove-slot-${index}`}
-                      >
-                        ✕
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                setAvailabilitySlots([...availabilitySlots, {startAt: '', endAt: ''}]);
-              }}
-              data-testid="button-add-slot"
-            >
-              + Add Another Time Slot
-            </Button>
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Reason (Optional)</label>
-              <Input
-                placeholder="e.g., I'm available in the mornings this week"
-                value={counterProposeReason}
-                onChange={(e) => setCounterProposeReason(e.target.value)}
-                data-testid="input-counter-propose-reason"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setCounterProposeDialogOpen(false);
-                setAvailabilitySlots([{startAt: '', endAt: ''}]);
-                setCounterProposeReason('');
-              }}
-              data-testid="button-cancel-counter-propose"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={() => {
-                if (selectedJob && availabilitySlots.some(slot => slot.startAt && slot.endAt)) {
-                  const validSlots = availabilitySlots.filter(slot => slot.startAt && slot.endAt);
-                  counterProposeMutation.mutate({
-                    jobId: selectedJob.id,
-                    availabilitySlots: validSlots,
-                    reason: counterProposeReason
-                  });
-                }
-              }}
-              disabled={counterProposeMutation.isPending || !availabilitySlots.some(slot => slot.startAt && slot.endAt)}
-              data-testid="button-submit-counter-propose"
-            >
-              {counterProposeMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                'Submit Proposal'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

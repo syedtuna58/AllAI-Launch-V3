@@ -7,7 +7,7 @@ import { useDevMode } from "@/contexts/DevModeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserProfileForm from "@/components/forms/user-profile-form";
-import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, ClipboardList, MessageSquare, Clock, TestTube2, MessageCircle, Inbox, TrendingUp, Settings, Calendar } from "lucide-react";
+import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, ClipboardList, MessageSquare, Clock, TestTube2, MessageCircle, Inbox, TrendingUp, Settings, Calendar, Bell } from "lucide-react";
 
 export default function Sidebar() {
   const [location, setLocation] = useLocation();
@@ -42,10 +42,8 @@ export default function Sidebar() {
 
   const tenantNavigation = [
     { name: "Dashboard", href: "/tenant-dashboard", icon: Home },
-    { name: "Inbox", href: "/inbox", icon: Inbox },
-    { name: "Submit Request", href: "/tenant-request", icon: MessageSquare },
-    { name: "My Requests", href: "/maintenance", icon: ClipboardList },
-    { name: "Reminders", href: "/reminders", icon: Clock },
+    { name: "Requests & Calendar", href: "/maintenance", icon: Wrench },
+    { name: "Reminders", href: "/reminders", icon: Bell },
   ];
 
   let navigation = currentRole === 'admin' 
