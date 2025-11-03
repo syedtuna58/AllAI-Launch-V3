@@ -667,27 +667,40 @@ export default function ContractorSchedulePage() {
           newEndDate = new Date(addDays(newStartDate, job.durationDays - 1).getTime() + durationMinutes * 60 * 1000);
         }
       } else {
-        // Existing job being rescheduled - use fromZonedTime to properly convert
+        // Existing job being rescheduled
+        // Check if this is an all-day job (either marked as all-day or has 540 min duration)
+        const isAllDayJob = job.isAllDay || (durationMs === 540 * 60 * 1000);
+        
         const year = targetDate.getFullYear();
         const month = String(targetDate.getMonth() + 1).padStart(2, '0');
         const day = String(targetDate.getDate()).padStart(2, '0');
-        const hour = String(targetHour).padStart(2, '0');
-        const minute = String(targetMinute).padStart(2, '0');
+        
+        // For all-day jobs, force start at 8am regardless of drop position
+        const hour = String(isAllDayJob ? 8 : targetHour).padStart(2, '0');
+        const minute = String(isAllDayJob ? 0 : targetMinute).padStart(2, '0');
         const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
         
         newStartDate = fromZonedTime(dateTimeString, orgTimezone);
         
         console.log('📅 RESCHEDULE JOB:', {
+          isAllDay: job.isAllDay,
+          isAllDayJob,
           targetHour,
           targetMinute,
+          actualHour: isAllDayJob ? 8 : targetHour,
+          actualMinute: isAllDayJob ? 0 : targetMinute,
           orgTimezone,
           dateTimeString,
           newStartDate: newStartDate.toISOString(),
           willDisplay: format(newStartDate, 'h:mm a')
         });
         
-        // Preserve the exact duration
-        newEndDate = new Date(newStartDate.getTime() + durationMs);
+        // For all-day jobs, always use 9 hours (8am-5pm), otherwise preserve duration
+        if (isAllDayJob) {
+          newEndDate = new Date(newStartDate.getTime() + 540 * 60 * 1000);
+        } else {
+          newEndDate = new Date(newStartDate.getTime() + durationMs);
+        }
       }
       
       // Update job with new scheduled date - jobs dropped on time slots are not all-day
@@ -730,7 +743,7 @@ export default function ContractorSchedulePage() {
         data: {
           scheduledStartAt: isoStart,
           scheduledEndAt: isoEnd,
-          isAllDay: false, // Time slot scheduling is never all-day
+          isAllDay: job.isAllDay, // Preserve all-day flag for consistent 8am-5pm scheduling
           status: 'Scheduled',
         },
       });
