@@ -2197,62 +2197,101 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
         {/* Jobs overlay - positioned absolutely */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="relative h-full pointer-events-auto">
-            {jobs.map(job => {
-              const team = teams.find(t => t.id === job.teamId);
-              const spanInfo = calculateJobSpan(job, date, weekDays);
-              
-              if (!spanInfo.shouldRender) {
-                return null;
-              }
-              
-              // Calculate vertical position based on job time
-              // Each hour is hourHeight px, starting from 6 AM, with 30-minute precision
-              let topPosition = 0;
-              let heightPx = hourHeight; // default height (1 hour)
-              
-              if (job.scheduledStartAt && !job.isAllDay) {
-                const startTimeUTC = parseISO(job.scheduledStartAt);
-                // Convert UTC time to organization timezone for display
-                const orgTimezone = organization?.timezone || 'America/New_York';
-                const startTime = toZonedTime(startTimeUTC, orgTimezone);
-                const hours = startTime.getHours();
-                const minutes = startTime.getMinutes();
-                // Position = (hours from 6am * hourHeight) + (minutes * hourHeight / 60 min)
-                topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
-                
-                // Calculate height based on duration
-                if (job.scheduledEndAt) {
-                  const endTimeUTC = parseISO(job.scheduledEndAt);
-                  const durationMs = endTimeUTC.getTime() - startTimeUTC.getTime();
-                  const durationMinutes = durationMs / (1000 * 60);
-                  // Height = duration in minutes * hourHeight per hour / 60 minutes
-                  heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
+            {(() => {
+              // Calculate overlapping jobs and their horizontal positions
+              const jobsWithPosition = jobs.map(job => {
+                const spanInfo = calculateJobSpan(job, date, weekDays);
+                if (!spanInfo.shouldRender) {
+                  return null;
                 }
-              }
+                
+                // Find all jobs that overlap with this one in time
+                const overlappingJobs = jobs.filter(otherJob => {
+                  if (otherJob.id === job.id) return false;
+                  if (!job.scheduledStartAt || !job.scheduledEndAt) return false;
+                  if (!otherJob.scheduledStartAt || !otherJob.scheduledEndAt) return false;
+                  
+                  const jobStart = parseISO(job.scheduledStartAt);
+                  const jobEnd = parseISO(job.scheduledEndAt);
+                  const otherStart = parseISO(otherJob.scheduledStartAt);
+                  const otherEnd = parseISO(otherJob.scheduledEndAt);
+                  
+                  // Check if they overlap: start1 < end2 AND start2 < end1
+                  return jobStart < otherEnd && otherStart < jobEnd;
+                });
+                
+                // Calculate horizontal position
+                let columnIndex = 0;
+                let totalColumns = 1;
+                
+                if (overlappingJobs.length > 0) {
+                  // Sort all overlapping jobs (including this one) by start time, then by ID for consistency
+                  const allJobsInGroup = [job, ...overlappingJobs].sort((a, b) => {
+                    if (!a.scheduledStartAt || !b.scheduledStartAt) return 0;
+                    const timeCompare = parseISO(a.scheduledStartAt).getTime() - parseISO(b.scheduledStartAt).getTime();
+                    if (timeCompare !== 0) return timeCompare;
+                    return a.id.localeCompare(b.id);
+                  });
+                  
+                  columnIndex = allJobsInGroup.findIndex(j => j.id === job.id);
+                  totalColumns = allJobsInGroup.length;
+                }
+                
+                return { job, spanInfo, columnIndex, totalColumns };
+              }).filter(item => item !== null);
               
-              return (
-                <div
-                  key={job.id}
-                  style={{ 
-                    position: 'absolute',
-                    top: `${topPosition}px`,
-                    left: 0,
-                    right: 0,
-                    height: job.scheduledStartAt && !job.isAllDay ? `${heightPx}px` : 'auto',
-                    visibility: activeId === job.id ? 'hidden' : 'visible'
-                  }}
-                >
-                  <JobCard
-                    job={job}
-                    team={team}
-                    spanDays={spanInfo.spanDays}
+              return jobsWithPosition.map(({ job, spanInfo, columnIndex, totalColumns }) => {
+                const team = teams.find(t => t.id === job.teamId);
+                
+                // Calculate vertical position based on job time
+                let topPosition = 0;
+                let heightPx = hourHeight; // default height (1 hour)
+                
+                if (job.scheduledStartAt && !job.isAllDay) {
+                  const startTimeUTC = parseISO(job.scheduledStartAt);
+                  const orgTimezone = organization?.timezone || 'America/New_York';
+                  const startTime = toZonedTime(startTimeUTC, orgTimezone);
+                  const hours = startTime.getHours();
+                  const minutes = startTime.getMinutes();
+                  topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
+                  
+                  if (job.scheduledEndAt) {
+                    const endTimeUTC = parseISO(job.scheduledEndAt);
+                    const durationMs = endTimeUTC.getTime() - startTimeUTC.getTime();
+                    const durationMinutes = durationMs / (1000 * 60);
+                    heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
+                  }
+                }
+                
+                // Calculate horizontal position for overlapping jobs
+                const widthPercent = 100 / totalColumns;
+                const leftPercent = widthPercent * columnIndex;
+                
+                return (
+                  <div
+                    key={job.id}
+                    style={{ 
+                      position: 'absolute',
+                      top: `${topPosition}px`,
+                      left: `${leftPercent}%`,
+                      width: `${widthPercent}%`,
+                      height: job.scheduledStartAt && !job.isAllDay ? `${heightPx}px` : 'auto',
+                      visibility: activeId === job.id ? 'hidden' : 'visible',
+                      paddingRight: totalColumns > 1 ? '2px' : '0',
+                    }}
+                  >
+                    <JobCard
+                      job={job}
+                      team={team}
+                      spanDays={spanInfo.spanDays}
                     isFirstDay={spanInfo.isFirstDay}
                     extendsBeyondWeek={spanInfo.extendsBeyondWeek}
                     onClick={() => onClick?.(job)}
                   />
                 </div>
               );
-            })}
+            });
+            })()}
           </div>
         </div>
       </div>
