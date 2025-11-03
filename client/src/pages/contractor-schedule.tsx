@@ -2316,17 +2316,35 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                     heightPx = (9 * hourHeight); // 9 hours (8am to 5pm)
                   } else {
                     const startTimeUTC = parseISO(job.scheduledStartAt);
-                    const startTime = toZonedTime(startTimeUTC, orgTimezone);
+                    const endTimeUTC = job.scheduledEndAt ? parseISO(job.scheduledEndAt) : startTimeUTC;
+                    
+                    // For multi-day jobs, clamp start/end to the current day's boundaries
+                    let effectiveStartTime = startTimeUTC;
+                    let effectiveEndTime = endTimeUTC;
+                    
+                    if (spanInfo.spanDays > 1 || !spanInfo.isFirstDay) {
+                      // Build day boundaries in organization timezone
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const dayStartStr = `${year}-${month}-${day} 06:00:00`; // Start at 6am (start of visible schedule)
+                      const dayEndStr = `${year}-${month}-${day} 20:00:00`; // End at 8pm (end of visible schedule)
+                      const dayStartUTC = fromZonedTime(dayStartStr, orgTimezone);
+                      const dayEndUTC = fromZonedTime(dayEndStr, orgTimezone);
+                      
+                      // Clamp to day boundaries
+                      effectiveStartTime = startTimeUTC > dayStartUTC ? startTimeUTC : dayStartUTC;
+                      effectiveEndTime = endTimeUTC < dayEndUTC ? endTimeUTC : dayEndUTC;
+                    }
+                    
+                    const startTime = toZonedTime(effectiveStartTime, orgTimezone);
                     const hours = startTime.getHours();
                     const minutes = startTime.getMinutes();
                     topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
                     
-                    if (job.scheduledEndAt) {
-                      const endTimeUTC = parseISO(job.scheduledEndAt);
-                      const durationMs = endTimeUTC.getTime() - startTimeUTC.getTime();
-                      const durationMinutes = durationMs / (1000 * 60);
-                      heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
-                    }
+                    const durationMs = effectiveEndTime.getTime() - effectiveStartTime.getTime();
+                    const durationMinutes = durationMs / (1000 * 60);
+                    heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
                   }
                 }
                 
@@ -2342,7 +2360,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       top: `${topPosition}px`,
                       left: `${leftPercent}%`,
                       width: `${widthPercent}%`,
-                      height: job.scheduledStartAt && !job.isAllDay ? `${heightPx}px` : 'auto',
+                      height: job.scheduledStartAt ? `${heightPx}px` : 'auto',
                       visibility: activeId === job.id ? 'hidden' : 'visible',
                       paddingRight: totalColumns > 1 ? '2px' : '0',
                     }}
