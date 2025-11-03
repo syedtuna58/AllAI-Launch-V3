@@ -350,7 +350,7 @@ export interface IStorage {
   deleteTeam(id: string): Promise<void>;
 
   // Scheduled Job operations
-  getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string }): Promise<ScheduledJob[]>;
+  getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string; caseId?: string }): Promise<ScheduledJob[]>;
   getScheduledJob(id: string): Promise<ScheduledJob | undefined>;
   createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob>;
   updateScheduledJob(id: string, job: Partial<InsertScheduledJob>): Promise<ScheduledJob>;
@@ -3335,7 +3335,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Scheduled Job operations
-  async getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string }): Promise<any[]> {
+  async getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string; caseId?: string }): Promise<any[]> {
     let query = db.select({
       ...scheduledJobs,
       caseStatus: smartCases.status,
@@ -3348,6 +3348,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.status) {
       query = query.where(eq(scheduledJobs.status, filters.status as any));
+    }
+    if (filters?.caseId) {
+      query = query.where(eq(scheduledJobs.caseId, filters.caseId));
     }
     
     return query.orderBy(asc(scheduledJobs.scheduledStartAt));

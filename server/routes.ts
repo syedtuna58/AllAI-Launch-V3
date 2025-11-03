@@ -2036,6 +2036,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const smartCase = await storage.createSmartCase(validatedData);
       
+      // Automatically create a linked scheduled job for the case
+      try {
+        const { insertScheduledJobSchema } = await import("@shared/schema");
+        
+        // Map case priority to job urgency
+        const urgencyMap: Record<string, string> = {
+          'Low': 'Low',
+          'Medium': 'Medium',
+          'High': 'High',
+          'Urgent': 'Critical'
+        };
+        const jobUrgency = urgencyMap[smartCase.priority || 'Medium'] || 'Medium';
+        
+        const scheduledJobData = insertScheduledJobSchema.parse({
+          orgId: org.id,
+          title: smartCase.title,
+          description: smartCase.description || `Maintenance request: ${smartCase.title}`,
+          status: 'Unscheduled',
+          urgency: jobUrgency,
+          caseId: smartCase.id,
+          propertyId: smartCase.propertyId,
+          unitId: smartCase.unitId,
+        });
+        
+        const scheduledJob = await storage.createScheduledJob(scheduledJobData);
+        console.log(`📅 Auto-created scheduled job ${scheduledJob.id} for case ${smartCase.id}`);
+      } catch (error) {
+        console.error('Error auto-creating scheduled job:', error);
+        // Don't fail the case creation if job creation fails
+      }
+      
       // Create media records if photos/videos were uploaded
       const mediaUrls = req.body.mediaUrls || [];
       if (mediaUrls.length > 0) {
@@ -2150,6 +2181,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               priority: triageResult.urgency
             });
             
+            // Step 3.5: Update linked scheduled job with AI suggestions and contractor
+            try {
+              const jobs = await storage.getScheduledJobs(org.id, { caseId: smartCase.id });
+              if (jobs.length > 0) {
+                const linkedJob = jobs[0];
+                const urgencyMap: Record<string, string> = {
+                  'Low': 'Low',
+                  'Medium': 'Medium',
+                  'High': 'High',
+                  'Urgent': 'Critical'
+                };
+                
+                await storage.updateScheduledJob(linkedJob.id, {
+                  contractorId: bestContractor.contractorId,
+                  urgency: urgencyMap[triageResult.urgency] || 'Medium',
+                  durationDays: triageResult.estimatedDuration || 1,
+                  notes: triageResult.estimatedTime ? `AI Estimate: ${triageResult.estimatedTime}` : linkedJob.notes
+                });
+                console.log(`📅 Updated scheduled job ${linkedJob.id} with AI suggestions`);
+              }
+            } catch (error) {
+              console.error('Error updating scheduled job with AI data:', error);
+            }
+            
             // Step 4: Notify contractor
             const { notificationService } = await import('./notificationService');
             await notificationService.notifyContractor({
@@ -2168,6 +2223,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               status: 'In Review',
               priority: triageResult.urgency
             });
+            
+            // Update linked scheduled job with AI suggestions (without contractor)
+            try {
+              const jobs = await storage.getScheduledJobs(org.id, { caseId: smartCase.id });
+              if (jobs.length > 0) {
+                const linkedJob = jobs[0];
+                const urgencyMap: Record<string, string> = {
+                  'Low': 'Low',
+                  'Medium': 'Medium',
+                  'High': 'High',
+                  'Urgent': 'Critical'
+                };
+                
+                await storage.updateScheduledJob(linkedJob.id, {
+                  urgency: urgencyMap[triageResult.urgency] || 'Medium',
+                  durationDays: triageResult.estimatedDuration || 1,
+                  notes: triageResult.estimatedTime ? `AI Estimate: ${triageResult.estimatedTime}` : linkedJob.notes
+                });
+                console.log(`📅 Updated scheduled job ${linkedJob.id} with AI suggestions (no contractor)`);
+              }
+            } catch (error) {
+              console.error('Error updating scheduled job with AI data:', error);
+            }
           }
         } catch (error) {
           console.error('Error in AI triage pipeline:', error);
