@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Component, ErrorInfo, ReactNode } from "react";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -458,6 +459,7 @@ export default function Maintenance() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const { currentRole: role } = useRole();
+  const [, navigate] = useLocation();
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
@@ -1191,6 +1193,16 @@ export default function Maintenance() {
                 </TabsList>
 
                 <TabsContent value="requests" className="mt-6">
+                  <div className="mb-4">
+                    <Button 
+                      onClick={() => navigate("/tenant-request")} 
+                      className="w-full sm:w-auto"
+                      data-testid="button-new-request"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      New Request
+                    </Button>
+                  </div>
                   <div className="grid gap-4">
                     {tenantCasesLoading ? (
                       <div className="text-center py-8">Loading your cases...</div>
@@ -1199,6 +1211,15 @@ export default function Maintenance() {
                         <CardContent className="p-6 text-center text-muted-foreground">
                           <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
                           <p>No maintenance requests yet</p>
+                          <Button 
+                            onClick={() => navigate("/tenant-request")} 
+                            className="mt-4"
+                            variant="outline"
+                            data-testid="button-create-first-request"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create Your First Request
+                          </Button>
                         </CardContent>
                       </Card>
                     ) : (

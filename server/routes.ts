@@ -2002,6 +2002,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Tenant-specific cases endpoint - returns only cases created by the logged-in tenant
+  app.get('/api/tenant/cases', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      
+      // Get all cases for the organization
+      const allCases = await storage.getSmartCases(org.id);
+      
+      // Filter to only cases where this user is the reporter
+      const tenantCases = allCases.filter(c => c.reporterUserId === userId);
+      
+      res.json(tenantCases);
+    } catch (error) {
+      console.error("Error fetching tenant cases:", error);
+      res.status(500).json({ message: "Failed to fetch tenant cases" });
+    }
+  });
+
   app.post('/api/cases', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
