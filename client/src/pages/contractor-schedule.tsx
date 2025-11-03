@@ -462,9 +462,19 @@ export default function ContractorSchedulePage() {
     return scheduledJobs.filter(job => {
       if (!job.scheduledStartAt) return false;
       
-      // Use the full calendar day boundaries for the column
-      const dayStart = startOfDay(date);
-      const dayEnd = endOfDay(date);
+      // Build day boundaries in organization timezone using explicit wall-time strings
+      const orgTimezone = organization?.timezone || 'America/New_York';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      // Create 00:00:00 and 23:59:59.999 for this day in org timezone
+      const dayStartStr = `${year}-${month}-${day} 00:00:00`;
+      const dayEndStr = `${year}-${month}-${day} 23:59:59.999`;
+      
+      // Convert to UTC for comparison with job times
+      const dayStart = fromZonedTime(dayStartStr, orgTimezone);
+      const dayEnd = fromZonedTime(dayEndStr, orgTimezone);
       
       // Parse job times with full precision
       const jobStart = parseISO(job.scheduledStartAt);
@@ -2230,20 +2240,29 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                   
                   const orgTimezone = organization?.timezone || 'America/New_York';
                   
-                  // Get the time range this job occupies on this specific day
-                  const dayStart = startOfDay(date);
-                  const dayEnd = endOfDay(date);
+                  // Build day boundaries in organization timezone using explicit wall-time strings
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  
+                  // Create 00:00:00 and 23:59:59.999 for this day in org timezone
+                  const dayStartStr = `${year}-${month}-${day} 00:00:00`;
+                  const dayEndStr = `${year}-${month}-${day} 23:59:59.999`;
+                  
+                  // Convert to UTC for comparison with job times
+                  const dayStartUTC = fromZonedTime(dayStartStr, orgTimezone);
+                  const dayEndUTC = fromZonedTime(dayEndStr, orgTimezone);
                   
                   const jobStartUTC = parseISO(job.scheduledStartAt);
                   const jobEndUTC = parseISO(job.scheduledEndAt);
                   const otherStartUTC = parseISO(otherJob.scheduledStartAt);
                   const otherEndUTC = parseISO(otherJob.scheduledEndAt);
                   
-                  // Clamp job times to the current day's boundaries
-                  const jobStartOnDay = jobStartUTC < dayStart ? dayStart : jobStartUTC;
-                  const jobEndOnDay = jobEndUTC > dayEnd ? dayEnd : jobEndUTC;
-                  const otherStartOnDay = otherStartUTC < dayStart ? dayStart : otherStartUTC;
-                  const otherEndOnDay = otherEndUTC > dayEnd ? dayEnd : otherEndUTC;
+                  // Clamp job times to the current day's boundaries (in UTC)
+                  const jobStartOnDay = jobStartUTC < dayStartUTC ? dayStartUTC : jobStartUTC;
+                  const jobEndOnDay = jobEndUTC > dayEndUTC ? dayEndUTC : jobEndUTC;
+                  const otherStartOnDay = otherStartUTC < dayStartUTC ? dayStartUTC : otherStartUTC;
+                  const otherEndOnDay = otherEndUTC > dayEndUTC ? dayEndUTC : otherEndUTC;
                   
                   // Convert to org timezone for accurate hour comparison
                   const jobStartTime = toZonedTime(jobStartOnDay, orgTimezone);
