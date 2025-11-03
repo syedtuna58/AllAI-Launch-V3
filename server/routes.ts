@@ -34,7 +34,8 @@ import {
 import { EQUIPMENT_CATALOG, calculateReplacementYear, getEquipmentDefinition } from "./equipment-catalog";
 import { PredictiveAnalyticsEngine } from "./predictiveAnalyticsEngine";
 import OpenAI from "openai";
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
+import { parseISO } from 'date-fns';
 import { parse as parseDate } from 'date-fns';
 
 // Revenue schema for API validation
@@ -7531,15 +7532,18 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         await storage.updateSmartCase(updatedJob.caseId, { status: 'Scheduled' as any });
       }
       
-      // Notify tenant that their counter-proposal was accepted
+      // Notify tenant and admin that counter-proposal was accepted
       const job = await storage.getScheduledJob(proposal[0].scheduledJobId);
       if (job && job.caseId) {
         try {
           const smartCase = await storage.getSmartCase(job.caseId);
           const { notificationService } = await import('./notificationService');
+          const selectedSlotTime = formatInTimeZone(parseISO(selectedSlot.startAt), 'America/New_York', "EEE, MMM d 'at' h:mm a");
+          
+          // Notify tenant
           if (smartCase && smartCase.reporterUserId) {
             await notificationService.notifyTenant({
-              message: `Your proposed time for "${smartCase.title || job.title}" was accepted`,
+              message: `Your proposed time for "${smartCase.title || job.title}" was accepted. Scheduled for ${selectedSlotTime}`,
               type: 'counter_proposal_accepted',
               title: 'Time Proposal Accepted',
               caseId: job.caseId,
@@ -7548,8 +7552,21 @@ If you cannot identify the equipment with confidence, return an empty object {}.
             }, smartCase.reporterUserId, job.orgId);
             console.log(`✅ Notified tenant ${smartCase.reporterUserId} that counter-proposal was accepted`);
           }
+          
+          // Notify admin
+          if (smartCase) {
+            await notificationService.notifyAdmin({
+              message: `Counter-proposal accepted for "${smartCase.title || job.title}". Scheduled for ${selectedSlotTime}`,
+              type: 'counter_proposal_accepted',
+              title: 'Appointment Scheduled',
+              caseId: job.caseId,
+              jobId: job.id,
+              orgId: job.orgId
+            }, job.orgId);
+            console.log(`✅ Notified admin that counter-proposal was accepted for job ${job.id}`);
+          }
         } catch (error) {
-          console.error('Error sending tenant notification:', error);
+          console.error('Error sending notifications:', error);
         }
       }
       

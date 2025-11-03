@@ -35,6 +35,7 @@ import EquipmentManagementModal from "@/components/modals/equipment-management-m
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
 import TenantCalendar from "@/components/TenantCalendar";
 import TenantAvailabilitySelector from "@/components/TenantAvailabilitySelector";
+import ContractorCalendarMatch from "@/components/ContractorCalendarMatch";
 import { ThumbsUp, ThumbsDown, CalendarClock, X } from "lucide-react";
 
 // Helper function to convert days to human-friendly relative time
@@ -190,6 +191,7 @@ export default function Maintenance() {
   const [selectedInsight, setSelectedInsight] = useState<PredictiveInsight | null>(null);
   const [showInsightDialog, setShowInsightDialog] = useState(false);
   const [counterProposingJob, setCounterProposingJob] = useState<any | null>(null);
+  const [reviewingCounterProposal, setReviewingCounterProposal] = useState<{job: any, proposalId: string} | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -636,6 +638,56 @@ export default function Maintenance() {
     },
   });
 
+  const acceptCounterProposalMutation = useMutation({
+    mutationFn: async (data: { proposalId: string; selectedSlotIndex: number }) => {
+      const response = await apiRequest("POST", `/api/counter-proposals/${data.proposalId}/accept`, {
+        selectedSlotIndex: data.selectedSlotIndex
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
+      setReviewingCounterProposal(null);
+      toast({
+        title: "Success",
+        description: "Counter-proposal accepted! The tenant and admin have been notified.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to accept counter-proposal",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectCounterProposalMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      const response = await apiRequest("POST", `/api/counter-proposals/${proposalId}/reject`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
+      setReviewingCounterProposal(null);
+      toast({
+        title: "Success",
+        description: "Counter-proposal declined. The tenant will be notified.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to decline counter-proposal",
+        variant: "destructive",
+      });
+    },
+  });
+
   const approveTenantAppointmentMutation = useMutation({
     mutationFn: async (appointmentId: string) => {
       const response = await apiRequest("PATCH", `/api/appointments/${appointmentId}/approve`);
@@ -655,6 +707,13 @@ export default function Maintenance() {
         variant: "destructive",
       });
     },
+  });
+
+  // Fetch counter-proposals for the job being reviewed (contractor view)
+  const { data: counterProposals = [] } = useQuery<any[]>({
+    queryKey: ['/api/counter-proposals/job', reviewingCounterProposal?.job?.id],
+    enabled: !!reviewingCounterProposal?.job?.id && role === "contractor",
+    retry: false,
   });
 
   // Tenant-specific computed values
@@ -3232,6 +3291,36 @@ export default function Maintenance() {
           property={properties[0]}
         />
       )}
+
+      {/* Contractor Calendar Match Dialog */}
+      <Dialog open={!!reviewingCounterProposal} onOpenChange={(open) => !open && setReviewingCounterProposal(null)}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" data-testid="dialog-calendar-match">
+          <DialogHeader>
+            <DialogTitle>Review Counter-Proposal</DialogTitle>
+            <CardDescription>
+              The tenant has proposed alternative times. Select the best matching slot to accept.
+            </CardDescription>
+          </DialogHeader>
+          {reviewingCounterProposal && counterProposals.length > 0 && (
+            <ContractorCalendarMatch
+              counterProposalId={counterProposals[0].id}
+              proposedSlots={counterProposals[0].availabilitySlots || []}
+              scheduledJobs={smartCases?.flatMap((c: any) => c.scheduledJobs || []) || []}
+              currentJobId={reviewingCounterProposal.job.id}
+              onAccept={(slotIndex) => {
+                acceptCounterProposalMutation.mutate({
+                  proposalId: counterProposals[0].id,
+                  selectedSlotIndex: slotIndex
+                });
+              }}
+              onReject={() => {
+                rejectCounterProposalMutation.mutate(counterProposals[0].id);
+              }}
+              isPending={acceptCounterProposalMutation.isPending || rejectCounterProposalMutation.isPending}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
