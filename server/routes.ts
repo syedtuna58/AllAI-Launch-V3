@@ -6912,7 +6912,9 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         let caseStatus: string | undefined;
         
         // Map job status to case status
-        if (validatedData.status === 'Scheduled' || validatedData.status === 'Confirmed') {
+        if (validatedData.status === 'Pending Approval') {
+          caseStatus = 'In Review';
+        } else if (validatedData.status === 'Scheduled' || validatedData.status === 'Confirmed') {
           caseStatus = 'Scheduled';
         } else if (validatedData.status === 'In Progress') {
           caseStatus = 'In Progress';
@@ -6924,6 +6926,40 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         
         if (caseStatus) {
           await storage.updateSmartCase(job.caseId, { status: caseStatus as any });
+        }
+        
+        // Send tenant notification when status changes to "Pending Approval"
+        if (validatedData.status === 'Pending Approval' && job.scheduledStartAt && job.scheduledEndAt) {
+          try {
+            const smartCase = await storage.getSmartCase(job.caseId);
+            if (smartCase && smartCase.reporterUserId) {
+              const { notificationService } = await import('./notificationService');
+              const startDate = new Date(job.scheduledStartAt);
+              const endDate = new Date(job.scheduledEndAt);
+              const formattedStart = startDate.toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              });
+              const formattedTime = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+              
+              await notificationService.notifyTenant({
+                message: `Your maintenance request "${smartCase.title}" has been scheduled for ${formattedStart} (${formattedTime}). Please approve or reject this time slot.`,
+                type: 'schedule_approval_request',
+                title: 'Schedule Approval Needed',
+                caseId: smartCase.id,
+                jobId: job.id,
+                orgId: job.orgId
+              }, smartCase.reporterUserId, job.orgId);
+              console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+            }
+          } catch (error) {
+            console.error('Error sending tenant notification:', error);
+            // Don't fail the request if notification fails
+          }
         }
       }
       
@@ -6945,7 +6981,9 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         let caseStatus: string | undefined;
         
         // Map job status to case status
-        if (validatedData.status === 'Scheduled' || validatedData.status === 'Confirmed') {
+        if (validatedData.status === 'Pending Approval') {
+          caseStatus = 'In Review';
+        } else if (validatedData.status === 'Scheduled' || validatedData.status === 'Confirmed') {
           caseStatus = 'Scheduled';
         } else if (validatedData.status === 'In Progress') {
           caseStatus = 'In Progress';
@@ -6957,6 +6995,40 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         
         if (caseStatus) {
           await storage.updateSmartCase(job.caseId, { status: caseStatus as any });
+        }
+        
+        // Send tenant notification when status changes to "Pending Approval"
+        if (validatedData.status === 'Pending Approval' && job.scheduledStartAt && job.scheduledEndAt) {
+          try {
+            const smartCase = await storage.getSmartCase(job.caseId);
+            if (smartCase && smartCase.reporterUserId) {
+              const { notificationService } = await import('./notificationService');
+              const startDate = new Date(job.scheduledStartAt);
+              const endDate = new Date(job.scheduledEndAt);
+              const formattedStart = startDate.toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              });
+              const formattedTime = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+              
+              await notificationService.notifyTenant({
+                message: `Your maintenance request "${smartCase.title}" has been scheduled for ${formattedStart} (${formattedTime}). Please approve or reject this time slot.`,
+                type: 'schedule_approval_request',
+                title: 'Schedule Approval Needed',
+                caseId: smartCase.id,
+                jobId: job.id,
+                orgId: job.orgId
+              }, smartCase.reporterUserId, job.orgId);
+              console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+            }
+          } catch (error) {
+            console.error('Error sending tenant notification:', error);
+            // Don't fail the request if notification fails
+          }
         }
       }
       
@@ -6975,6 +7047,116 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     } catch (error) {
       console.error("Error deleting scheduled job:", error);
       res.status(500).json({ message: "Failed to delete scheduled job" });
+    }
+  });
+
+  // Approve scheduled job (tenant approval)
+  app.post('/api/scheduled-jobs/:id/approve', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const job = await storage.getScheduledJob(req.params.id);
+      
+      if (!job) {
+        return res.status(404).json({ message: "Scheduled job not found" });
+      }
+      
+      // Verify that the user is the tenant (reporter) of the linked case
+      if (job.caseId) {
+        const smartCase = await storage.getSmartCase(job.caseId);
+        if (smartCase && smartCase.reporterUserId !== userId) {
+          return res.status(403).json({ message: "You are not authorized to approve this job" });
+        }
+      }
+      
+      // Update job status to "Scheduled" (approved)
+      const updatedJob = await storage.updateScheduledJob(req.params.id, {
+        status: 'Scheduled',
+      });
+      
+      // Update linked case status to "Scheduled"
+      if (updatedJob.caseId) {
+        await storage.updateSmartCase(updatedJob.caseId, { status: 'Scheduled' as any });
+      }
+      
+      // Notify contractor that tenant approved
+      if (updatedJob.contractorId && updatedJob.caseId) {
+        try {
+          const smartCase = await storage.getSmartCase(updatedJob.caseId);
+          const { notificationService } = await import('./notificationService');
+          await notificationService.notifyContractor({
+            message: `Tenant approved the scheduled time for "${smartCase?.title || updatedJob.title}"`,
+            type: 'schedule_approved',
+            title: 'Schedule Approved',
+            caseId: updatedJob.caseId,
+            jobId: updatedJob.id,
+            orgId: updatedJob.orgId
+          }, updatedJob.contractorId, updatedJob.orgId);
+          console.log(`✅ Notified contractor ${updatedJob.contractorId} of approval for job ${updatedJob.id}`);
+        } catch (error) {
+          console.error('Error sending contractor notification:', error);
+        }
+      }
+      
+      res.json(updatedJob);
+    } catch (error) {
+      console.error("Error approving scheduled job:", error);
+      res.status(500).json({ message: "Failed to approve scheduled job" });
+    }
+  });
+
+  // Reject scheduled job (tenant rejection)
+  app.post('/api/scheduled-jobs/:id/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const job = await storage.getScheduledJob(req.params.id);
+      
+      if (!job) {
+        return res.status(404).json({ message: "Scheduled job not found" });
+      }
+      
+      // Verify that the user is the tenant (reporter) of the linked case
+      if (job.caseId) {
+        const smartCase = await storage.getSmartCase(job.caseId);
+        if (smartCase && smartCase.reporterUserId !== userId) {
+          return res.status(403).json({ message: "You are not authorized to reject this job" });
+        }
+      }
+      
+      // Update job status to "Unscheduled" and remove scheduled times
+      const updatedJob = await storage.updateScheduledJob(req.params.id, {
+        status: 'Unscheduled',
+        scheduledStartAt: null,
+        scheduledEndAt: null,
+      });
+      
+      // Update linked case status to "On Hold"
+      if (updatedJob.caseId) {
+        await storage.updateSmartCase(updatedJob.caseId, { status: 'On Hold' as any });
+      }
+      
+      // Notify contractor that tenant rejected the proposed time
+      if (updatedJob.contractorId && updatedJob.caseId) {
+        try {
+          const smartCase = await storage.getSmartCase(updatedJob.caseId);
+          const { notificationService } = await import('./notificationService');
+          await notificationService.notifyContractor({
+            message: `Tenant rejected the proposed time for "${smartCase?.title || updatedJob.title}". Please propose a new time.`,
+            type: 'schedule_rejected',
+            title: 'Schedule Rejected',
+            caseId: updatedJob.caseId,
+            jobId: updatedJob.id,
+            orgId: updatedJob.orgId
+          }, updatedJob.contractorId, updatedJob.orgId);
+          console.log(`❌ Notified contractor ${updatedJob.contractorId} of rejection for job ${updatedJob.id}`);
+        } catch (error) {
+          console.error('Error sending contractor notification:', error);
+        }
+      }
+      
+      res.json(updatedJob);
+    } catch (error) {
+      console.error("Error rejecting scheduled job:", error);
+      res.status(500).json({ message: "Failed to reject scheduled job" });
     }
   });
 

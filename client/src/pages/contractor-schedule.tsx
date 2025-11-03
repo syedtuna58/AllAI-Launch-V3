@@ -69,7 +69,7 @@ type ScheduledJob = {
   scheduledStartAt: string | null;
   scheduledEndAt: string | null;
   isAllDay: boolean;
-  status: 'Unscheduled' | 'Scheduled' | 'Needs Review' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled';
+  status: 'Unscheduled' | 'Scheduled' | 'Pending Approval' | 'Needs Review' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled';
   urgency: 'Low' | 'High' | 'Emergent';
   tenantConfirmed: boolean;
   notes: string | null;
@@ -754,7 +754,7 @@ export default function ContractorSchedulePage() {
           scheduledStartAt: isoStart,
           scheduledEndAt: isoEnd,
           isAllDay: job.isAllDay, // Preserve all-day flag for consistent 8am-5pm scheduling
-          status: 'Scheduled',
+          status: 'Pending Approval', // Tenant needs to approve before job becomes "Scheduled"
         },
       });
     }
@@ -1840,8 +1840,9 @@ function JobCard({
   const backgroundColor = team?.color || '#6b7280';
   const isScheduled = !!job.scheduledStartAt;
   const isCompleted = job.status === 'Completed' || job.caseStatus === 'Resolved' || job.caseStatus === 'Closed';
-  // Completed jobs: 50% opacity, Scheduled jobs: 87% opacity (dd), Unscheduled jobs: 40% opacity (66)
-  const opacity = isCompleted ? '80' : (isScheduled ? 'dd' : '66');
+  const isPendingApproval = job.status === 'Pending Approval';
+  // Pending Approval: 50% opacity (greyed out), Completed jobs: 50% opacity, Scheduled jobs: 87% opacity (dd), Unscheduled jobs: 40% opacity (66)
+  const opacity = isPendingApproval ? '80' : (isCompleted ? '80' : (isScheduled ? 'dd' : '66'));
   
   const wrapperStyle = isMultiDay && job.scheduledStartAt ? {
     ...style,
@@ -1894,6 +1895,16 @@ function JobCard({
         </button>
         
         <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
+          {isPendingApproval && !isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-5 px-1.5 text-[10px] bg-yellow-500/90 text-white border-yellow-400/40 backdrop-blur-sm font-bold"
+              data-testid={`badge-pending-approval-${job.id}`}
+              title="Pending tenant approval"
+            >
+              Pending
+            </Badge>
+          )}
           {isCompleted && (
             <Badge 
               variant="secondary" 
@@ -1905,7 +1916,7 @@ function JobCard({
               Done
             </Badge>
           )}
-          {job.caseStatus === 'New' && !isCompleted && (
+          {job.caseStatus === 'New' && !isCompleted && !isPendingApproval && (
             <Badge 
               variant="secondary" 
               className="h-5 px-1.5 text-[10px] bg-blue-500/90 text-white border-blue-400/40 backdrop-blur-sm font-bold"

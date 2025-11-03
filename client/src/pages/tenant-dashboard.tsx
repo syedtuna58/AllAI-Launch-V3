@@ -45,6 +45,21 @@ interface TenantAppointment {
   tenantApproved: boolean;
 }
 
+interface ScheduledJob {
+  id: string;
+  title: string;
+  description: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
+  status: string;
+  urgency: string;
+  caseId: string | null;
+  contractorId: string | null;
+  address: string | null;
+  notes: string | null;
+  orgId: string;
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -121,6 +136,17 @@ export default function TenantDashboard() {
     enabled: !!user
   });
 
+  const { data: scheduledJobs = [] } = useQuery<ScheduledJob[]>({
+    queryKey: ['/api/scheduled-jobs'],
+    enabled: !!user
+  });
+
+  // Filter jobs that are linked to tenant's cases and have "Pending Approval" status
+  const myCaseIds = new Set(myCases.map(c => c.id));
+  const pendingJobApprovals = scheduledJobs.filter(job => 
+    job.status === 'Pending Approval' && job.caseId && myCaseIds.has(job.caseId)
+  );
+
   const activeCases = myCases.filter(c => !['Resolved', 'Closed'].includes(c.status));
   const pendingApproval = appointments.filter(a => a.requiresTenantAccess && !a.tenantApproved);
   const upcomingAppointments = appointments.filter(a => 
@@ -171,6 +197,48 @@ export default function TenantDashboard() {
       toast({
         variant: "destructive",
         title: "Decline Failed",
+        description: error.message,
+      });
+    },
+  });
+
+  const approveJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      return await apiRequest('POST', `/api/scheduled-jobs/${jobId}/approve`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
+      toast({
+        title: "Schedule Approved",
+        description: "The contractor has been notified of your approval.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Approval Failed",
+        description: error.message,
+      });
+    },
+  });
+
+  const rejectJobMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      return await apiRequest('POST', `/api/scheduled-jobs/${jobId}/reject`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
+      toast({
+        title: "Schedule Rejected",
+        description: "The contractor will propose a new time.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Rejection Failed",
         description: error.message,
       });
     },
@@ -527,7 +595,7 @@ export default function TenantDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600" data-testid="text-pending-approval">
-                    {pendingApproval.length}
+                    {pendingApproval.length + pendingJobApprovals.length}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Need your approval
@@ -560,7 +628,7 @@ export default function TenantDashboard() {
                   Appointments ({appointments.length})
                 </TabsTrigger>
                 <TabsTrigger value="approval" data-testid="tab-approval">
-                  Pending Approval ({pendingApproval.length})
+                  Pending Approval ({pendingApproval.length + pendingJobApprovals.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -697,11 +765,81 @@ export default function TenantDashboard() {
 
               <TabsContent value="approval" className="mt-6">
                 <div className="grid gap-4">
-                  {pendingApproval.length === 0 ? (
+                  {/* Scheduled Jobs Pending Approval */}
+                  {pendingJobApprovals.map((job) => {
+                    const relatedCase = myCases.find(c => c.id === job.caseId);
+                    return (
+                      <Card key={job.id} className="border-l-4 border-l-yellow-400">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg">{job.title}</CardTitle>
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">
+                              Pending Approval
+                            </Badge>
+                          </div>
+                          <CardDescription>
+                            Please approve or reject this proposed schedule
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {job.description && (
+                            <p className="text-sm text-muted-foreground">{job.description}</p>
+                          )}
+                          {job.scheduledStartAt && job.scheduledEndAt && (
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span data-testid={`text-job-date-${job.id}`}>
+                                  {format(new Date(job.scheduledStartAt), "MMM d, yyyy")}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span data-testid={`text-job-time-${job.id}`}>
+                                  {format(new Date(job.scheduledStartAt), "h:mm a")} - 
+                                  {format(new Date(job.scheduledEndAt), "h:mm a")}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          {relatedCase && (
+                            <div className="text-sm text-muted-foreground">
+                              Related to: <span className="font-medium">{relatedCase.title}</span>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 pt-2">
+                            <Button 
+                              className="flex-1 bg-green-600 hover:bg-green-700"
+                              onClick={() => approveJobMutation.mutate(job.id)}
+                              disabled={approveJobMutation.isPending}
+                              data-testid={`button-approve-job-${job.id}`}
+                            >
+                              <ThumbsUp className="h-4 w-4 mr-2" />
+                              Approve Schedule
+                            </Button>
+                            <Button 
+                              variant="destructive"
+                              className="flex-1"
+                              onClick={() => rejectJobMutation.mutate(job.id)}
+                              disabled={rejectJobMutation.isPending}
+                              data-testid={`button-reject-job-${job.id}`}
+                            >
+                              <ThumbsDown className="h-4 w-4 mr-2" />
+                              Reject
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+
+                  {/* Appointments Pending Approval */}
+                  {pendingApproval.length === 0 && pendingJobApprovals.length === 0 ? (
                     <Card>
                       <CardContent className="p-6 text-center text-muted-foreground">
                         <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No appointments pending approval</p>
+                        <p>No schedules pending approval</p>
                       </CardContent>
                     </Card>
                   ) : (
