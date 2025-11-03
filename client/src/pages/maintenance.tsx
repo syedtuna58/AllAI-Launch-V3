@@ -957,9 +957,27 @@ export default function Maintenance() {
 
   // Tenant-specific computed values
   const tenantCaseIds = new Set(tenantCases.map((c: any) => c.id));
-  const pendingJobApprovals = tenantScheduledJobs.filter((job: any) => 
-    job.requiresTenantConfirmation && !job.tenantConfirmed && job.caseId && tenantCaseIds.has(job.caseId)
-  );
+  
+  // Debug logging
+  console.log('🔍 DEBUG - tenantScheduledJobs:', tenantScheduledJobs);
+  console.log('🔍 DEBUG - tenantCaseIds:', Array.from(tenantCaseIds));
+  
+  const pendingJobApprovals = tenantScheduledJobs.filter((job: any) => {
+    const matches = job.requiresTenantConfirmation && !job.tenantConfirmed && job.caseId && tenantCaseIds.has(job.caseId);
+    console.log('🔍 DEBUG - job filtering:', {
+      jobId: job.id,
+      title: job.title,
+      requiresTenantConfirmation: job.requiresTenantConfirmation,
+      tenantConfirmed: job.tenantConfirmed,
+      caseId: job.caseId,
+      hasCaseId: tenantCaseIds.has(job.caseId),
+      matches
+    });
+    return matches;
+  });
+  
+  console.log('🔍 DEBUG - pendingJobApprovals result:', pendingJobApprovals);
+  
   const pendingTenantApproval = tenantAppointments.filter((a: any) => a.requiresTenantAccess && !a.tenantApproved);
 
   if (isLoading || !isAuthenticated) {
