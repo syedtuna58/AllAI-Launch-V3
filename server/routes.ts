@@ -6928,14 +6928,16 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           await storage.updateSmartCase(job.caseId, { status: caseStatus as any });
         }
         
-        // Send tenant notification when status changes to "Pending Approval"
-        if (validatedData.status === 'Pending Approval' && job.scheduledStartAt && job.scheduledEndAt) {
-          try {
-            const smartCase = await storage.getSmartCase(job.caseId);
-            if (smartCase && smartCase.reporterUserId) {
-              const tenantUser = await storage.getUser(smartCase.reporterUserId);
-              if (tenantUser) {
-                const { notificationService } = await import('./notificationService');
+        // Send notifications based on status changes
+        try {
+          const smartCase = await storage.getSmartCase(job.caseId);
+          if (smartCase && smartCase.reporterUserId) {
+            const tenantUser = await storage.getUser(smartCase.reporterUserId);
+            if (tenantUser) {
+              const { notificationService } = await import('./notificationService');
+              
+              // Send tenant notification when status changes to "Pending Approval"
+              if (validatedData.status === 'Pending Approval' && job.scheduledStartAt && job.scheduledEndAt) {
                 const startDate = new Date(job.scheduledStartAt);
                 const endDate = new Date(job.scheduledEndAt);
                 const formattedStart = startDate.toLocaleString('en-US', { 
@@ -6962,8 +6964,6 @@ If you cannot identify the equipment with confidence, return an empty object {}.
                 const approvalPolicies = await storage.getApprovalPolicies(job.orgId);
                 const involvementMode = approvalPolicies?.[0]?.involvementMode || 'balanced';
                 
-                // In balanced/hands-on mode: notify admin about pending approval
-                // In hands-off mode: don't notify admin (tenant handles independently)
                 if (involvementMode !== 'hands-off') {
                   await notificationService.notifyAdmins({
                     message: `Job "${job.title}" for case "${smartCase.title}" is awaiting tenant approval. Scheduled for ${formattedStart}.`,
@@ -6977,11 +6977,78 @@ If you cannot identify the equipment with confidence, return an empty object {}.
                   console.log(`📧 Sent admin notification for job ${job.id} (${involvementMode} mode)`);
                 }
               }
+              
+              // Send notification when job is unscheduled
+              if (validatedData.status === 'Unscheduled') {
+                await notificationService.notifyTenant({
+                  message: `The scheduled appointment for "${smartCase.title}" has been cancelled and needs to be rescheduled.`,
+                  type: 'case_unscheduled',
+                  title: 'Appointment Cancelled',
+                  subject: 'Maintenance Appointment Cancelled',
+                  caseId: smartCase.id,
+                  caseNumber: smartCase.caseNumber,
+                  orgId: job.orgId
+                }, tenantUser.email, smartCase.reporterUserId, job.orgId);
+                
+                // Notify contractor if assigned
+                if (job.contractorId) {
+                  await notificationService.notifyContractor({
+                    message: `Job "${job.title}" for case "${smartCase.title}" has been unscheduled.`,
+                    type: 'case_unscheduled',
+                    title: 'Job Unscheduled',
+                    subject: 'Job Unscheduled',
+                    caseId: smartCase.id,
+                    caseNumber: smartCase.caseNumber,
+                    orgId: job.orgId
+                  }, job.contractorId, job.orgId);
+                }
+                console.log(`📧 Sent unscheduled notifications for job ${job.id}`);
+              }
+              
+              // Send notification when job time is rescheduled
+              if ((validatedData.status === 'Scheduled' || validatedData.status === 'Confirmed') && 
+                  (validatedData.scheduledStartAt || validatedData.scheduledEndAt)) {
+                const startDate = new Date(job.scheduledStartAt || validatedData.scheduledStartAt);
+                const endDate = new Date(job.scheduledEndAt || validatedData.scheduledEndAt);
+                const formattedStart = startDate.toLocaleString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  hour12: true
+                });
+                const formattedTime = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+                
+                await notificationService.notifyTenant({
+                  message: `Your maintenance appointment for "${smartCase.title}" has been rescheduled to ${formattedStart} (${formattedTime}).`,
+                  type: 'case_rescheduled',
+                  title: 'Appointment Rescheduled',
+                  subject: 'Maintenance Appointment Rescheduled',
+                  caseId: smartCase.id,
+                  caseNumber: smartCase.caseNumber,
+                  orgId: job.orgId
+                }, tenantUser.email, smartCase.reporterUserId, job.orgId);
+                
+                // Notify contractor if assigned
+                if (job.contractorId) {
+                  await notificationService.notifyContractor({
+                    message: `Job "${job.title}" for case "${smartCase.title}" has been rescheduled to ${formattedStart} (${formattedTime}).`,
+                    type: 'case_rescheduled',
+                    title: 'Job Rescheduled',
+                    subject: 'Job Rescheduled',
+                    caseId: smartCase.id,
+                    caseNumber: smartCase.caseNumber,
+                    orgId: job.orgId
+                  }, job.contractorId, job.orgId);
+                }
+                console.log(`📧 Sent rescheduled notifications for job ${job.id}`);
+              }
             }
-          } catch (error) {
-            console.error('Error sending tenant notification:', error);
-            // Don't fail the request if notification fails
           }
+        } catch (error) {
+          console.error('Error sending notifications:', error);
+          // Don't fail the request if notification fails
         }
       }
       

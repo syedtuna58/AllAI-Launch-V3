@@ -5,7 +5,7 @@ interface NotificationData {
   to?: string;
   subject?: string;
   message: string;
-  type: 'case_created' | 'contractor_assigned' | 'case_updated' | 'emergency_alert' | 'case_assigned' | 'case_available' | 'case_accepted' | 'case_declined' | 'case_urgent' | 'maintenance_test' | 'case_scheduled' | 'case_completed';
+  type: 'case_created' | 'contractor_assigned' | 'case_updated' | 'emergency_alert' | 'case_assigned' | 'case_available' | 'case_accepted' | 'case_declined' | 'case_urgent' | 'maintenance_test' | 'case_scheduled' | 'case_completed' | 'case_rescheduled' | 'case_unscheduled' | 'counter_proposal_submitted' | 'counter_proposal_accepted' | 'counter_proposal_rejected';
   title?: string;
   timestamp?: string;
   orgId?: string;
@@ -383,6 +383,61 @@ class NotificationService {
           <p><strong>URGENT:</strong> ${message}</p>
           <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin: 20px 0;">
             <p style="margin: 0;"><strong>IMMEDIATE ACTION REQUIRED</strong></p>
+          </div>
+        `;
+        break;
+
+      case 'case_rescheduled':
+        html += `
+          <h3 style="color: #f39c12;">📅 Maintenance Rescheduled</h3>
+          <p><strong>Case Number:</strong> ${caseNumber}</p>
+          <p><strong>Details:</strong> ${message}</p>
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Note:</strong> The appointment time has been changed. Please check your calendar for the new schedule.</p>
+          </div>
+        `;
+        break;
+
+      case 'case_unscheduled':
+        html += `
+          <h3 style="color: #95a5a6;">🗑️ Appointment Cancelled</h3>
+          <p><strong>Case Number:</strong> ${caseNumber}</p>
+          <p><strong>Details:</strong> ${message}</p>
+          <div style="background: #e9ecef; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Note:</strong> The appointment has been cancelled and will need to be rescheduled.</p>
+          </div>
+        `;
+        break;
+
+      case 'counter_proposal_submitted':
+        html += `
+          <h3 style="color: #9b59b6;">📋 Counter-Proposal Received</h3>
+          <p><strong>Case Number:</strong> ${caseNumber}</p>
+          <p><strong>Details:</strong> ${message}</p>
+          <div style="background: #e8daef; border: 1px solid #d7bde2; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Action Required:</strong> Please review the proposed alternative times and accept or reject them.</p>
+          </div>
+        `;
+        break;
+
+      case 'counter_proposal_accepted':
+        html += `
+          <h3 style="color: #27ae60;">✅ Counter-Proposal Accepted</h3>
+          <p><strong>Case Number:</strong> ${caseNumber}</p>
+          <p><strong>Details:</strong> ${message}</p>
+          <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Great News:</strong> Your proposed time has been accepted. Check your calendar for the updated schedule.</p>
+          </div>
+        `;
+        break;
+
+      case 'counter_proposal_rejected':
+        html += `
+          <h3 style="color: #e74c3c;">❌ Counter-Proposal Declined</h3>
+          <p><strong>Case Number:</strong> ${caseNumber}</p>
+          <p><strong>Details:</strong> ${message}</p>
+          <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Next Step:</strong> You may need to provide additional availability or contact the contractor directly.</p>
           </div>
         `;
         break;
