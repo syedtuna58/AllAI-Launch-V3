@@ -2218,19 +2218,47 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                   return null;
                 }
                 
-                // Find all jobs that overlap with this one in time
+                // Find all jobs that overlap with this one in time ON THIS SPECIFIC DAY
                 const overlappingJobs = jobs.filter(otherJob => {
                   if (otherJob.id === job.id) return false;
                   if (!job.scheduledStartAt || !job.scheduledEndAt) return false;
                   if (!otherJob.scheduledStartAt || !otherJob.scheduledEndAt) return false;
                   
-                  const jobStart = parseISO(job.scheduledStartAt);
-                  const jobEnd = parseISO(job.scheduledEndAt);
-                  const otherStart = parseISO(otherJob.scheduledStartAt);
-                  const otherEnd = parseISO(otherJob.scheduledEndAt);
+                  // Check if other job should also render on this day
+                  const otherSpanInfo = calculateJobSpan(otherJob, date, weekDays);
+                  if (!otherSpanInfo.shouldRender) return false;
                   
-                  // Check if they overlap: start1 < end2 AND start2 < end1
-                  return jobStart < otherEnd && otherStart < jobEnd;
+                  const orgTimezone = organization?.timezone || 'America/New_York';
+                  
+                  // Get the time range this job occupies on this specific day
+                  const dayStart = startOfDay(date);
+                  const dayEnd = endOfDay(date);
+                  
+                  const jobStartUTC = parseISO(job.scheduledStartAt);
+                  const jobEndUTC = parseISO(job.scheduledEndAt);
+                  const otherStartUTC = parseISO(otherJob.scheduledStartAt);
+                  const otherEndUTC = parseISO(otherJob.scheduledEndAt);
+                  
+                  // Clamp job times to the current day's boundaries
+                  const jobStartOnDay = jobStartUTC < dayStart ? dayStart : jobStartUTC;
+                  const jobEndOnDay = jobEndUTC > dayEnd ? dayEnd : jobEndUTC;
+                  const otherStartOnDay = otherStartUTC < dayStart ? dayStart : otherStartUTC;
+                  const otherEndOnDay = otherEndUTC > dayEnd ? dayEnd : otherEndUTC;
+                  
+                  // Convert to org timezone for accurate hour comparison
+                  const jobStartTime = toZonedTime(jobStartOnDay, orgTimezone);
+                  const jobEndTime = toZonedTime(jobEndOnDay, orgTimezone);
+                  const otherStartTime = toZonedTime(otherStartOnDay, orgTimezone);
+                  const otherEndTime = toZonedTime(otherEndOnDay, orgTimezone);
+                  
+                  // Get hours and minutes for precise comparison
+                  const jobStartMinutes = jobStartTime.getHours() * 60 + jobStartTime.getMinutes();
+                  const jobEndMinutes = jobEndTime.getHours() * 60 + jobEndTime.getMinutes();
+                  const otherStartMinutes = otherStartTime.getHours() * 60 + otherStartTime.getMinutes();
+                  const otherEndMinutes = otherEndTime.getHours() * 60 + otherEndTime.getMinutes();
+                  
+                  // Check if they overlap in time on this day: start1 < end2 AND start2 < end1
+                  return jobStartMinutes < otherEndMinutes && otherStartMinutes < jobEndMinutes;
                 });
                 
                 // Calculate horizontal position
@@ -2260,19 +2288,26 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                 let topPosition = 0;
                 let heightPx = hourHeight; // default height (1 hour)
                 
-                if (job.scheduledStartAt && !job.isAllDay) {
-                  const startTimeUTC = parseISO(job.scheduledStartAt);
+                if (job.scheduledStartAt) {
                   const orgTimezone = organization?.timezone || 'America/New_York';
-                  const startTime = toZonedTime(startTimeUTC, orgTimezone);
-                  const hours = startTime.getHours();
-                  const minutes = startTime.getMinutes();
-                  topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
                   
-                  if (job.scheduledEndAt) {
-                    const endTimeUTC = parseISO(job.scheduledEndAt);
-                    const durationMs = endTimeUTC.getTime() - startTimeUTC.getTime();
-                    const durationMinutes = durationMs / (1000 * 60);
-                    heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
+                  // For all-day jobs, always display at 8am-5pm regardless of stored times
+                  if (job.isAllDay) {
+                    topPosition = ((8 - 6) * hourHeight); // 8am position (2 hours from 6am start)
+                    heightPx = (9 * hourHeight); // 9 hours (8am to 5pm)
+                  } else {
+                    const startTimeUTC = parseISO(job.scheduledStartAt);
+                    const startTime = toZonedTime(startTimeUTC, orgTimezone);
+                    const hours = startTime.getHours();
+                    const minutes = startTime.getMinutes();
+                    topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
+                    
+                    if (job.scheduledEndAt) {
+                      const endTimeUTC = parseISO(job.scheduledEndAt);
+                      const durationMs = endTimeUTC.getTime() - startTimeUTC.getTime();
+                      const durationMinutes = durationMs / (1000 * 60);
+                      heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
+                    }
                   }
                 }
                 
