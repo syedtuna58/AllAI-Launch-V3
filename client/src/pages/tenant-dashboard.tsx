@@ -106,6 +106,9 @@ export default function TenantDashboard() {
   const [declineReason, setDeclineReason] = useState("");
   const [selectedJob, setSelectedJob] = useState<ScheduledJob | null>(null);
   const [jobDialogOpen, setJobDialogOpen] = useState(false);
+  const [counterProposeDialogOpen, setCounterProposeDialogOpen] = useState(false);
+  const [availabilitySlots, setAvailabilitySlots] = useState<Array<{startAt: string, endAt: string}>>([{startAt: '', endAt: ''}]);
+  const [counterProposeReason, setCounterProposeReason] = useState('');
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -242,6 +245,34 @@ export default function TenantDashboard() {
       toast({
         variant: "destructive",
         title: "Rejection Failed",
+        description: error.message,
+      });
+    },
+  });
+
+  const counterProposeMutation = useMutation({
+    mutationFn: async ({ jobId, availabilitySlots, reason }: { jobId: string; availabilitySlots: Array<{startAt: string, endAt: string}>; reason: string }) => {
+      return await apiRequest('POST', `/api/scheduled-jobs/${jobId}/counter-propose`, {
+        availabilitySlots,
+        reason
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
+      setCounterProposeDialogOpen(false);
+      setJobDialogOpen(false);
+      setAvailabilitySlots([{startAt: '', endAt: ''}]);
+      setCounterProposeReason('');
+      toast({
+        title: "Counter-Proposal Submitted",
+        description: "The contractor will review your proposed times.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Submission Failed",
         description: error.message,
       });
     },
@@ -970,10 +1001,7 @@ export default function TenantDashboard() {
                 variant="outline"
                 onClick={() => {
                   setJobDialogOpen(false);
-                  toast({
-                    title: "Counter-Propose Feature",
-                    description: "Counter-proposal feature coming soon!",
-                  });
+                  setCounterProposeDialogOpen(true);
                 }}
                 data-testid="button-counter-propose"
               >
@@ -1043,6 +1071,123 @@ export default function TenantDashboard() {
               data-testid="button-confirm-decline"
             >
               Confirm Decline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={counterProposeDialogOpen} onOpenChange={setCounterProposeDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="dialog-counter-propose">
+          <DialogHeader>
+            <DialogTitle>Counter-Propose Alternative Times</DialogTitle>
+            <DialogDescription>
+              Suggest times when you're available for this maintenance visit. You can propose multiple time slots.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {availabilitySlots.map((slot, index) => (
+              <Card key={index}>
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">Start Time</label>
+                        <Input
+                          type="datetime-local"
+                          value={slot.startAt}
+                          onChange={(e) => {
+                            const newSlots = [...availabilitySlots];
+                            newSlots[index].startAt = e.target.value;
+                            setAvailabilitySlots(newSlots);
+                          }}
+                          data-testid={`input-start-time-${index}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium mb-1.5 block">End Time</label>
+                        <Input
+                          type="datetime-local"
+                          value={slot.endAt}
+                          onChange={(e) => {
+                            const newSlots = [...availabilitySlots];
+                            newSlots[index].endAt = e.target.value;
+                            setAvailabilitySlots(newSlots);
+                          }}
+                          data-testid={`input-end-time-${index}`}
+                        />
+                      </div>
+                    </div>
+                    {availabilitySlots.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-8"
+                        onClick={() => {
+                          setAvailabilitySlots(availabilitySlots.filter((_, i) => i !== index));
+                        }}
+                        data-testid={`button-remove-slot-${index}`}
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setAvailabilitySlots([...availabilitySlots, {startAt: '', endAt: ''}]);
+              }}
+              data-testid="button-add-slot"
+            >
+              + Add Another Time Slot
+            </Button>
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Reason (Optional)</label>
+              <Input
+                placeholder="e.g., I'm available in the mornings this week"
+                value={counterProposeReason}
+                onChange={(e) => setCounterProposeReason(e.target.value)}
+                data-testid="input-counter-propose-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setCounterProposeDialogOpen(false);
+                setAvailabilitySlots([{startAt: '', endAt: ''}]);
+                setCounterProposeReason('');
+              }}
+              data-testid="button-cancel-counter-propose"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedJob && availabilitySlots.some(slot => slot.startAt && slot.endAt)) {
+                  const validSlots = availabilitySlots.filter(slot => slot.startAt && slot.endAt);
+                  counterProposeMutation.mutate({
+                    jobId: selectedJob.id,
+                    availabilitySlots: validSlots,
+                    reason: counterProposeReason
+                  });
+                }
+              }}
+              disabled={counterProposeMutation.isPending || !availabilitySlots.some(slot => slot.startAt && slot.endAt)}
+              data-testid="button-submit-counter-propose"
+            >
+              {counterProposeMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Proposal'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

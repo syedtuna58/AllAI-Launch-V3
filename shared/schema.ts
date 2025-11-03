@@ -1109,6 +1109,7 @@ export const proposalSlots = pgTable("proposal_slots", {
 export const teamSpecialtyEnum = pgEnum("team_specialty", ["Handyman", "HVAC", "Plumbing", "Electrical", "Roofing", "Landscaping", "Painting", "Carpentry", "General", "Other"]);
 export const jobUrgencyEnum = pgEnum("job_urgency", ["Low", "High", "Emergent"]);
 export const jobStatusEnum = pgEnum("job_status", ["Unscheduled", "Scheduled", "Pending Approval", "Needs Review", "Confirmed", "In Progress", "Completed", "Cancelled"]);
+export const counterProposalStatusEnum = pgEnum("counter_proposal_status", ["Pending", "Accepted", "Rejected"]);
 
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1160,6 +1161,24 @@ export const scheduledJobs = pgTable("scheduled_jobs", {
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Tenant Counter-Proposals - When tenants propose alternative times
+export const counterProposals = pgTable("counter_proposals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  scheduledJobId: varchar("scheduled_job_id").notNull().references(() => scheduledJobs.id),
+  tenantId: varchar("tenant_id").notNull().references(() => users.id),
+  
+  // Proposed availability slots (tenant can propose multiple time blocks)
+  availabilitySlots: jsonb("availability_slots").notNull(), // Array of {startAt: ISO, endAt: ISO}
+  reason: text("reason"), // Optional reason for counter-proposal
+  
+  status: counterProposalStatusEnum("status").default("Pending"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewedBy: varchar("reviewed_by").references(() => users.id), // Contractor or admin who reviewed
+  
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ============================================================================
@@ -1486,6 +1505,16 @@ export type Team = typeof teams.$inferSelect;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type ScheduledJob = typeof scheduledJobs.$inferSelect;
 export type InsertScheduledJob = z.infer<typeof insertScheduledJobSchema>;
+
+// Counter Proposals insert schemas and types
+export const insertCounterProposalSchema = createInsertSchema(counterProposals).omit({ id: true, createdAt: true }).extend({
+  availabilitySlots: z.array(z.object({
+    startAt: z.string(),
+    endAt: z.string()
+  }))
+});
+export type CounterProposal = typeof counterProposals.$inferSelect;
+export type InsertCounterProposal = z.infer<typeof insertCounterProposalSchema>;
 
 // Omnichannel insert schemas
 export const insertChannelMessageSchema = createInsertSchema(channelMessages).omit({ id: true, createdAt: true });

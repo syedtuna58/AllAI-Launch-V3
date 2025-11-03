@@ -4,8 +4,8 @@ import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService } from "./objectStorage";
 import { db } from "./db";
-import { users, organizationMembers, vendors } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { users, organizationMembers, vendors, counterProposals } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { 
   insertOrganizationSchema,
   insertOwnershipEntitySchema,
@@ -7201,6 +7201,242 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     } catch (error) {
       console.error("Error rejecting scheduled job:", error);
       res.status(500).json({ message: "Failed to reject scheduled job" });
+    }
+  });
+
+  // Counter-propose new times (tenant submits availability)
+  app.post('/api/scheduled-jobs/:id/counter-propose', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const job = await storage.getScheduledJob(req.params.id);
+      
+      if (!job) {
+        return res.status(404).json({ message: "Scheduled job not found" });
+      }
+      
+      // Verify that the user is the tenant (reporter) of the linked case
+      if (job.caseId) {
+        const smartCase = await storage.getSmartCase(job.caseId);
+        if (smartCase && smartCase.reporterUserId !== userId) {
+          return res.status(403).json({ message: "You are not authorized to counter-propose for this job" });
+        }
+      }
+      
+      const { availabilitySlots, reason } = req.body;
+      
+      if (!availabilitySlots || !Array.isArray(availabilitySlots) || availabilitySlots.length === 0) {
+        return res.status(400).json({ message: "At least one availability slot is required" });
+      }
+      
+      // Validate each slot has required fields
+      for (const slot of availabilitySlots) {
+        if (!slot.startAt || !slot.endAt) {
+          return res.status(400).json({ message: "Each availability slot must have both start and end times" });
+        }
+        
+        // Validate that startAt and endAt are valid dates
+        const startDate = new Date(slot.startAt);
+        const endDate = new Date(slot.endAt);
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return res.status(400).json({ message: "Invalid date format in availability slots" });
+        }
+        
+        if (endDate <= startDate) {
+          return res.status(400).json({ message: "End time must be after start time for each slot" });
+        }
+      }
+      
+      // Create counter-proposal
+      const counterProposal = await db.insert(counterProposals).values({
+        orgId: job.orgId,
+        scheduledJobId: job.id,
+        tenantId: userId,
+        availabilitySlots: availabilitySlots,
+        reason: reason || null,
+        status: 'Pending',
+      }).returning();
+      
+      // Notify contractor of counter-proposal
+      if (job.contractorId && job.caseId) {
+        try {
+          const smartCase = await storage.getSmartCase(job.caseId);
+          const { notificationService } = await import('./notificationService');
+          await notificationService.notifyContractor({
+            message: `Tenant proposed alternative times for "${smartCase?.title || job.title}"`,
+            type: 'counter_proposal_submitted',
+            title: 'New Time Proposal',
+            caseId: job.caseId,
+            jobId: job.id,
+            orgId: job.orgId
+          }, job.contractorId, job.orgId);
+          console.log(`📅 Notified contractor ${job.contractorId} of counter-proposal for job ${job.id}`);
+        } catch (error) {
+          console.error('Error sending contractor notification:', error);
+        }
+      }
+      
+      res.json(counterProposal[0]);
+    } catch (error) {
+      console.error("Error creating counter-proposal:", error);
+      res.status(500).json({ message: "Failed to create counter-proposal" });
+    }
+  });
+
+  // Get counter-proposals for a job
+  app.get('/api/counter-proposals/job/:jobId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const job = await storage.getScheduledJob(req.params.jobId);
+      
+      if (!job) {
+        return res.status(404).json({ message: "Scheduled job not found" });
+      }
+      
+      // Verify user has access to this job (contractor, tenant, or admin from same org)
+      const userOrgMembership = await db.select()
+        .from(organizationMembers)
+        .where(and(
+          eq(organizationMembers.userId, userId),
+          eq(organizationMembers.orgId, job.orgId)
+        ))
+        .limit(1);
+      
+      if (!userOrgMembership || userOrgMembership.length === 0) {
+        return res.status(403).json({ message: "You are not authorized to view these proposals" });
+      }
+      
+      const proposals = await db.select()
+        .from(counterProposals)
+        .where(eq(counterProposals.scheduledJobId, req.params.jobId))
+        .orderBy(desc(counterProposals.createdAt));
+      
+      res.json(proposals);
+    } catch (error) {
+      console.error("Error fetching counter-proposals:", error);
+      res.status(500).json({ message: "Failed to fetch counter-proposals" });
+    }
+  });
+
+  // Accept counter-proposal (contractor/admin)
+  app.post('/api/counter-proposals/:id/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const proposal = await db.select()
+        .from(counterProposals)
+        .where(eq(counterProposals.id, req.params.id))
+        .limit(1);
+      
+      if (!proposal || proposal.length === 0) {
+        return res.status(404).json({ message: "Counter-proposal not found" });
+      }
+      
+      const { selectedSlotIndex } = req.body;
+      const slots = proposal[0].availabilitySlots as any[];
+      
+      if (selectedSlotIndex === undefined || !slots[selectedSlotIndex]) {
+        return res.status(400).json({ message: "Please select a valid time slot" });
+      }
+      
+      const selectedSlot = slots[selectedSlotIndex];
+      
+      // Update counter-proposal status
+      await db.update(counterProposals)
+        .set({
+          status: 'Accepted',
+          reviewedAt: new Date(),
+          reviewedBy: userId,
+        })
+        .where(eq(counterProposals.id, req.params.id));
+      
+      // Update scheduled job with the selected time
+      const updatedJob = await storage.updateScheduledJob(proposal[0].scheduledJobId, {
+        scheduledStartAt: selectedSlot.startAt,
+        scheduledEndAt: selectedSlot.endAt,
+        status: 'Scheduled',
+      });
+      
+      // Update linked case status
+      if (updatedJob.caseId) {
+        await storage.updateSmartCase(updatedJob.caseId, { status: 'Scheduled' as any });
+      }
+      
+      // Notify tenant that their counter-proposal was accepted
+      const job = await storage.getScheduledJob(proposal[0].scheduledJobId);
+      if (job && job.caseId) {
+        try {
+          const smartCase = await storage.getSmartCase(job.caseId);
+          const { notificationService } = await import('./notificationService');
+          if (smartCase && smartCase.reporterUserId) {
+            await notificationService.notifyTenant({
+              message: `Your proposed time for "${smartCase.title || job.title}" was accepted`,
+              type: 'counter_proposal_accepted',
+              title: 'Time Proposal Accepted',
+              caseId: job.caseId,
+              jobId: job.id,
+              orgId: job.orgId
+            }, smartCase.reporterUserId, job.orgId);
+            console.log(`✅ Notified tenant ${smartCase.reporterUserId} that counter-proposal was accepted`);
+          }
+        } catch (error) {
+          console.error('Error sending tenant notification:', error);
+        }
+      }
+      
+      res.json({ success: true, job: updatedJob });
+    } catch (error) {
+      console.error("Error accepting counter-proposal:", error);
+      res.status(500).json({ message: "Failed to accept counter-proposal" });
+    }
+  });
+
+  // Reject counter-proposal (contractor/admin)
+  app.post('/api/counter-proposals/:id/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const proposal = await db.select()
+        .from(counterProposals)
+        .where(eq(counterProposals.id, req.params.id))
+        .limit(1);
+      
+      if (!proposal || proposal.length === 0) {
+        return res.status(404).json({ message: "Counter-proposal not found" });
+      }
+      
+      // Update counter-proposal status
+      await db.update(counterProposals)
+        .set({
+          status: 'Rejected',
+          reviewedAt: new Date(),
+          reviewedBy: userId,
+        })
+        .where(eq(counterProposals.id, req.params.id));
+      
+      // Notify tenant that their counter-proposal was rejected
+      const job = await storage.getScheduledJob(proposal[0].scheduledJobId);
+      if (job && job.caseId) {
+        try {
+          const smartCase = await storage.getSmartCase(job.caseId);
+          const { notificationService } = await import('./notificationService');
+          if (smartCase && smartCase.reporterUserId) {
+            await notificationService.notifyTenant({
+              message: `Your proposed times for "${smartCase.title || job.title}" were not available. The contractor will propose new times.`,
+              type: 'counter_proposal_rejected',
+              title: 'Time Proposal Declined',
+              caseId: job.caseId,
+              jobId: job.id,
+              orgId: job.orgId
+            }, smartCase.reporterUserId, job.orgId);
+            console.log(`❌ Notified tenant ${smartCase.reporterUserId} that counter-proposal was rejected`);
+          }
+        } catch (error) {
+          console.error('Error sending tenant notification:', error);
+        }
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error rejecting counter-proposal:", error);
+      res.status(500).json({ message: "Failed to reject counter-proposal" });
     }
   });
 
