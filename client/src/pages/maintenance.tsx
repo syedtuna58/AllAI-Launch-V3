@@ -958,7 +958,7 @@ export default function Maintenance() {
   // Tenant-specific computed values
   const tenantCaseIds = new Set(tenantCases.map((c: any) => c.id));
   const pendingJobApprovals = tenantScheduledJobs.filter((job: any) => 
-    job.status === 'Pending Approval' && job.caseId && tenantCaseIds.has(job.caseId)
+    job.requiresTenantConfirmation && !job.tenantConfirmed && job.caseId && tenantCaseIds.has(job.caseId)
   );
   const pendingTenantApproval = tenantAppointments.filter((a: any) => a.requiresTenantAccess && !a.tenantApproved);
 
