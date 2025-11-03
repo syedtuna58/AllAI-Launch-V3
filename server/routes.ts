@@ -6957,6 +6957,25 @@ If you cannot identify the equipment with confidence, return an empty object {}.
                   orgId: job.orgId
                 }, tenantUser.email, smartCase.reporterUserId, job.orgId);
                 console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+                
+                // Notify admin based on involvement mode
+                const approvalPolicies = await storage.getApprovalPolicies(job.orgId);
+                const involvementMode = approvalPolicies?.[0]?.involvementMode || 'balanced';
+                
+                // In balanced/hands-on mode: notify admin about pending approval
+                // In hands-off mode: don't notify admin (tenant handles independently)
+                if (involvementMode !== 'hands-off') {
+                  await notificationService.notifyAdmins({
+                    message: `Job "${job.title}" for case "${smartCase.title}" is awaiting tenant approval. Scheduled for ${formattedStart}.`,
+                    type: 'schedule_approval_request',
+                    title: 'Job Awaiting Tenant Approval',
+                    subject: 'Tenant Approval Needed',
+                    caseId: smartCase.id,
+                    jobId: job.id,
+                    orgId: job.orgId
+                  }, job.orgId);
+                  console.log(`📧 Sent admin notification for job ${job.id} (${involvementMode} mode)`);
+                }
               }
             }
           } catch (error) {
@@ -7029,6 +7048,25 @@ If you cannot identify the equipment with confidence, return an empty object {}.
                   orgId: job.orgId
                 }, tenantUser.email, smartCase.reporterUserId, job.orgId);
                 console.log(`📧 Sent approval notification to tenant ${smartCase.reporterUserId} for job ${job.id}`);
+                
+                // Notify admin based on involvement mode
+                const approvalPolicies = await storage.getApprovalPolicies(job.orgId);
+                const involvementMode = approvalPolicies?.[0]?.involvementMode || 'balanced';
+                
+                // In balanced/hands-on mode: notify admin about pending approval
+                // In hands-off mode: don't notify admin (tenant handles independently)
+                if (involvementMode !== 'hands-off') {
+                  await notificationService.notifyAdmins({
+                    message: `Job "${job.title}" for case "${smartCase.title}" is awaiting tenant approval. Scheduled for ${formattedStart}.`,
+                    type: 'schedule_approval_request',
+                    title: 'Job Awaiting Tenant Approval',
+                    subject: 'Tenant Approval Needed',
+                    caseId: smartCase.id,
+                    jobId: job.id,
+                    orgId: job.orgId
+                  }, job.orgId);
+                  console.log(`📧 Sent admin notification for job ${job.id} (${involvementMode} mode)`);
+                }
               }
             }
           } catch (error) {
