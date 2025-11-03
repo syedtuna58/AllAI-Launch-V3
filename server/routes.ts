@@ -7305,6 +7305,76 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     }
   });
 
+  // Create counter-proposal (tenant suggests alternative times)
+  app.post('/api/counter-proposals', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { jobId, caseId, reason, availabilitySlots } = req.body;
+      
+      // Get the job to verify access
+      const job = await storage.getScheduledJob(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Scheduled job not found" });
+      }
+      
+      // Verify that the user is the tenant (reporter) of the linked case
+      if (job.caseId) {
+        const smartCase = await storage.getSmartCase(job.caseId);
+        if (!smartCase || smartCase.reporterUserId !== userId) {
+          return res.status(403).json({ message: "You are not authorized to create a counter-proposal for this job" });
+        }
+      }
+      
+      const org = await storage.getUserOrganization(userId);
+      if (!org) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      // Import and validate schema
+      const { insertCounterProposalSchema } = await import("@shared/schema");
+      const validatedData = insertCounterProposalSchema.parse({
+        orgId: org.id,
+        scheduledJobId: jobId,
+        tenantId: userId,
+        availabilitySlots,
+        reason: reason || null,
+        status: 'Pending',
+      });
+      
+      // Create the counter-proposal
+      const counterProposal = await storage.createCounterProposal(validatedData);
+      
+      // Update job status to indicate counter-proposal exists
+      await storage.updateScheduledJob(jobId, {
+        status: 'Needs Review',
+      });
+      
+      // Notify contractor about counter-proposal
+      if (job.contractorId && job.caseId) {
+        try {
+          const smartCase = await storage.getSmartCase(job.caseId);
+          const { notificationService } = await import('./notificationService');
+          await notificationService.notifyContractor({
+            message: `Tenant proposed alternative times for "${smartCase?.title || job.title}"`,
+            type: 'counter_proposal',
+            title: 'Counter-Proposal Received',
+            caseId: job.caseId,
+            jobId: job.id,
+            orgId: job.orgId
+          }, job.contractorId, job.orgId);
+          console.log(`📅 Notified contractor ${job.contractorId} of counter-proposal for job ${job.id}`);
+        } catch (error) {
+          console.error('Error sending contractor notification:', error);
+        }
+      }
+      
+      res.json(counterProposal);
+    } catch (error) {
+      console.error("Error creating counter-proposal:", error);
+      res.status(500).json({ message: "Failed to create counter-proposal" });
+    }
+  });
+
   // Counter-propose new times (tenant submits availability)
   app.post('/api/scheduled-jobs/:id/counter-propose', isAuthenticated, async (req: any, res) => {
     try {

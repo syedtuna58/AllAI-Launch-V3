@@ -26,13 +26,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
 import type { SmartCase, Property, OwnershipEntity, Unit, PredictiveInsight } from "@shared/schema";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import PropertyAssistant from "@/components/ai/property-assistant";
 import { useRole } from "@/contexts/RoleContext";
 import { TimePicker15Min } from "@/components/ui/time-picker-15min";
 import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
 import TenantCalendar from "@/components/TenantCalendar";
+import TenantAvailabilitySelector from "@/components/TenantAvailabilitySelector";
 import { ThumbsUp, ThumbsDown, CalendarClock, X } from "lucide-react";
 
 // Helper function to convert days to human-friendly relative time
@@ -114,6 +116,8 @@ class VisualizationErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoun
   }
 }
 
+const TIMEZONE = "America/New_York";
+
 const MAINTENANCE_CATEGORIES = [
   "HVAC / Heating & Cooling",
   "Plumbing (Water, Drains, Sewer)",
@@ -153,308 +157,6 @@ const proposeThreeSlotsSchema = z.object({
   notes: z.string().optional(),
 });
 
-const counterProposalSchema = z.object({
-  reason: z.string().optional(),
-  slots: z.array(z.object({
-    date: z.date({
-      required_error: "Please select a date",
-    }),
-    startTime: z.string().min(1, "Please select a start time"),
-    endTime: z.string().min(1, "Please select an end time"),
-  })).min(1, "At least one time slot is required").max(5, "Maximum 5 slots allowed"),
-});
-
-interface CounterProposalDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  job: any | null;
-  onSubmit: (data: z.infer<typeof counterProposalSchema>) => void;
-  isPending: boolean;
-}
-
-function CounterProposalDialog({ open, onOpenChange, job, onSubmit, isPending }: CounterProposalDialogProps) {
-  const [slots, setSlots] = useState<Array<{ date: Date | undefined; startTime: string; endTime: string }>>([
-    { date: undefined, startTime: "", endTime: "" }
-  ]);
-  const [reason, setReason] = useState("");
-  const [errors, setErrors] = useState<string[]>([]);
-
-  const form = useForm<z.infer<typeof counterProposalSchema>>({
-    resolver: zodResolver(counterProposalSchema),
-    defaultValues: {
-      reason: "",
-      slots: [{ date: undefined as any, startTime: "", endTime: "" }],
-    },
-  });
-
-  useEffect(() => {
-    if (open) {
-      setSlots([{ date: undefined, startTime: "", endTime: "" }]);
-      setReason("");
-      setErrors([]);
-      form.reset({
-        reason: "",
-        slots: [{ date: undefined as any, startTime: "", endTime: "" }],
-      });
-    }
-  }, [open, form]);
-
-  const addSlot = () => {
-    if (slots.length < 5) {
-      setSlots([...slots, { date: undefined, startTime: "", endTime: "" }]);
-    }
-  };
-
-  const removeSlot = (index: number) => {
-    if (slots.length > 1) {
-      setSlots(slots.filter((_, i) => i !== index));
-    }
-  };
-
-  const validateAndSubmit = () => {
-    const newErrors: string[] = [];
-    const validSlots: Array<{ date: Date; startTime: string; endTime: string }> = [];
-
-    slots.forEach((slot, index) => {
-      if (!slot.date || !slot.startTime || !slot.endTime) {
-        newErrors.push(`Slot ${index + 1}: All fields are required`);
-        return;
-      }
-
-      const now = new Date();
-      const slotDate = new Date(slot.date);
-      slotDate.setHours(0, 0, 0, 0);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (slotDate < today) {
-        newErrors.push(`Slot ${index + 1}: Date cannot be in the past`);
-        return;
-      }
-
-      const [startHour, startMinute] = slot.startTime.split(':').map(Number);
-      const [endHour, endMinute] = slot.endTime.split(':').map(Number);
-      const startMinutes = startHour * 60 + startMinute;
-      const endMinutes = endHour * 60 + endMinute;
-
-      if (endMinutes <= startMinutes) {
-        newErrors.push(`Slot ${index + 1}: End time must be after start time`);
-        return;
-      }
-
-      validSlots.push(slot as { date: Date; startTime: string; endTime: string });
-    });
-
-    if (validSlots.length === 0) {
-      newErrors.push("At least one complete time slot is required");
-    }
-
-    setErrors(newErrors);
-
-    if (newErrors.length === 0) {
-      onSubmit({
-        reason,
-        slots: validSlots,
-      });
-    }
-  };
-
-  const isFormValid = slots.some(slot => slot.date && slot.startTime && slot.endTime);
-
-  if (!job) return null;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-counter-proposal">
-        <DialogHeader>
-          <DialogTitle>Suggest Alternative Times</DialogTitle>
-          <CardDescription>
-            Propose alternative times that work better for you
-          </CardDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* Job Details */}
-          <Card className="bg-muted/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">{job.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              {job.description && (
-                <p className="text-muted-foreground">{job.description}</p>
-              )}
-              {job.scheduledStartAt && job.scheduledEndAt && (
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">Currently Proposed:</span>
-                  </div>
-                  <div>
-                    {format(new Date(job.scheduledStartAt), "MMM d, yyyy")} at{" "}
-                    {format(new Date(job.scheduledStartAt), "h:mm a")} -{" "}
-                    {format(new Date(job.scheduledEndAt), "h:mm a")}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Reason/Message */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Reason (Optional)
-            </label>
-            <Textarea
-              placeholder="Let us know why the proposed time doesn't work for you..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="min-h-[80px]"
-              data-testid="input-counter-proposal-reason"
-            />
-          </div>
-
-          {/* Time Slots */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">
-                Your Available Times
-              </label>
-              {slots.length < 5 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addSlot}
-                  data-testid="button-add-slot"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Slot
-                </Button>
-              )}
-            </div>
-
-            {slots.map((slot, index) => (
-              <Card key={index} className="p-4">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Option {index + 1}</span>
-                    {slots.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeSlot(index)}
-                        data-testid={`button-remove-slot-${index}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3">
-                    {/* Date Picker */}
-                    <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground">Date</label>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className="w-full justify-start text-left font-normal"
-                            data-testid={`button-date-picker-${index}`}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {slot.date ? format(slot.date, "MMM d, yyyy") : "Pick date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={slot.date}
-                            onSelect={(date) => {
-                              const newSlots = [...slots];
-                              newSlots[index].date = date;
-                              setSlots(newSlots);
-                            }}
-                            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
-                    {/* Start Time */}
-                    <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground">Start Time</label>
-                      <Input
-                        type="time"
-                        value={slot.startTime}
-                        onChange={(e) => {
-                          const newSlots = [...slots];
-                          newSlots[index].startTime = e.target.value;
-                          setSlots(newSlots);
-                        }}
-                        data-testid={`input-start-time-${index}`}
-                      />
-                    </div>
-
-                    {/* End Time */}
-                    <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground">End Time</label>
-                      <Input
-                        type="time"
-                        value={slot.endTime}
-                        onChange={(e) => {
-                          const newSlots = [...slots];
-                          newSlots[index].endTime = e.target.value;
-                          setSlots(newSlots);
-                        }}
-                        data-testid={`input-end-time-${index}`}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-
-          {/* Errors */}
-          {errors.length > 0 && (
-            <Card className="border-destructive bg-destructive/10">
-              <CardContent className="p-4">
-                <div className="space-y-1">
-                  {errors.map((error, index) => (
-                    <p key={index} className="text-sm text-destructive">
-                      {error}
-                    </p>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isPending}
-            data-testid="button-cancel-counter-proposal"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={validateAndSubmit}
-            disabled={!isFormValid || isPending}
-            data-testid="button-submit-counter-proposal"
-          >
-            {isPending ? "Submitting..." : "Submit Counter-Proposal"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function Maintenance() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
@@ -488,7 +190,6 @@ export default function Maintenance() {
   const [selectedInsight, setSelectedInsight] = useState<PredictiveInsight | null>(null);
   const [showInsightDialog, setShowInsightDialog] = useState(false);
   const [counterProposingJob, setCounterProposingJob] = useState<any | null>(null);
-  const [showCounterProposalDialog, setShowCounterProposalDialog] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -1305,8 +1006,8 @@ export default function Maintenance() {
                               <div className="flex items-center gap-1">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                                 <span>
-                                  {format(new Date(appointment.scheduledStartAt), "h:mm a")} - 
-                                  {format(new Date(appointment.scheduledEndAt), "h:mm a")}
+                                  {formatInTimeZone(parseISO(appointment.scheduledStartAt), TIMEZONE, "h:mm a")} - 
+                                  {formatInTimeZone(parseISO(appointment.scheduledEndAt), TIMEZONE, "h:mm a")}
                                 </span>
                               </div>
                             </div>
@@ -1336,6 +1037,8 @@ export default function Maintenance() {
                   <div className="grid gap-4">
                     {pendingJobApprovals.map((job: any) => {
                       const relatedCase = tenantCases.find((c: any) => c.id === job.caseId);
+                      const isCounterProposing = counterProposingJob?.id === job.id;
+                      
                       return (
                         <Card key={job.id} className="border-l-4 border-l-yellow-400">
                           <CardHeader className="pb-3">
@@ -1346,65 +1049,85 @@ export default function Maintenance() {
                               </Badge>
                             </div>
                             <CardDescription>
-                              Please approve or reject this proposed schedule
+                              {isCounterProposing 
+                                ? "Select your available times by clicking and dragging on the calendar" 
+                                : "Please approve or reject this proposed schedule"}
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-3">
-                            {job.description && (
-                              <p className="text-sm text-muted-foreground">{job.description}</p>
-                            )}
-                            {job.scheduledStartAt && job.scheduledEndAt && (
-                              <div className="flex items-center gap-4 text-sm">
-                                <div className="flex items-center gap-1">
-                                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                                  <span>{format(new Date(job.scheduledStartAt), "MMM d, yyyy")}</span>
+                            {!isCounterProposing && (
+                              <>
+                                {job.description && (
+                                  <p className="text-sm text-muted-foreground">{job.description}</p>
+                                )}
+                                {job.scheduledStartAt && job.scheduledEndAt && (
+                                  <div className="flex items-center gap-4 text-sm">
+                                    <div className="flex items-center gap-1">
+                                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                                      <span>{format(new Date(job.scheduledStartAt), "MMM d, yyyy")}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-4 w-4 text-muted-foreground" />
+                                      <span>
+                                        {formatInTimeZone(parseISO(job.scheduledStartAt), TIMEZONE, "h:mm a")} - 
+                                        {formatInTimeZone(parseISO(job.scheduledEndAt), TIMEZONE, "h:mm a")}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+                                {relatedCase && (
+                                  <div className="text-sm text-muted-foreground">
+                                    Related to: <span className="font-medium">{relatedCase.title}</span>
+                                  </div>
+                                )}
+                                <div className="grid grid-cols-3 gap-2 pt-2">
+                                  <Button 
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => approveJobMutation.mutate(job.id)}
+                                    disabled={approveJobMutation.isPending}
+                                    data-testid={`button-approve-job-${job.id}`}
+                                  >
+                                    <ThumbsUp className="h-4 w-4 mr-2" />
+                                    Approve
+                                  </Button>
+                                  <Button 
+                                    variant="destructive"
+                                    onClick={() => rejectJobMutation.mutate(job.id)}
+                                    disabled={rejectJobMutation.isPending}
+                                    data-testid={`button-reject-job-${job.id}`}
+                                  >
+                                    <ThumbsDown className="h-4 w-4 mr-2" />
+                                    Reject
+                                  </Button>
+                                  <Button 
+                                    variant="outline"
+                                    onClick={() => setCounterProposingJob(job)}
+                                    disabled={counterProposalMutation.isPending}
+                                    data-testid={`button-counter-propose-job-${job.id}`}
+                                  >
+                                    <CalendarClock className="h-4 w-4 mr-2" />
+                                    Counter Propose
+                                  </Button>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-4 w-4 text-muted-foreground" />
-                                  <span>
-                                    {format(new Date(job.scheduledStartAt), "h:mm a")} - 
-                                    {format(new Date(job.scheduledEndAt), "h:mm a")}
-                                  </span>
-                                </div>
-                              </div>
+                              </>
                             )}
-                            {relatedCase && (
-                              <div className="text-sm text-muted-foreground">
-                                Related to: <span className="font-medium">{relatedCase.title}</span>
-                              </div>
-                            )}
-                            <div className="grid grid-cols-3 gap-2 pt-2">
-                              <Button 
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => approveJobMutation.mutate(job.id)}
-                                disabled={approveJobMutation.isPending}
-                                data-testid={`button-approve-job-${job.id}`}
-                              >
-                                <ThumbsUp className="h-4 w-4 mr-2" />
-                                Approve
-                              </Button>
-                              <Button 
-                                variant="destructive"
-                                onClick={() => rejectJobMutation.mutate(job.id)}
-                                disabled={rejectJobMutation.isPending}
-                                data-testid={`button-reject-job-${job.id}`}
-                              >
-                                <ThumbsDown className="h-4 w-4 mr-2" />
-                                Reject
-                              </Button>
-                              <Button 
-                                variant="outline"
-                                onClick={() => {
-                                  setCounterProposingJob(job);
-                                  setShowCounterProposalDialog(true);
+                            
+                            {isCounterProposing && job.scheduledStartAt && job.scheduledEndAt && (
+                              <TenantAvailabilitySelector
+                                proposedStartTime={job.scheduledStartAt}
+                                proposedEndTime={job.scheduledEndAt}
+                                onSubmit={(availabilitySlots) => {
+                                  counterProposalMutation.mutate({
+                                    jobId: job.id,
+                                    caseId: job.caseId,
+                                    reason: "",
+                                    availabilitySlots
+                                  });
+                                  setCounterProposingJob(null);
                                 }}
-                                disabled={counterProposalMutation.isPending}
-                                data-testid={`button-counter-propose-job-${job.id}`}
-                              >
-                                <CalendarClock className="h-4 w-4 mr-2" />
-                                Counter Propose
-                              </Button>
-                            </div>
+                                onCancel={() => setCounterProposingJob(null)}
+                              />
+                            )}
                           </CardContent>
                         </Card>
                       );
@@ -1436,8 +1159,8 @@ export default function Maintenance() {
                             <div className="flex items-center gap-1">
                               <Clock className="h-4 w-4 text-muted-foreground" />
                               <span>
-                                {format(new Date(appointment.scheduledStartAt), "h:mm a")} - 
-                                {format(new Date(appointment.scheduledEndAt), "h:mm a")}
+                                {formatInTimeZone(parseISO(appointment.scheduledStartAt), TIMEZONE, "h:mm a")} - 
+                                {formatInTimeZone(parseISO(appointment.scheduledEndAt), TIMEZONE, "h:mm a")}
                               </span>
                             </div>
                           </div>
@@ -1459,39 +1182,6 @@ export default function Maintenance() {
               </Tabs>
             </div>
           </main>
-
-          {/* Counter Proposal Dialog */}
-          <CounterProposalDialog
-            open={showCounterProposalDialog}
-            onOpenChange={setShowCounterProposalDialog}
-            job={counterProposingJob}
-            onSubmit={(data) => {
-              if (counterProposingJob) {
-                counterProposalMutation.mutate({
-                  jobId: counterProposingJob.id,
-                  caseId: counterProposingJob.caseId,
-                  reason: data.reason,
-                  availabilitySlots: data.slots.map(slot => ({
-                    startAt: new Date(
-                      slot.date.getFullYear(),
-                      slot.date.getMonth(),
-                      slot.date.getDate(),
-                      parseInt(slot.startTime.split(':')[0]),
-                      parseInt(slot.startTime.split(':')[1])
-                    ).toISOString(),
-                    endAt: new Date(
-                      slot.date.getFullYear(),
-                      slot.date.getMonth(),
-                      slot.date.getDate(),
-                      parseInt(slot.endTime.split(':')[0]),
-                      parseInt(slot.endTime.split(':')[1])
-                    ).toISOString()
-                  }))
-                });
-              }
-            }}
-            isPending={counterProposalMutation.isPending}
-          />
         </div>
       </div>
     );

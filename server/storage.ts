@@ -110,10 +110,13 @@ import {
   type InsertEquipment,
   teams,
   scheduledJobs,
+  counterProposals,
   type Team,
   type InsertTeam,
   type ScheduledJob,
   type InsertScheduledJob,
+  type CounterProposal,
+  type InsertCounterProposal,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
@@ -355,6 +358,12 @@ export interface IStorage {
   createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob>;
   updateScheduledJob(id: string, job: Partial<InsertScheduledJob>): Promise<ScheduledJob>;
   deleteScheduledJob(id: string): Promise<void>;
+
+  // Counter-Proposal operations
+  createCounterProposal(proposal: InsertCounterProposal): Promise<CounterProposal>;
+  getCounterProposalsByJob(jobId: string): Promise<CounterProposal[]>;
+  getCounterProposal(id: string): Promise<CounterProposal | undefined>;
+  updateCounterProposal(id: string, proposal: Partial<InsertCounterProposal>): Promise<CounterProposal>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3376,6 +3385,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteScheduledJob(id: string): Promise<void> {
     await db.delete(scheduledJobs).where(eq(scheduledJobs.id, id));
+  }
+
+  // Counter-Proposal operations
+  async createCounterProposal(proposal: InsertCounterProposal): Promise<CounterProposal> {
+    const [newProposal] = await db.insert(counterProposals).values(proposal).returning();
+    return newProposal;
+  }
+
+  async getCounterProposalsByJob(jobId: string): Promise<CounterProposal[]> {
+    return db.select().from(counterProposals).where(eq(counterProposals.scheduledJobId, jobId)).orderBy(desc(counterProposals.createdAt));
+  }
+
+  async getCounterProposal(id: string): Promise<CounterProposal | undefined> {
+    const [proposal] = await db.select().from(counterProposals).where(eq(counterProposals.id, id));
+    return proposal;
+  }
+
+  async updateCounterProposal(id: string, proposalData: Partial<InsertCounterProposal>): Promise<CounterProposal> {
+    const [updated] = await db.update(counterProposals)
+      .set(proposalData)
+      .where(eq(counterProposals.id, id))
+      .returning();
+    return updated;
   }
 }
 
