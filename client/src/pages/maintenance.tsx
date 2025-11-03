@@ -621,7 +621,6 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
       queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
-      setShowCounterProposalDialog(false);
       setCounterProposingJob(null);
       toast({
         title: "Success",

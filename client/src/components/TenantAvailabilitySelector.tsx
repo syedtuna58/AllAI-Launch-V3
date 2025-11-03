@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const TIMEZONE = "America/New_York";
 const HOURS_START = 6; // 6 AM
 const HOURS_END = 22; // 10 PM
-const INTERVAL_MINUTES = 15;
+const INTERVAL_MINUTES = 60; // 1-hour increments for tenant view
 
 interface TimeSlot {
   start: Date;
