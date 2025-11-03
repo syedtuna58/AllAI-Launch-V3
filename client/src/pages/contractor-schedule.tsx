@@ -1800,7 +1800,7 @@ function JobCard({
   overlapCount,
   onClick 
 }: { 
-  job: ScheduledJob; 
+  job: ScheduledJob & { caseStatus?: string }; 
   team?: Team; 
   isDragging?: boolean; 
   spanDays?: number;
@@ -1836,11 +1836,12 @@ function JobCard({
     }
   };
 
-  // Always use team color, but fade it for unscheduled jobs
+  // Always use team color, but adjust opacity based on status
   const backgroundColor = team?.color || '#6b7280';
   const isScheduled = !!job.scheduledStartAt;
-  // Scheduled jobs: 87% opacity (dd), Unscheduled jobs: 40% opacity (66)
-  const opacity = isScheduled ? 'dd' : '66';
+  const isCompleted = job.status === 'Completed' || job.caseStatus === 'Resolved' || job.caseStatus === 'Closed';
+  // Completed jobs: 50% opacity, Scheduled jobs: 87% opacity (dd), Unscheduled jobs: 40% opacity (66)
+  const opacity = isCompleted ? '80' : (isScheduled ? 'dd' : '66');
   
   const wrapperStyle = isMultiDay && job.scheduledStartAt ? {
     ...style,
@@ -1893,6 +1894,27 @@ function JobCard({
         </button>
         
         <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
+          {isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-5 px-1.5 text-[10px] bg-green-500/90 text-white border-green-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5"
+              data-testid={`badge-completed-${job.id}`}
+              title="Completed"
+            >
+              <Check className="h-3 w-3" />
+              Done
+            </Badge>
+          )}
+          {job.caseStatus === 'New' && !isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-5 px-1.5 text-[10px] bg-blue-500/90 text-white border-blue-400/40 backdrop-blur-sm font-bold"
+              data-testid={`badge-new-${job.id}`}
+              title="New case"
+            >
+              NEW
+            </Badge>
+          )}
           {overlapCount && overlapCount > 1 && (
             <Badge 
               variant="secondary" 
@@ -1913,7 +1935,7 @@ function JobCard({
               {extendsBeyondWeek && ' →'}
             </Badge>
           )}
-          {getUrgencyIcon(job.urgency)}
+          {!isCompleted && getUrgencyIcon(job.urgency)}
         </div>
         
         <div className="pr-6">

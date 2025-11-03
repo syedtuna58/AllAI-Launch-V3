@@ -6828,6 +6828,27 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     try {
       const validatedData = insertScheduledJobSchema.partial().parse(req.body);
       const job = await storage.updateScheduledJob(req.params.id, validatedData);
+      
+      // Update linked case status when job status changes
+      if (job.caseId && validatedData.status) {
+        let caseStatus: string | undefined;
+        
+        // Map job status to case status
+        if (validatedData.status === 'Scheduled' || validatedData.status === 'Confirmed') {
+          caseStatus = 'Scheduled';
+        } else if (validatedData.status === 'In Progress') {
+          caseStatus = 'In Progress';
+        } else if (validatedData.status === 'Completed') {
+          caseStatus = 'Resolved';
+        } else if (validatedData.status === 'Unscheduled') {
+          caseStatus = 'On Hold';
+        }
+        
+        if (caseStatus) {
+          await storage.updateSmartCase(job.caseId, { status: caseStatus as any });
+        }
+      }
+      
       res.json(job);
     } catch (error) {
       console.error("Error updating scheduled job:", error);
@@ -6840,6 +6861,27 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     try {
       const validatedData = insertScheduledJobSchema.partial().parse(req.body);
       const job = await storage.updateScheduledJob(req.params.id, validatedData);
+      
+      // Update linked case status when job status changes
+      if (job.caseId && validatedData.status) {
+        let caseStatus: string | undefined;
+        
+        // Map job status to case status
+        if (validatedData.status === 'Scheduled' || validatedData.status === 'Confirmed') {
+          caseStatus = 'Scheduled';
+        } else if (validatedData.status === 'In Progress') {
+          caseStatus = 'In Progress';
+        } else if (validatedData.status === 'Completed') {
+          caseStatus = 'Resolved';
+        } else if (validatedData.status === 'Unscheduled') {
+          caseStatus = 'On Hold';
+        }
+        
+        if (caseStatus) {
+          await storage.updateSmartCase(job.caseId, { status: caseStatus as any });
+        }
+      }
+      
       res.json(job);
     } catch (error) {
       console.error("Error updating scheduled job:", error);

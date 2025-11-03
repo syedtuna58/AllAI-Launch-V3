@@ -3335,8 +3335,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Scheduled Job operations
-  async getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string }): Promise<ScheduledJob[]> {
-    let query = db.select().from(scheduledJobs).where(eq(scheduledJobs.orgId, orgId));
+  async getScheduledJobs(orgId: string, filters?: { teamId?: string; status?: string }): Promise<any[]> {
+    let query = db.select({
+      ...scheduledJobs,
+      caseStatus: smartCases.status,
+    }).from(scheduledJobs)
+      .leftJoin(smartCases, eq(scheduledJobs.caseId, smartCases.id))
+      .where(eq(scheduledJobs.orgId, orgId));
     
     if (filters?.teamId) {
       query = query.where(eq(scheduledJobs.teamId, filters.teamId));
