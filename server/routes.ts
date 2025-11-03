@@ -2040,14 +2040,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const { insertScheduledJobSchema } = await import("@shared/schema");
         
-        // Map case priority to job urgency
+        // Map case priority to job urgency (Low/High/Emergent)
         const urgencyMap: Record<string, string> = {
           'Low': 'Low',
-          'Medium': 'Medium',
+          'Medium': 'Low', // Medium priority cases → Low urgency jobs
           'High': 'High',
-          'Urgent': 'Critical'
+          'Urgent': 'Emergent'
         };
-        const jobUrgency = urgencyMap[smartCase.priority || 'Medium'] || 'Medium';
+        const jobUrgency = urgencyMap[smartCase.priority || 'Medium'] || 'Low';
         
         const scheduledJobData = insertScheduledJobSchema.parse({
           orgId: org.id,
@@ -2188,14 +2188,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const linkedJob = jobs[0];
                 const urgencyMap: Record<string, string> = {
                   'Low': 'Low',
-                  'Medium': 'Medium',
+                  'Medium': 'Low',
                   'High': 'High',
-                  'Urgent': 'Critical'
+                  'Urgent': 'Emergent'
                 };
                 
                 await storage.updateScheduledJob(linkedJob.id, {
                   contractorId: bestContractor.contractorId,
-                  urgency: urgencyMap[triageResult.urgency] || 'Medium',
+                  urgency: urgencyMap[triageResult.urgency] || 'Low',
                   durationDays: triageResult.estimatedDuration || 1,
                   notes: triageResult.estimatedTime ? `AI Estimate: ${triageResult.estimatedTime}` : linkedJob.notes
                 });
@@ -2231,13 +2231,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const linkedJob = jobs[0];
                 const urgencyMap: Record<string, string> = {
                   'Low': 'Low',
-                  'Medium': 'Medium',
+                  'Medium': 'Low',
                   'High': 'High',
-                  'Urgent': 'Critical'
+                  'Urgent': 'Emergent'
                 };
                 
                 await storage.updateScheduledJob(linkedJob.id, {
-                  urgency: urgencyMap[triageResult.urgency] || 'Medium',
+                  urgency: urgencyMap[triageResult.urgency] || 'Low',
                   durationDays: triageResult.estimatedDuration || 1,
                   notes: triageResult.estimatedTime ? `AI Estimate: ${triageResult.estimatedTime}` : linkedJob.notes
                 });
