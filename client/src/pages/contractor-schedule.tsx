@@ -1908,6 +1908,11 @@ function JobCard({
           <p className="font-medium text-sm text-white truncate drop-shadow-sm">
             {job.title}
           </p>
+          {job.isAllDay && job.scheduledStartAt && (
+            <p className="text-xs text-white/90 font-medium mt-0.5 drop-shadow-sm">
+              8:00 AM - 5:00 PM
+            </p>
+          )}
           {!job.isAllDay && job.scheduledStartAt && job.scheduledEndAt && (
             <p className="text-xs text-white/90 font-medium mt-0.5 drop-shadow-sm">
               {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt), 'h:mm a')}
