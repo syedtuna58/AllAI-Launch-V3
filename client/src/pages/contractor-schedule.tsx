@@ -1797,6 +1797,7 @@ function JobCard({
   spanDays = 1,
   isFirstDay = true,
   extendsBeyondWeek = false,
+  overlapCount,
   onClick 
 }: { 
   job: ScheduledJob; 
@@ -1805,6 +1806,7 @@ function JobCard({
   spanDays?: number;
   isFirstDay?: boolean;
   extendsBeyondWeek?: boolean;
+  overlapCount?: number;
   onClick?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -1891,6 +1893,16 @@ function JobCard({
         </button>
         
         <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
+          {overlapCount && overlapCount > 1 && (
+            <Badge 
+              variant="secondary" 
+              className="h-5 px-1.5 text-[10px] bg-white/30 text-white border-white/40 backdrop-blur-sm font-semibold"
+              data-testid={`badge-overlap-${job.id}`}
+              title={`${overlapCount} teams at this time`}
+            >
+              {overlapCount} teams
+            </Badge>
+          )}
           {isMultiDay && (
             <Badge 
               variant="secondary" 
@@ -2367,18 +2379,19 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       width: `${widthPercent}%`,
                       height: job.scheduledStartAt ? `${heightPx}px` : 'auto',
                       visibility: activeId === job.id ? 'hidden' : 'visible',
-                      paddingRight: totalColumns > 1 ? '2px' : '0',
+                      paddingRight: totalColumns > 1 ? '4px' : '0',
                     }}
                   >
                     <JobCard
                       job={job}
                       team={team}
                       spanDays={spanInfo.spanDays}
-                    isFirstDay={spanInfo.isFirstDay}
-                    extendsBeyondWeek={spanInfo.extendsBeyondWeek}
-                    onClick={() => onClick?.(job)}
-                  />
-                </div>
+                      isFirstDay={spanInfo.isFirstDay}
+                      extendsBeyondWeek={spanInfo.extendsBeyondWeek}
+                      onClick={() => onClick?.(job)}
+                      overlapCount={totalColumns > 1 ? totalColumns : undefined}
+                    />
+                  </div>
               );
             });
             })()}
