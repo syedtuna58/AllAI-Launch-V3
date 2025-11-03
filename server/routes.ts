@@ -6905,6 +6905,20 @@ If you cannot identify the equipment with confidence, return an empty object {}.
   app.put('/api/scheduled-jobs/:id', isAuthenticated, async (req: any, res) => {
     try {
       const validatedData = insertScheduledJobSchema.partial().parse(req.body);
+      
+      // Get the existing job first to check if it has a linked case
+      const existingJob = await storage.getScheduledJob(req.params.id);
+      
+      // Auto-set requiresTenantConfirmation if scheduling a tenant-reported case
+      if (existingJob?.caseId && validatedData.status === 'Pending Approval') {
+        const smartCase = await storage.getSmartCase(existingJob.caseId);
+        if (smartCase && smartCase.reporterUserId) {
+          validatedData.requiresTenantConfirmation = true;
+          validatedData.tenantConfirmed = false;
+          console.log(`✅ Auto-enabled tenant confirmation for job ${req.params.id} (case has tenant reporter)`);
+        }
+      }
+      
       const job = await storage.updateScheduledJob(req.params.id, validatedData);
       
       // Update linked case status when job status changes
