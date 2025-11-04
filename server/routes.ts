@@ -7375,8 +7375,8 @@ If you cannot identify the equipment with confidence, return an empty object {}.
       let contractorToNotify = job.contractorId;
       if (!contractorToNotify && job.caseId) {
         const smartCase = await storage.getSmartCase(job.caseId);
-        if (smartCase?.assigneeId) {
-          contractorToNotify = smartCase.assigneeId;
+        if (smartCase?.assignedContractorId) {
+          contractorToNotify = smartCase.assignedContractorId;
         }
       }
       
@@ -7397,7 +7397,27 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           console.error(`❌ Error sending contractor notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else {
-        console.log(`⚠️ No contractor to notify for counter-proposal on job ${job.id} (jobContractorId: ${job.contractorId}, caseAssigneeId: ${job.caseId ? 'checking...' : 'no caseId'})`);
+        console.log(`⚠️ No contractor to notify for counter-proposal on job ${job.id} (jobContractorId: ${job.contractorId}, caseAssigneeId: ${contractorToNotify || 'none'})`);
+      }
+      
+      // Also notify admins if organization has hands-on involvement
+      try {
+        const orgSettings = await storage.getOrgSettings(org.id);
+        if (orgSettings?.handsOnInvolvement && job.caseId) {
+          const smartCase = await storage.getSmartCase(job.caseId);
+          const { notificationService } = await import('./notificationService');
+          await notificationService.notifyAdmins({
+            message: `Tenant proposed alternative times for "${smartCase?.title || job.title}"`,
+            type: 'counter_proposal',
+            title: 'Counter-Proposal from Tenant',
+            caseId: job.caseId,
+            jobId: job.id,
+            orgId: job.orgId
+          }, org.id);
+          console.log(`📧 Notified admins of counter-proposal for job ${job.id} (hands-on mode)`);
+        }
+      } catch (error) {
+        console.error(`❌ Error sending admin notification for counter-proposal: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
       
       res.json(counterProposal);

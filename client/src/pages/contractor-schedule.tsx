@@ -570,9 +570,11 @@ export default function ContractorSchedulePage() {
   };
 
   const acceptCounterProposalMutation = useMutation({
-    mutationFn: async (data: { proposalId: string; selectedSlotIndex: number }) => {
+    mutationFn: async (data: { proposalId: string; selectedSlotIndex: number; selectedStart?: string; selectedEnd?: string }) => {
       const response = await apiRequest("POST", `/api/counter-proposals/${data.proposalId}/accept`, {
-        selectedSlotIndex: data.selectedSlotIndex
+        selectedSlotIndex: data.selectedSlotIndex,
+        selectedStart: data.selectedStart,
+        selectedEnd: data.selectedEnd
       });
       return response.json();
     },
