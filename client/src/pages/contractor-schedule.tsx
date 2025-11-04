@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2 } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2, CalendarClock } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import {
@@ -176,6 +176,7 @@ export default function ContractorSchedulePage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 })); // 1 = Monday
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null);
+  const [viewingJob, setViewingJob] = useState<ScheduledJob | null>(null);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [jobFormData, setJobFormData] = useState({
@@ -210,7 +211,12 @@ export default function ContractorSchedulePage() {
   const dragMutationInProgress = useRef(false);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 500,
+        tolerance: 5,
+      },
+    }),
     useSensor(KeyboardSensor)
   );
 
@@ -539,6 +545,10 @@ export default function ContractorSchedulePage() {
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+  };
+
+  const handleJobDoubleClick = (job: ScheduledJob) => {
+    setViewingJob(job);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -1474,6 +1484,128 @@ export default function ContractorSchedulePage() {
             </div>
           </div>
 
+          {/* Job Details Dialog (Read-Only) */}
+          <Dialog open={!!viewingJob} onOpenChange={() => setViewingJob(null)}>
+            <DialogContent className="max-w-2xl" data-testid="dialog-job-details">
+              <DialogHeader>
+                <DialogTitle>Job Details</DialogTitle>
+                <DialogDescription>View complete job information</DialogDescription>
+              </DialogHeader>
+              {viewingJob && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="font-semibold">Title</Label>
+                    <p className="text-sm mt-1">{viewingJob.title}</p>
+                  </div>
+                  {viewingJob.description && (
+                    <div>
+                      <Label className="font-semibold">Description</Label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{viewingJob.description}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="font-semibold">Status</Label>
+                      <p className="text-sm mt-1">
+                        <Badge className={
+                          viewingJob.status === 'Needs Review' ? 'bg-orange-600' :
+                          viewingJob.status === 'Pending Approval' ? 'bg-yellow-500' :
+                          viewingJob.status === 'Completed' ? 'bg-green-500' : 'bg-blue-500'
+                        }>
+                          {viewingJob.status}
+                        </Badge>
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="font-semibold">Urgency</Label>
+                      <p className="text-sm mt-1">
+                        <Badge variant="outline">{viewingJob.urgency}</Badge>
+                      </p>
+                    </div>
+                  </div>
+                  {viewingJob.scheduledStartAt && (
+                    <div>
+                      <Label className="font-semibold">Scheduled Time</Label>
+                      <p className="text-sm mt-1">
+                        {format(parseISO(viewingJob.scheduledStartAt), 'EEEE, MMM d, yyyy')}
+                        {!viewingJob.isAllDay && viewingJob.scheduledEndAt && (
+                          <> • {format(parseISO(viewingJob.scheduledStartAt), 'h:mm a')} - {format(parseISO(viewingJob.scheduledEndAt), 'h:mm a')}</>
+                        )}
+                        {viewingJob.isAllDay && <> • All Day</>}
+                      </p>
+                    </div>
+                  )}
+                  {viewingJob.durationDays > 1 && (
+                    <div>
+                      <Label className="font-semibold">Duration</Label>
+                      <p className="text-sm mt-1">{viewingJob.durationDays} days</p>
+                    </div>
+                  )}
+                  {viewingJob.address && (
+                    <div>
+                      <Label className="font-semibold">Address</Label>
+                      <p className="text-sm mt-1">
+                        {viewingJob.address}
+                        {viewingJob.city && `, ${viewingJob.city}`}
+                        {viewingJob.state && `, ${viewingJob.state}`}
+                      </p>
+                    </div>
+                  )}
+                  {(viewingJob.contactPerson || viewingJob.tel || viewingJob.email) && (
+                    <div>
+                      <Label className="font-semibold">Contact Information</Label>
+                      <div className="text-sm mt-1 space-y-1">
+                        {viewingJob.contactPerson && <p>Name: {viewingJob.contactPerson}</p>}
+                        {viewingJob.tel && <p>Phone: {viewingJob.tel}</p>}
+                        {viewingJob.email && <p>Email: {viewingJob.email}</p>}
+                      </div>
+                    </div>
+                  )}
+                  {viewingJob.notes && (
+                    <div>
+                      <Label className="font-semibold">Notes</Label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{viewingJob.notes}</p>
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-2 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={() => setViewingJob(null)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingJob(viewingJob);
+                        setJobFormData({
+                          title: viewingJob.title,
+                          description: viewingJob.description || '',
+                          teamId: viewingJob.teamId || '',
+                          urgency: viewingJob.urgency,
+                          durationDays: viewingJob.durationDays,
+                          allDay: viewingJob.isAllDay,
+                          startTime: viewingJob.scheduledStartAt ? format(parseISO(viewingJob.scheduledStartAt), 'HH:mm') : '09:00',
+                          duration: 120,
+                          propertyId: viewingJob.propertyId || null,
+                          address: viewingJob.address || '',
+                          city: viewingJob.city || '',
+                          state: viewingJob.state || '',
+                          tel: viewingJob.tel || '',
+                          email: viewingJob.email || '',
+                          contactPerson: viewingJob.contactPerson || '',
+                        });
+                        setViewingJob(null);
+                        setShowJobDialog(true);
+                      }}
+                    >
+                      Edit Job
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           <DndContext
             sensors={sensors}
             collisionDetection={topEdgeCollisionDetection}
@@ -1770,6 +1902,7 @@ export default function ContractorSchedulePage() {
                     job={activeJob}
                     team={teams.find(t => t.id === activeJob.teamId)}
                     isDragging
+                    onDoubleClick={() => handleJobDoubleClick(activeJob)}
                   />
                 </div>
               ) : null}
@@ -1798,7 +1931,8 @@ function JobCard({
   isFirstDay = true,
   extendsBeyondWeek = false,
   overlapCount,
-  onClick 
+  onClick,
+  onDoubleClick
 }: { 
   job: ScheduledJob & { caseStatus?: string }; 
   team?: Team; 
@@ -1808,6 +1942,7 @@ function JobCard({
   extendsBeyondWeek?: boolean;
   overlapCount?: number;
   onClick?: () => void;
+  onDoubleClick?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job.id,
@@ -1841,6 +1976,7 @@ function JobCard({
   const isScheduled = !!job.scheduledStartAt;
   const isCompleted = job.status === 'Completed' || job.caseStatus === 'Resolved' || job.caseStatus === 'Closed';
   const isPendingApproval = job.status === 'Pending Approval';
+  const needsReview = job.status === 'Needs Review';
   // Pending Approval: 50% opacity (greyed out), Completed jobs: 50% opacity, Scheduled jobs: 87% opacity (dd), Unscheduled jobs: 40% opacity (66)
   const opacity = isPendingApproval ? '80' : (isCompleted ? '80' : (isScheduled ? 'dd' : '66'));
   
@@ -1865,6 +2001,11 @@ function JobCard({
       <div 
         {...listeners} 
         {...attributes}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          onDoubleClick?.();
+        }}
         className={cn(
           "cursor-grab active:cursor-grabbing px-0.5 py-1.5 relative h-full rounded-sm",
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
@@ -1895,7 +2036,18 @@ function JobCard({
         </button>
         
         <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
-          {isPendingApproval && !isCompleted && (
+          {needsReview && !isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-5 px-1.5 text-[10px] bg-orange-600 text-white border-orange-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5 animate-pulse"
+              data-testid={`badge-counter-proposal-${job.id}`}
+              title="Tenant counter-proposed new time"
+            >
+              <CalendarClock className="h-3 w-3" />
+              Counter-Proposal
+            </Badge>
+          )}
+          {isPendingApproval && !isCompleted && !needsReview && (
             <Badge 
               variant="secondary" 
               className="h-5 px-1.5 text-[10px] bg-yellow-500/90 text-white border-yellow-400/40 backdrop-blur-sm font-bold"
@@ -2422,6 +2574,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       isFirstDay={spanInfo.isFirstDay}
                       extendsBeyondWeek={spanInfo.extendsBeyondWeek}
                       onClick={() => onClick?.(job)}
+                      onDoubleClick={() => handleJobDoubleClick(job)}
                       overlapCount={totalColumns > 1 ? totalColumns : undefined}
                     />
                   </div>
@@ -2575,6 +2728,7 @@ function UnscheduledJobsPanel({
                   job={job}
                   team={team}
                   onClick={() => onJobClick(job)}
+                  onDoubleClick={() => handleJobDoubleClick(job)}
                 />
               );
             })
