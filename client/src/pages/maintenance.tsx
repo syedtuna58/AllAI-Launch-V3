@@ -1037,7 +1037,12 @@ export default function Maintenance() {
                   <TenantCalendar
                     scheduledJobs={tenantScheduledJobs}
                     myCases={tenantCases}
-                    onJobClick={() => {}}
+                    onJobClick={(job) => {
+                      // Navigate to Pending Approval tab when double-clicking on a proposed appointment
+                      if (job.status === 'Pending Approval') {
+                        setTenantTab('approval');
+                      }
+                    }}
                   />
                 </TabsContent>
 

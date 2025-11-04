@@ -215,7 +215,7 @@ export default function ContractorSchedulePage() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 500,
+        delay: 150,
         tolerance: 5,
       },
     }),

@@ -201,14 +201,19 @@ export default function TenantCalendar({ scheduledJobs, myCases, onJobClick }: T
                       {isFirstHourForJobs.map(job => (
                         <button
                           key={job.id}
-                          onClick={() => onJobClick(job)}
+                          onDoubleClick={() => onJobClick(job)}
+                          onClick={(e) => {
+                            // Single click does nothing, only double-click triggers action
+                            e.preventDefault();
+                          }}
                           className={cn(
-                            "w-full text-left p-2 rounded-md border text-xs mb-1 transition-all hover:shadow-md",
+                            "w-full text-left p-2 rounded-md border text-xs mb-1 transition-all hover:shadow-md cursor-pointer",
                             isPendingApproval(job) 
                               ? "bg-muted/50 border-muted opacity-50" 
                               : "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800"
                           )}
                           data-testid={`job-card-${job.id}`}
+                          title={isPendingApproval(job) ? "Double-click to approve or reject" : "Scheduled appointment"}
                         >
                           <div className="flex items-start justify-between gap-1 mb-1">
                             <span className="font-semibold line-clamp-1">{job.title}</span>
