@@ -21,7 +21,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign, Settings } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign, Settings, GripVertical } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
@@ -538,6 +538,10 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/scheduled-jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/predictive-insights"] });
       setShowCaseDialog(false);
       setSelectedCase(null);
       toast({
@@ -2334,21 +2338,29 @@ export default function Maintenance() {
                                 return (
                                   <Card 
                                     key={smartCase.id} 
-                                    className="group hover:shadow-md transition-all duration-200 cursor-move border border-gray-200 dark:border-gray-700"
+                                    className="group hover:shadow-md transition-all duration-200 border border-gray-200 dark:border-gray-700"
                                     data-testid={`kanban-card-${smartCase.id}`}
-                                    draggable
-                                    onDragStart={(e) => {
-                                      e.dataTransfer.setData("text/plain", JSON.stringify({
-                                        caseId: smartCase.id,
-                                        fromStatus: smartCase.status
-                                      }));
-                                      e.dataTransfer.effectAllowed = "move";
-                                    }}
                                   >
                                     <CardContent className="p-3">
-                                      {/* Priority Badge */}
+                                      {/* Priority Badge and Drag Handle */}
                                       <div className="flex items-start justify-between mb-2">
-                                        <div className={`w-3 h-3 ${getPriorityCircleColor(smartCase.priority)} rounded-full flex-shrink-0 mt-1`}></div>
+                                        <div className="flex items-center gap-2">
+                                          <div 
+                                            className="cursor-move opacity-40 hover:opacity-100 transition-opacity"
+                                            draggable
+                                            onDragStart={(e) => {
+                                              e.dataTransfer.setData("text/plain", JSON.stringify({
+                                                caseId: smartCase.id,
+                                                fromStatus: smartCase.status
+                                              }));
+                                              e.dataTransfer.effectAllowed = "move";
+                                            }}
+                                            title="Drag to move to another status"
+                                          >
+                                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                          </div>
+                                          <div className={`w-3 h-3 ${getPriorityCircleColor(smartCase.priority)} rounded-full flex-shrink-0 mt-1`}></div>
+                                        </div>
                                         {getPriorityBadge(smartCase.priority)}
                                       </div>
                                       
