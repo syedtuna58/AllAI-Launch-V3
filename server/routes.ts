@@ -2347,6 +2347,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/cases/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteSmartCase(req.params.id);
+      res.json({ message: "Case deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting case:", error);
+      res.status(500).json({ message: "Failed to delete case" });
+    }
+  });
+
   // Vendor routes
   app.get('/api/vendors', isAuthenticated, async (req: any, res) => {
     try {

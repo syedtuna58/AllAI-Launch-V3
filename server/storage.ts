@@ -184,6 +184,7 @@ export interface IStorage {
   getSmartCase(id: string): Promise<SmartCase | undefined>;
   createSmartCase(smartCase: InsertSmartCase): Promise<SmartCase>;
   updateSmartCase(id: string, smartCase: Partial<InsertSmartCase>): Promise<SmartCase>;
+  deleteSmartCase(id: string): Promise<void>;
   
   // Asset operations
   getAssets(propertyId?: string, unitId?: string): Promise<Asset[]>;
@@ -1598,6 +1599,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(smartCases.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteSmartCase(id: string): Promise<void> {
+    await db.delete(smartCases).where(eq(smartCases.id, id));
   }
 
   // Asset operations
