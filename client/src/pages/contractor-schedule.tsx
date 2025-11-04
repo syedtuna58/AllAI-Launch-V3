@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2, CalendarClock } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
+import ContractorCalendarMatch from "@/components/ContractorCalendarMatch";
 import {
   DndContext,
   DragOverlay,
@@ -177,6 +178,7 @@ export default function ContractorSchedulePage() {
   const [showJobDialog, setShowJobDialog] = useState(false);
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null);
   const [viewingJob, setViewingJob] = useState<ScheduledJob | null>(null);
+  const [reviewingCounterProposal, setReviewingCounterProposal] = useState<{job: any, proposalId: string} | null>(null);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [jobFormData, setJobFormData] = useState({
@@ -230,6 +232,17 @@ export default function ContractorSchedulePage() {
 
   const { data: jobs = [], isLoading: loadingJobs } = useQuery<ScheduledJob[]>({
     queryKey: ['/api/scheduled-jobs'],
+  });
+
+  const { data: smartCases = [] } = useQuery<any[]>({
+    queryKey: ['/api/contractor/cases'],
+  });
+
+  // Fetch counter-proposals for the job being reviewed
+  const { data: counterProposalsForJob = [] } = useQuery<any[]>({
+    queryKey: ['/api/counter-proposals/job', reviewingCounterProposal?.job?.id],
+    enabled: !!reviewingCounterProposal?.job?.id,
+    retry: false,
   });
 
   const getFavoriteSpecialties = (): string[] => {
@@ -548,8 +561,63 @@ export default function ContractorSchedulePage() {
   };
 
   const handleJobDoubleClick = (job: ScheduledJob) => {
-    setViewingJob(job);
+    // If it's a counter-proposal, open the review dialog
+    if (job.status === 'Needs Review') {
+      setReviewingCounterProposal({ job, proposalId: '' });
+    } else {
+      setViewingJob(job);
+    }
   };
+
+  const acceptCounterProposalMutation = useMutation({
+    mutationFn: async (data: { proposalId: string; selectedSlotIndex: number }) => {
+      const response = await apiRequest("POST", `/api/counter-proposals/${data.proposalId}/accept`, {
+        selectedSlotIndex: data.selectedSlotIndex
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
+      setReviewingCounterProposal(null);
+      toast({
+        title: "Success",
+        description: "Counter-proposal accepted! The tenant and admin have been notified.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to accept counter-proposal",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectCounterProposalMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      const response = await apiRequest("POST", `/api/counter-proposals/${proposalId}/reject`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
+      setReviewingCounterProposal(null);
+      toast({
+        title: "Success",
+        description: "Counter-proposal declined. The tenant will be notified.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to decline counter-proposal",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -1606,6 +1674,35 @@ export default function ContractorSchedulePage() {
             </DialogContent>
           </Dialog>
 
+          {/* Contractor Calendar Match Dialog */}
+          <Dialog open={!!reviewingCounterProposal} onOpenChange={(open) => !open && setReviewingCounterProposal(null)}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" data-testid="dialog-calendar-match">
+              <DialogHeader>
+                <DialogTitle>Review Counter-Proposal</DialogTitle>
+                <DialogDescription>
+                  Compare the tenant's proposed times with your schedule and choose the best option
+                </DialogDescription>
+              </DialogHeader>
+              {reviewingCounterProposal && counterProposalsForJob.length > 0 && (
+                <ContractorCalendarMatch
+                  counterProposalId={counterProposalsForJob[0].id}
+                  proposedSlots={counterProposalsForJob[0].availabilitySlots || []}
+                  scheduledJobs={smartCases?.flatMap((c: any) => c.scheduledJobs || []) || []}
+                  onAccept={(selectedSlotIndex: number) => {
+                    acceptCounterProposalMutation.mutate({
+                      proposalId: counterProposalsForJob[0].id,
+                      selectedSlotIndex
+                    });
+                  }}
+                  onReject={() => {
+                    rejectCounterProposalMutation.mutate(counterProposalsForJob[0].id);
+                  }}
+                  isPending={acceptCounterProposalMutation.isPending || rejectCounterProposalMutation.isPending}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+
           <DndContext
             sensors={sensors}
             collisionDetection={topEdgeCollisionDetection}
@@ -2039,11 +2136,10 @@ function JobCard({
           {needsReview && !isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-orange-600 text-white border-orange-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5 animate-pulse"
+              className="h-5 px-1.5 text-[10px] bg-orange-600 text-white border-orange-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5"
               data-testid={`badge-counter-proposal-${job.id}`}
               title="Tenant counter-proposed new time"
             >
-              <CalendarClock className="h-3 w-3" />
               Counter-Proposal
             </Badge>
           )}

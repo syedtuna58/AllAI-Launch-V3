@@ -7371,7 +7371,16 @@ If you cannot identify the equipment with confidence, return an empty object {}.
       });
       
       // Notify contractor about counter-proposal
-      if (job.contractorId && job.caseId) {
+      // Try to get contractor from job first, then from case if job has no contractor
+      let contractorToNotify = job.contractorId;
+      if (!contractorToNotify && job.caseId) {
+        const smartCase = await storage.getSmartCase(job.caseId);
+        if (smartCase?.assigneeId) {
+          contractorToNotify = smartCase.assigneeId;
+        }
+      }
+      
+      if (contractorToNotify && job.caseId) {
         try {
           const smartCase = await storage.getSmartCase(job.caseId);
           const { notificationService } = await import('./notificationService');
@@ -7382,11 +7391,13 @@ If you cannot identify the equipment with confidence, return an empty object {}.
             caseId: job.caseId,
             jobId: job.id,
             orgId: job.orgId
-          }, job.contractorId, job.orgId);
-          console.log(`📅 Notified contractor ${job.contractorId} of counter-proposal for job ${job.id}`);
+          }, contractorToNotify, job.orgId);
+          console.log(`📅 Notified contractor ${contractorToNotify} of counter-proposal for job ${job.id}`);
         } catch (error) {
           console.error('Error sending contractor notification:', error);
         }
+      } else {
+        console.log(`⚠️ No contractor to notify for counter-proposal on job ${job.id}`);
       }
       
       res.json(counterProposal);
