@@ -7250,9 +7250,11 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         }
       }
       
-      // Update job status to "Scheduled" (approved)
+      // Update job status to "Scheduled" (approved) and mark as tenant-confirmed
       const updatedJob = await storage.updateScheduledJob(req.params.id, {
         status: 'Scheduled',
+        tenantConfirmed: true,
+        tenantConfirmedAt: new Date()
       });
       
       // Update linked case status to "Scheduled"
@@ -7261,21 +7263,26 @@ If you cannot identify the equipment with confidence, return an empty object {}.
       }
       
       // Notify contractor and admin that tenant approved
-      if (updatedJob.contractorId && updatedJob.caseId) {
+      if (updatedJob.caseId) {
         try {
           const smartCase = await storage.getSmartCase(updatedJob.caseId);
           const { notificationService } = await import('./notificationService');
           
-          // Notify contractor
-          await notificationService.notifyContractor({
-            message: `Tenant approved the scheduled time for "${smartCase?.title || updatedJob.title}"`,
-            type: 'schedule_approved',
-            title: 'Schedule Approved',
-            caseId: updatedJob.caseId,
-            jobId: updatedJob.id,
-            orgId: updatedJob.orgId
-          }, updatedJob.contractorId, updatedJob.orgId);
-          console.log(`✅ Notified contractor ${updatedJob.contractorId} of approval for job ${updatedJob.id}`);
+          // Get contractor ID from job or from assigned case
+          const contractorId = updatedJob.contractorId || smartCase?.assignedTo;
+          
+          // Notify contractor if there is one
+          if (contractorId) {
+            await notificationService.notifyContractor({
+              message: `Tenant approved the scheduled time for "${smartCase?.title || updatedJob.title}"`,
+              type: 'schedule_approved',
+              title: 'Schedule Approved',
+              caseId: updatedJob.caseId,
+              jobId: updatedJob.id,
+              orgId: updatedJob.orgId
+            }, contractorId, updatedJob.orgId);
+            console.log(`✅ Notified contractor ${contractorId} of approval for job ${updatedJob.id}`);
+          }
           
           // Get approval policy to check involvement mode
           const policies = await storage.getApprovalPolicies(updatedJob.orgId);
@@ -7329,6 +7336,8 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         status: 'Unscheduled',
         scheduledStartAt: null,
         scheduledEndAt: null,
+        tenantConfirmed: false,
+        tenantConfirmedAt: null
       });
       
       // Update linked case status to "On Hold"
@@ -7337,21 +7346,26 @@ If you cannot identify the equipment with confidence, return an empty object {}.
       }
       
       // Notify contractor and admin that tenant rejected the proposed time
-      if (updatedJob.contractorId && updatedJob.caseId) {
+      if (updatedJob.caseId) {
         try {
           const smartCase = await storage.getSmartCase(updatedJob.caseId);
           const { notificationService } = await import('./notificationService');
           
-          // Notify contractor
-          await notificationService.notifyContractor({
-            message: `Tenant rejected the proposed time for "${smartCase?.title || updatedJob.title}". Please propose a new time.`,
-            type: 'schedule_rejected',
-            title: 'Schedule Rejected',
-            caseId: updatedJob.caseId,
-            jobId: updatedJob.id,
-            orgId: updatedJob.orgId
-          }, updatedJob.contractorId, updatedJob.orgId);
-          console.log(`❌ Notified contractor ${updatedJob.contractorId} of rejection for job ${updatedJob.id}`);
+          // Get contractor ID from job or from assigned case
+          const contractorId = updatedJob.contractorId || smartCase?.assignedTo;
+          
+          // Notify contractor if there is one
+          if (contractorId) {
+            await notificationService.notifyContractor({
+              message: `Tenant rejected the proposed time for "${smartCase?.title || updatedJob.title}". Please propose a new time.`,
+              type: 'schedule_rejected',
+              title: 'Schedule Rejected',
+              caseId: updatedJob.caseId,
+              jobId: updatedJob.id,
+              orgId: updatedJob.orgId
+            }, contractorId, updatedJob.orgId);
+            console.log(`❌ Notified contractor ${contractorId} of rejection for job ${updatedJob.id}`);
+          }
           
           // Get approval policy to check involvement mode
           const policies = await storage.getApprovalPolicies(updatedJob.orgId);
