@@ -1881,6 +1881,13 @@ export default function Maintenance() {
                       <div className="flex flex-col items-end space-y-1 flex-shrink-0">
                         {getPriorityBadge(smartCase.priority)}
                         {getStatusBadge(smartCase.status)}
+                        {/* Counter-Proposal Badge */}
+                        {role === 'contractor' && smartCase.scheduledJobs && smartCase.scheduledJobs.some((job: any) => job.status === 'Needs Review') && (
+                          <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full animate-pulse">
+                            <CalendarClock className="h-3 w-3" />
+                            <span className="text-xs font-medium">Counter-Proposal</span>
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground">
                           {smartCase.createdAt ? new Date(smartCase.createdAt).toLocaleDateString() : 'Unknown'}
                         </div>
