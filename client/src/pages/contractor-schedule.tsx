@@ -2175,7 +2175,7 @@ function JobCard({
               Done
             </Badge>
           )}
-          {job.caseStatus === 'New' && !isCompleted && !isPendingApproval && (
+          {job.caseStatus === 'New' && !isCompleted && !isPendingApproval && !needsReview && (
             <Badge 
               variant="secondary" 
               className="h-5 px-1.5 text-[10px] bg-blue-500/90 text-white border-blue-400/40 backdrop-blur-sm font-bold"
