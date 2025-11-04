@@ -7553,8 +7553,8 @@ If you cannot identify the equipment with confidence, return an empty object {}.
       
       // Update scheduled job with the selected time
       const updatedJob = await storage.updateScheduledJob(proposal[0].scheduledJobId, {
-        scheduledStartAt: selectedSlot.startAt,
-        scheduledEndAt: selectedSlot.endAt,
+        scheduledStartAt: new Date(selectedSlot.startAt),
+        scheduledEndAt: new Date(selectedSlot.endAt),
         status: 'Scheduled',
       });
       

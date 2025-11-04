@@ -35,6 +35,9 @@ export default function TenantAvailabilitySelector({
   const proposedStart = toZonedTime(parseISO(proposedStartTime), TIMEZONE);
   const proposedEnd = toZonedTime(parseISO(proposedEndTime), TIMEZONE);
   
+  // Calculate job duration in minutes
+  const jobDurationMinutes = Math.round((proposedEnd.getTime() - proposedStart.getTime()) / (1000 * 60));
+  
   // Start the week view from the proposed time's week
   const [currentWeekStart, setCurrentWeekStart] = useState(() => 
     startOfWeek(proposedStart, { weekStartsOn: 0 })
@@ -199,6 +202,25 @@ export default function TenantAvailabilitySelector({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Job Duration Info */}
+      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <span className="font-medium">Job Duration:</span>{' '}
+              {jobDurationMinutes >= 60 && `${Math.floor(jobDurationMinutes / 60)}h `}
+              {jobDurationMinutes % 60 > 0 && `${jobDurationMinutes % 60}min`}
+              {jobDurationMinutes < 60 && jobDurationMinutes % 60 === 0 && '< 1h'}
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              Select {jobDurationMinutes >= 60 && `${Math.floor(jobDurationMinutes / 60)}h `}
+              {jobDurationMinutes % 60 > 0 && `${jobDurationMinutes % 60}min`}
+              {jobDurationMinutes < 60 && jobDurationMinutes % 60 === 0 && '< 1h'} blocks
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Legend */}
       <div className="flex gap-4 text-sm">
