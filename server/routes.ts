@@ -7394,10 +7394,10 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           }, contractorToNotify, job.orgId);
           console.log(`📅 Notified contractor ${contractorToNotify} of counter-proposal for job ${job.id}`);
         } catch (error) {
-          console.error('Error sending contractor notification:', error);
+          console.error(`❌ Error sending contractor notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else {
-        console.log(`⚠️ No contractor to notify for counter-proposal on job ${job.id}`);
+        console.log(`⚠️ No contractor to notify for counter-proposal on job ${job.id} (jobContractorId: ${job.contractorId}, caseAssigneeId: ${job.caseId ? 'checking...' : 'no caseId'})`);
       }
       
       res.json(counterProposal);
@@ -7586,7 +7586,7 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           
           // Notify admin
           if (smartCase) {
-            await notificationService.notifyAdmin({
+            await notificationService.notifyAdmins({
               message: `Counter-proposal accepted for "${smartCase.title || job.title}". Scheduled for ${selectedSlotTime}`,
               type: 'counter_proposal_accepted',
               title: 'Appointment Scheduled',
