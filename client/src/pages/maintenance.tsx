@@ -11,6 +11,7 @@ import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -192,6 +193,7 @@ export default function Maintenance() {
   const [showInsightDialog, setShowInsightDialog] = useState(false);
   const [counterProposingJob, setCounterProposingJob] = useState<any | null>(null);
   const [reviewingCounterProposal, setReviewingCounterProposal] = useState<{job: any, proposalId: string} | null>(null);
+  const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -2028,11 +2030,7 @@ export default function Maintenance() {
                         variant="outline" 
                         size="sm"
                         className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                        onClick={() => {
-                          if (confirm("Are you sure you want to delete this case? This action cannot be undone.")) {
-                            deleteCaseMutation.mutate(smartCase.id);
-                          }
-                        }}
+                        onClick={() => setCaseToDelete(smartCase.id)}
                         data-testid={`button-delete-case-${index}`}
                         title="Delete Case"
                       >
@@ -3333,6 +3331,33 @@ export default function Maintenance() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Case Confirmation Dialog */}
+      <AlertDialog open={!!caseToDelete} onOpenChange={(open) => !open && setCaseToDelete(null)}>
+        <AlertDialogContent data-testid="dialog-delete-case">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Case</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this case? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (caseToDelete) {
+                  deleteCaseMutation.mutate(caseToDelete);
+                  setCaseToDelete(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+              data-testid="button-confirm-delete"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
