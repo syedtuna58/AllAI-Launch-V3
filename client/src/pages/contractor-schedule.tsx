@@ -1686,6 +1686,7 @@ export default function ContractorSchedulePage() {
               {reviewingCounterProposal && counterProposalsForJob.length > 0 && (
                 <ContractorCalendarMatch
                   counterProposalId={counterProposalsForJob[0].id}
+                  currentJobId={reviewingCounterProposal.job.id}
                   proposedSlots={counterProposalsForJob[0].availabilitySlots || []}
                   scheduledJobs={smartCases?.flatMap((c: any) => c.scheduledJobs || []) || []}
                   onAccept={(selectedSlotIndex: number) => {
@@ -1848,6 +1849,7 @@ export default function ContractorSchedulePage() {
                                 isToday={isToday}
                                 activeId={activeId}
                                 organization={organization}
+                                onDoubleClick={handleJobDoubleClick}
                                 onClick={(job) => {
                                   setEditingJob(job);
                                   setJobFormData({
@@ -1902,6 +1904,7 @@ export default function ContractorSchedulePage() {
                             activeId={activeId}
                             hourHeight={60}
                             organization={organization}
+                            onDoubleClick={handleJobDoubleClick}
                             onClick={(job) => {
                               setEditingJob(job);
                               setJobFormData({
@@ -1969,6 +1972,7 @@ export default function ContractorSchedulePage() {
                 jobs={unscheduledJobs} 
                 teams={teams} 
                 activeId={activeId}
+                onDoubleClick={handleJobDoubleClick}
                 onJobClick={(job) => {
                   setEditingJob(job);
                   setJobFormData({
@@ -2337,7 +2341,7 @@ function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
   );
 }
 
-function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, organization }: {
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, onDoubleClick, organization }: {
   dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
@@ -2353,7 +2357,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   activeId: string | null;
   hourHeight?: number;
   onClick?: (job: ScheduledJob) => void;
-  organization?: Organization;
+  onDoubleClick?: (job: ScheduledJob) => void;
+  organization?: any;
 }) {
   // Generate hours from 6 AM to 8 PM (for visual hourly grid)
   const hours = Array.from({ length: 15 }, (_, i) => i + 6);
@@ -2670,7 +2675,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       isFirstDay={spanInfo.isFirstDay}
                       extendsBeyondWeek={spanInfo.extendsBeyondWeek}
                       onClick={() => onClick?.(job)}
-                      onDoubleClick={() => handleJobDoubleClick(job)}
+                      onDoubleClick={() => onDoubleClick?.(job)}
                       overlapCount={totalColumns > 1 ? totalColumns : undefined}
                     />
                   </div>
@@ -2779,12 +2784,14 @@ function UnscheduledJobsPanel({
   jobs, 
   teams, 
   activeId, 
-  onJobClick 
+  onJobClick,
+  onDoubleClick
 }: { 
   jobs: ScheduledJob[]; 
   teams: Team[]; 
   activeId: string | null;
   onJobClick: (job: ScheduledJob) => void;
+  onDoubleClick?: (job: ScheduledJob) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'unscheduled',
@@ -2824,7 +2831,7 @@ function UnscheduledJobsPanel({
                   job={job}
                   team={team}
                   onClick={() => onJobClick(job)}
-                  onDoubleClick={() => handleJobDoubleClick(job)}
+                  onDoubleClick={() => onDoubleClick?.(job)}
                 />
               );
             })
