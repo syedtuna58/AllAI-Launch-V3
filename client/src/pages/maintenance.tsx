@@ -578,7 +578,7 @@ export default function Maintenance() {
   // Tenant-specific mutations
   const approveJobMutation = useMutation({
     mutationFn: async (jobId: string) => {
-      const response = await apiRequest("PATCH", `/api/scheduled-jobs/${jobId}/approve`);
+      const response = await apiRequest("POST", `/api/scheduled-jobs/${jobId}/approve`);
       return response.json();
     },
     onSuccess: () => {
@@ -600,7 +600,7 @@ export default function Maintenance() {
 
   const rejectJobMutation = useMutation({
     mutationFn: async (jobId: string) => {
-      const response = await apiRequest("PATCH", `/api/scheduled-jobs/${jobId}/reject`);
+      const response = await apiRequest("POST", `/api/scheduled-jobs/${jobId}/reject`);
       return response.json();
     },
     onSuccess: () => {
