@@ -7400,10 +7400,11 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         console.log(`⚠️ No contractor to notify for counter-proposal on job ${job.id} (jobContractorId: ${job.contractorId}, caseAssigneeId: ${contractorToNotify || 'none'})`);
       }
       
-      // Also notify admins if organization has hands-on involvement
+      // Also notify admins if organization has hands-on involvement mode
       try {
-        const orgSettings = await storage.getOrgSettings(org.id);
-        if (orgSettings?.handsOnInvolvement && job.caseId) {
+        const policies = await storage.getApprovalPolicies(org.id);
+        const activePolicy = policies.find(p => p.isActive) || policies[0];
+        if (activePolicy?.involvementMode === 'hands-on' && job.caseId) {
           const smartCase = await storage.getSmartCase(job.caseId);
           const { notificationService } = await import('./notificationService');
           await notificationService.notifyAdmins({
