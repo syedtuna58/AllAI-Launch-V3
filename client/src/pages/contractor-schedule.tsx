@@ -2149,9 +2149,10 @@ function JobCard({
               variant="secondary" 
               className="h-5 px-1.5 text-[10px] bg-orange-600 text-white border-orange-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5"
               data-testid={`badge-counter-proposal-${job.id}`}
-              title="Tenant counter-proposed new time"
+              title="Tenant counter-proposed new time - double-click to review"
             >
-              Counter-Proposal
+              <AlertTriangle className="h-3 w-3" />
+              Review
             </Badge>
           )}
           {isPendingApproval && !isCompleted && !needsReview && (
