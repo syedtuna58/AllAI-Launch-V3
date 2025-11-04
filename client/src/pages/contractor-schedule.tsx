@@ -2129,9 +2129,9 @@ function JobCard({
         
         {/* Counter-Proposal Banner - shown at top if needs review */}
         {needsReview && !isCompleted && (
-          <div className="absolute top-0 left-0 right-0 bg-orange-600/95 backdrop-blur-sm px-1.5 py-0.5 flex items-center gap-0.5 z-10 rounded-t-sm">
-            <AlertTriangle className="h-2.5 w-2.5 text-white flex-shrink-0" />
-            <span className="text-[9px] font-bold text-white truncate leading-tight">Alternate Time Proposed</span>
+          <div className="absolute top-0 left-0 right-0 bg-orange-600/95 backdrop-blur-sm px-2 py-0.5 flex items-center gap-1 z-10 rounded-t-sm">
+            <AlertTriangle className="h-3 w-3 text-white flex-shrink-0" />
+            <span className="text-[10px] font-bold text-white truncate">Alternate Time Proposed</span>
           </div>
         )}
         
