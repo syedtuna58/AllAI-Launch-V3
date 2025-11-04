@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2, Clock, CalendarOff, CalendarDays } from "lucide-react";
+import { Plus, Trash2, Clock, CalendarOff, CalendarDays, CalendarClock, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { ContractorAvailability, ContractorBlackout } from "@shared/schema";
 
@@ -58,9 +58,10 @@ const blackoutSchema = z.object({
 
 interface AvailabilityCalendarProps {
   contractorId: string;
+  onReviewCounterProposal?: (job: any) => void;
 }
 
-export default function AvailabilityCalendar({ contractorId }: AvailabilityCalendarProps) {
+export default function AvailabilityCalendar({ contractorId, onReviewCounterProposal }: AvailabilityCalendarProps) {
   const { toast } = useToast();
   const [isAvailabilityDialogOpen, setIsAvailabilityDialogOpen] = useState(false);
   const [isBlackoutDialogOpen, setIsBlackoutDialogOpen] = useState(false);
@@ -73,6 +74,12 @@ export default function AvailabilityCalendar({ contractorId }: AvailabilityCalen
   // Fetch blackouts
   const { data: blackouts = [], isLoading: blackoutsLoading } = useQuery<ContractorBlackout[]>({
     queryKey: ["/api/contractors", contractorId, "blackouts"],
+  });
+
+  // Fetch scheduled jobs for this contractor
+  const { data: scheduledJobs = [] } = useQuery<any[]>({
+    queryKey: ["/api/scheduled-jobs"],
+    select: (jobs) => jobs.filter(job => job.contractorId === contractorId),
   });
 
   // Add availability mutation
@@ -469,6 +476,76 @@ export default function AvailabilityCalendar({ contractorId }: AvailabilityCalen
                   </Button>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Scheduled Jobs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="h-5 w-5" />
+            Scheduled Jobs
+          </CardTitle>
+          <CardDescription>Your upcoming scheduled maintenance jobs</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {scheduledJobs.length === 0 ? (
+            <p className="text-muted-foreground">No scheduled jobs.</p>
+          ) : (
+            <div className="space-y-2">
+              {scheduledJobs
+                .sort((a, b) => new Date(a.scheduledStartAt).getTime() - new Date(b.scheduledStartAt).getTime())
+                .map((job) => {
+                  const needsReview = job.status === 'Needs Review';
+                  return (
+                    <div
+                      key={job.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        needsReview 
+                          ? 'bg-orange-50 dark:bg-orange-950 border-orange-300 dark:border-orange-700 animate-pulse' 
+                          : 'bg-muted/50'
+                      }`}
+                      data-testid={`job-${job.id}`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {needsReview ? (
+                          <CalendarClock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                        ) : (
+                          <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{job.title}</p>
+                            {needsReview && (
+                              <span className="inline-flex items-center gap-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full text-xs font-medium">
+                                <AlertCircle className="h-3 w-3" />
+                                Counter-Proposal
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {job.scheduledStartAt && format(new Date(job.scheduledStartAt), "MMM d, yyyy 'at' h:mm a")}
+                            {job.scheduledEndAt && ` - ${format(new Date(job.scheduledEndAt), "h:mm a")}`}
+                          </p>
+                          {job.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{job.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      {needsReview && onReviewCounterProposal && (
+                        <Button
+                          size="sm"
+                          className="bg-orange-600 hover:bg-orange-700"
+                          onClick={() => onReviewCounterProposal(job)}
+                        >
+                          Review
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </CardContent>

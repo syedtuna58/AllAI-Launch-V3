@@ -2970,7 +2970,13 @@ export default function Maintenance() {
             <DialogHeader>
               <DialogTitle>Manage My Availability</DialogTitle>
             </DialogHeader>
-            <AvailabilityCalendar contractorId={contractorProfile.id} />
+            <AvailabilityCalendar 
+              contractorId={contractorProfile.id}
+              onReviewCounterProposal={(job) => {
+                setReviewingCounterProposal({ job, proposalId: '' });
+                setShowAvailabilityCalendar(false);
+              }}
+            />
           </DialogContent>
         </Dialog>
       )}
