@@ -1602,14 +1602,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSmartCase(id: string): Promise<void> {
-    // Delete all related records first to avoid foreign key constraint violations
+    // First get all scheduled jobs for this case
+    const relatedJobs = await db
+      .select({ id: scheduledJobs.id })
+      .from(scheduledJobs)
+      .where(eq(scheduledJobs.caseId, id));
+    
+    const jobIds = relatedJobs.map(job => job.id);
+    
+    // Delete counter-proposals for those scheduled jobs
+    if (jobIds.length > 0) {
+      for (const jobId of jobIds) {
+        await db.delete(counterProposals).where(eq(counterProposals.scheduledJobId, jobId));
+      }
+    }
+    
+    // Delete all related records to avoid foreign key constraint violations
     await db.delete(scheduledJobs).where(eq(scheduledJobs.caseId, id));
     await db.delete(appointmentProposals).where(eq(appointmentProposals.caseId, id));
-    await db.delete(counterProposals).where(eq(counterProposals.caseId, id));
     await db.delete(appointments).where(eq(appointments.caseId, id));
     await db.delete(caseMedia).where(eq(caseMedia.caseId, id));
     await db.delete(caseEvents).where(eq(caseEvents.caseId, id));
-    await db.delete(predictiveInsights).where(eq(predictiveInsights.caseId, id));
     
     // Finally delete the case itself
     await db.delete(smartCases).where(eq(smartCases.id, id));
