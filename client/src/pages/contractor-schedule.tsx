@@ -2127,6 +2127,14 @@ function JobCard({
           className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
         />
         
+        {/* Counter-Proposal Banner - shown at top if needs review */}
+        {needsReview && !isCompleted && (
+          <div className="absolute top-0 left-0 right-0 bg-orange-600/95 backdrop-blur-sm px-2 py-0.5 flex items-center gap-1 z-10 rounded-t-sm">
+            <AlertTriangle className="h-3 w-3 text-white flex-shrink-0" />
+            <span className="text-[10px] font-bold text-white truncate">Alternate Time Proposed</span>
+          </div>
+        )}
+        
         <button
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -2144,17 +2152,6 @@ function JobCard({
         </button>
         
         <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
-          {needsReview && !isCompleted && (
-            <Badge 
-              variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-orange-600 text-white border-orange-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5"
-              data-testid={`badge-counter-proposal-${job.id}`}
-              title="Tenant counter-proposed new time - double-click to review"
-            >
-              <AlertTriangle className="h-3 w-3" />
-              Review
-            </Badge>
-          )}
           {isPendingApproval && !isCompleted && !needsReview && (
             <Badge 
               variant="secondary" 
@@ -2209,7 +2206,7 @@ function JobCard({
           {!isCompleted && getUrgencyIcon(job.urgency)}
         </div>
         
-        <div className="pr-6">
+        <div className={cn("pr-6", needsReview && !isCompleted && "pt-5")}>
           <p className="font-medium text-sm text-white truncate drop-shadow-sm">
             {job.title}
           </p>
