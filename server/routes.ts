@@ -1996,7 +1996,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
       const cases = await storage.getSmartCases(org.id);
-      res.json(cases);
+      
+      // Include scheduled jobs for each case
+      const casesWithJobs = await Promise.all(cases.map(async (smartCase) => {
+        const jobs = await storage.getScheduledJobs(org.id, { caseId: smartCase.id });
+        return {
+          ...smartCase,
+          scheduledJobs: jobs
+        };
+      }));
+      
+      res.json(casesWithJobs);
     } catch (error) {
       console.error("Error fetching cases:", error);
       res.status(500).json({ message: "Failed to fetch cases" });

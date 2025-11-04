@@ -1991,6 +1991,26 @@ export default function Maintenance() {
                         </Button>
                       )}
                       
+                      {/* Review Counter-Proposal Button (Contractor Only) */}
+                      {role === 'contractor' && smartCase.scheduledJobs && smartCase.scheduledJobs.some((job: any) => job.status === 'Needs Review') && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="h-8 px-3 bg-orange-600 hover:bg-orange-700"
+                          onClick={() => {
+                            const jobNeedingReview = smartCase.scheduledJobs.find((job: any) => job.status === 'Needs Review');
+                            if (jobNeedingReview) {
+                              setReviewingCounterProposal({ job: jobNeedingReview, proposalId: '' });
+                            }
+                          }}
+                          data-testid={`button-review-counter-${index}`}
+                          title="Review Counter-Proposal"
+                        >
+                          <CalendarClock className="h-3 w-3 mr-1" />
+                          Review Counter
+                        </Button>
+                      )}
+                      
                       {/* View Proposals/Appointment Button - Show when status indicates proposals or scheduled */}
                       {smartCase.status === 'In Review' && role !== 'contractor' && (
                         <Button 
