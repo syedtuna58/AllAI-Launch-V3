@@ -7533,14 +7533,20 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         return res.status(404).json({ message: "Counter-proposal not found" });
       }
       
-      const { selectedSlotIndex } = req.body;
+      const { selectedSlotIndex, selectedStart, selectedEnd } = req.body;
       const slots = proposal[0].availabilitySlots as any[];
       
-      if (selectedSlotIndex === undefined || !slots[selectedSlotIndex]) {
+      let selectedSlot;
+      
+      // If contractor selected specific start/end times, use those
+      if (selectedStart && selectedEnd) {
+        selectedSlot = { startAt: selectedStart, endAt: selectedEnd };
+      } else if (selectedSlotIndex !== undefined && slots[selectedSlotIndex]) {
+        // Fall back to slot index selection (legacy behavior)
+        selectedSlot = slots[selectedSlotIndex];
+      } else {
         return res.status(400).json({ message: "Please select a valid time slot" });
       }
-      
-      const selectedSlot = slots[selectedSlotIndex];
       
       // Update counter-proposal status
       await db.update(counterProposals)

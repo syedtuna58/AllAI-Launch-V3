@@ -1689,10 +1689,15 @@ export default function ContractorSchedulePage() {
                   currentJobId={reviewingCounterProposal.job.id}
                   proposedSlots={counterProposalsForJob[0].availabilitySlots || []}
                   scheduledJobs={smartCases?.flatMap((c: any) => c.scheduledJobs || []) || []}
-                  onAccept={(selectedSlotIndex: number) => {
+                  jobDurationMinutes={reviewingCounterProposal.job.scheduledStartAt && reviewingCounterProposal.job.scheduledEndAt 
+                    ? Math.round((new Date(reviewingCounterProposal.job.scheduledEndAt).getTime() - new Date(reviewingCounterProposal.job.scheduledStartAt).getTime()) / (1000 * 60))
+                    : 120}
+                  onAccept={(selectedSlotIndex: number, selectedStart?: string, selectedEnd?: string) => {
                     acceptCounterProposalMutation.mutate({
                       proposalId: counterProposalsForJob[0].id,
-                      selectedSlotIndex
+                      selectedSlotIndex,
+                      selectedStart,
+                      selectedEnd
                     });
                   }}
                   onReject={() => {

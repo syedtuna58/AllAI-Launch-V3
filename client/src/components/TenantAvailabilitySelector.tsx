@@ -126,6 +126,24 @@ export default function TenantAvailabilitySelector({
   // Handle mouse down on a cell
   const handleMouseDown = (day: Date, time: Date) => {
     const cellTime = createCellTime(day, time);
+    const cellEnd = addMinutes(cellTime, INTERVAL_MINUTES);
+    
+    // Check if clicking on an already selected cell - if so, deselect it
+    const overlappingSlotIndex = selectedSlots.findIndex(slot =>
+      areIntervalsOverlapping(
+        { start: slot.start, end: slot.end },
+        { start: cellTime, end: cellEnd },
+        { inclusive: true }
+      )
+    );
+    
+    if (overlappingSlotIndex !== -1) {
+      // Remove the overlapping slot
+      setSelectedSlots(prev => prev.filter((_, i) => i !== overlappingSlotIndex));
+      return; // Don't start a new drag
+    }
+    
+    // Start new selection
     setIsDragging(true);
     setDragStart(cellTime);
     setDragEnd(cellTime);

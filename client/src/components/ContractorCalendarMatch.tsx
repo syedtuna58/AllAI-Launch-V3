@@ -17,7 +17,8 @@ interface ContractorCalendarMatchProps {
   proposedSlots: Array<{ startAt: string; endAt: string }>;  // Tenant's proposed availability
   scheduledJobs: Array<any>;  // Contractor's existing schedule
   currentJobId: string;  // The job being rescheduled
-  onAccept: (slotIndex: number) => void;
+  jobDurationMinutes?: number;  // Expected duration of the job in minutes
+  onAccept: (slotIndex: number, selectedStart?: string, selectedEnd?: string) => void;
   onReject: () => void;
   isPending: boolean;
 }
@@ -27,6 +28,7 @@ export default function ContractorCalendarMatch({
   proposedSlots,
   scheduledJobs,
   currentJobId,
+  jobDurationMinutes = 120, // Default to 2 hours
   onAccept,
   onReject,
   isPending,
@@ -44,6 +46,12 @@ export default function ContractorCalendarMatch({
     }
     return startOfWeek(new Date(), { weekStartsOn: 0 });
   });
+  
+  // Selection state for contractor to pick a time block
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<Date | null>(null);
+  const [dragEnd, setDragEnd] = useState<Date | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
   
   // Generate week days
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
@@ -146,6 +154,116 @@ export default function ContractorCalendarMatch({
     return "bg-white dark:bg-gray-900 border-gray-200";
   };
 
+  // Check if a cell is currently selected
+  const isSelectedCell = (day: Date, time: Date) => {
+    if (!selectedSlot) return false;
+    
+    const cellStart = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      time.getHours(),
+      time.getMinutes()
+    );
+    const cellEnd = addMinutes(cellStart, INTERVAL_MINUTES);
+    
+    return areIntervalsOverlapping(
+      { start: selectedSlot.start, end: selectedSlot.end },
+      { start: cellStart, end: cellEnd },
+      { inclusive: true }
+    );
+  };
+
+  // Check if currently dragging over this cell
+  const isDraggingOverCell = (day: Date, time: Date) => {
+    if (!isDragging || !dragStart || !dragEnd) return false;
+    
+    const cellStart = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      time.getHours(),
+      time.getMinutes()
+    );
+    
+    const dragInterval = {
+      start: dragStart < dragEnd ? dragStart : dragEnd,
+      end: dragStart < dragEnd ? dragEnd : dragStart,
+    };
+    
+    return isWithinInterval(cellStart, dragInterval);
+  };
+
+  // Mouse handlers for selection
+  const handleMouseDown = (day: Date, time: Date) => {
+    // Only allow selection in perfect match areas
+    if (!isPerfectMatch(day, time)) return;
+    
+    const cellTime = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      time.getHours(),
+      time.getMinutes()
+    );
+    
+    setIsDragging(true);
+    setDragStart(cellTime);
+    setDragEnd(cellTime);
+  };
+
+  const handleMouseEnter = (day: Date, time: Date) => {
+    if (isDragging && dragStart) {
+      // Only allow extending drag if the cell is a perfect match
+      if (!isPerfectMatch(day, time)) return;
+      
+      const cellTime = new Date(
+        day.getFullYear(),
+        day.getMonth(),
+        day.getDate(),
+        time.getHours(),
+        time.getMinutes()
+      );
+      setDragEnd(cellTime);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging && dragStart && dragEnd) {
+      const start = dragStart < dragEnd ? dragStart : dragEnd;
+      const end = dragStart < dragEnd ? addMinutes(dragEnd, INTERVAL_MINUTES) : addMinutes(dragStart, INTERVAL_MINUTES);
+      
+      // Set the selected slot
+      setSelectedSlot({ start, end });
+    }
+    setIsDragging(false);
+    setDragStart(null);
+    setDragEnd(null);
+  };
+
+  // Handle accepting the selected time
+  const handleAcceptSelected = () => {
+    if (!selectedSlot) return;
+    
+    // Find which tenant slot this overlaps with
+    const slotIndex = tenantSlots.findIndex(slot =>
+      areIntervalsOverlapping(
+        { start: slot.start, end: slot.end },
+        { start: selectedSlot.start, end: selectedSlot.end },
+        { inclusive: true }
+      )
+    );
+    
+    // Validate that the selection overlaps with a tenant slot
+    if (slotIndex < 0) {
+      console.error('Selected time does not overlap with any tenant availability slot');
+      return;
+    }
+    
+    // Pass the selected time to the parent
+    onAccept(slotIndex, selectedSlot.start.toISOString(), selectedSlot.end.toISOString());
+  };
+
   // Rank slots by best match
   const rankedSlots = tenantSlots.map((slot, index) => {
     const slotStart = slot.start;
@@ -224,11 +342,90 @@ export default function ContractorCalendarMatch({
         </Card>
       )}
 
+      {/* Job Duration Info */}
+      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <span className="font-medium">Job Duration:</span>{' '}
+              {jobDurationMinutes >= 60 && `${Math.floor(jobDurationMinutes / 60)}h `}
+              {jobDurationMinutes % 60 > 0 && `${jobDurationMinutes % 60}min`}
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              Select from green "Perfect Match" areas
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Selected Time Slot */}
+      {selectedSlot && (() => {
+        const selectedDurationMinutes = Math.round((selectedSlot.end.getTime() - selectedSlot.start.getTime()) / (1000 * 60));
+        const durationMatch = selectedDurationMinutes === jobDurationMinutes;
+        
+        return (
+          <Card className={cn(
+            "border-purple-300 bg-purple-50 dark:bg-purple-950",
+            !durationMatch && "border-amber-300 bg-amber-50 dark:bg-amber-950"
+          )}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                {durationMatch ? (
+                  <Check className="h-5 w-5 text-purple-600" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                )}
+                Selected Time
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg">
+                <div>
+                  <div className="font-medium">
+                    {formatInTimeZone(selectedSlot.start, TIMEZONE, "EEE, MMM d 'at' h:mm a")} - {formatInTimeZone(selectedSlot.end, TIMEZONE, "h:mm a")}
+                  </div>
+                  <div className={cn(
+                    "text-sm",
+                    durationMatch ? "text-muted-foreground" : "text-amber-600 dark:text-amber-500 font-medium"
+                  )}>
+                    Duration: {Math.floor(selectedDurationMinutes / 60)}h {selectedDurationMinutes % 60}min
+                    {!durationMatch && ` (Expected: ${Math.floor(jobDurationMinutes / 60)}h ${jobDurationMinutes % 60}min)`}
+                  </div>
+                </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedSlot(null)}
+                  data-testid="button-clear-selection"
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={handleAcceptSelected}
+                  disabled={isPending}
+                  data-testid="button-accept-selected"
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Accept This Time
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        );
+      })()}
+
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-100 dark:bg-green-900 border border-green-400 rounded"></div>
           <span>Perfect Match (Both Available)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-purple-200 dark:bg-purple-900 border border-purple-500 rounded"></div>
+          <span>Your Selection</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900 border border-blue-300 rounded"></div>
@@ -280,32 +477,34 @@ export default function ContractorCalendarMatch({
             </div>
           ))}
         </div>
-        <div className="max-h-[600px] overflow-y-auto">
+        <div 
+          className="max-h-[600px] overflow-y-auto select-none"
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
           {timeSlots.map((time, timeIdx) => (
             <div key={timeIdx} className="grid grid-cols-8 border-b last:border-b-0">
               <div className="p-2 text-xs border-r bg-muted flex items-center justify-center">
                 {format(time, 'h a')}
               </div>
               {weekDays.map((day, dayIdx) => {
-                const slotIndex = getTenantSlotIndex(day, time);
                 const isMatch = isPerfectMatch(day, time);
+                const isSelected = isSelectedCell(day, time);
+                const isDraggingOver = isDraggingOverCell(day, time);
                 
                 return (
                   <div
                     key={dayIdx}
                     className={cn(
                       "p-1 border-r last:border-r-0 min-h-[50px] flex items-center justify-center text-xs transition-colors",
-                      getCellStyle(day, time)
+                      getCellStyle(day, time),
+                      isSelected && "bg-purple-200 dark:bg-purple-900 border-purple-500 ring-2 ring-purple-400",
+                      isDraggingOver && isMatch && "bg-purple-100 dark:bg-purple-800"
                     )}
-                    onClick={() => isMatch && slotIndex >= 0 && onAccept(slotIndex)}
+                    onMouseDown={() => handleMouseDown(day, time)}
+                    onMouseEnter={() => handleMouseEnter(day, time)}
                     data-testid={`cell-${dayIdx}-${timeIdx}`}
                   >
-                    {isMatch && slotIndex >= 0 && (
-                      <div className="flex flex-col items-center gap-1">
-                        <Check className="h-3 w-3 text-green-600" />
-                        <span className="text-[10px] font-medium">Click to accept</span>
-                      </div>
-                    )}
                   </div>
                 );
               })}
