@@ -2206,10 +2206,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Step 3: Update case with triage and assignment
             // Keep status as 'New' so contractor can accept it
+            // Only prepend category if not already present to avoid "Plumbing: Plumbing: Leak"
+            const updatedTitle = smartCase.title.startsWith(`${triageResult.category}:`) 
+              ? smartCase.title 
+              : `${triageResult.category}: ${smartCase.title}`;
+            
             await storage.updateSmartCase(smartCase.id, {
               assignedTo: bestContractor.contractorId,
               aiTriageResult: triageResult,
-              priority: triageResult.urgency
+              priority: triageResult.urgency,
+              category: triageResult.category,
+              title: updatedTitle
             });
             
             // Step 3.5: Update linked scheduled job with AI suggestions and contractor
@@ -2228,6 +2235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   contractorId: bestContractor.contractorId,
                   urgency: urgencyMap[triageResult.urgency] || 'Low',
                   durationDays: triageResult.estimatedDuration || 1,
+                  title: updatedTitle,
                   notes: triageResult.estimatedTime ? `AI Estimate: ${triageResult.estimatedTime}` : linkedJob.notes
                 });
                 console.log(`📅 Updated scheduled job ${linkedJob.id} with AI suggestions`);
@@ -2249,10 +2257,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log(`✅ Case ${smartCase.id} fully processed and assigned`);
           } else {
             console.log(`⚠️ No contractors available for case ${smartCase.id}`);
+            // Only prepend category if not already present to avoid "Plumbing: Plumbing: Leak"
+            const updatedTitle = smartCase.title.startsWith(`${triageResult.category}:`) 
+              ? smartCase.title 
+              : `${triageResult.category}: ${smartCase.title}`;
+            
             await storage.updateSmartCase(smartCase.id, {
               aiTriageResult: triageResult,
               status: 'In Review',
-              priority: triageResult.urgency
+              priority: triageResult.urgency,
+              category: triageResult.category,
+              title: updatedTitle
             });
             
             // Update linked scheduled job with AI suggestions (without contractor)
@@ -2270,6 +2285,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 await storage.updateScheduledJob(linkedJob.id, {
                   urgency: urgencyMap[triageResult.urgency] || 'Low',
                   durationDays: triageResult.estimatedDuration || 1,
+                  title: updatedTitle,
                   notes: triageResult.estimatedTime ? `AI Estimate: ${triageResult.estimatedTime}` : linkedJob.notes
                 });
                 console.log(`📅 Updated scheduled job ${linkedJob.id} with AI suggestions (no contractor)`);
