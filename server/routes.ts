@@ -7262,12 +7262,17 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         await storage.updateSmartCase(updatedJob.caseId, { status: 'Scheduled' as any });
       }
       
-      // Notify contractor and admin that tenant approved
-      if (updatedJob.caseId) {
-        console.log(`📧 Starting notification process for approved job ${updatedJob.id}`);
-        try {
-          const smartCase = await storage.getSmartCase(updatedJob.caseId);
-          const { notificationService } = await import('./notificationService');
+      // Send notifications
+      console.log(`📧 Starting notification process for approved job ${updatedJob.id}`);
+      try {
+        const { notificationService } = await import('./notificationService');
+        let smartCase = null;
+        let jobTitle = updatedJob.title;
+        
+        // Get case details if linked
+        if (updatedJob.caseId) {
+          smartCase = await storage.getSmartCase(updatedJob.caseId);
+          jobTitle = smartCase?.title || updatedJob.title;
           
           // Get contractor ID from job or from assigned case
           const contractorId = updatedJob.contractorId || smartCase?.assignedContractorId;
@@ -7276,7 +7281,7 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           // Notify contractor if there is one
           if (contractorId) {
             await notificationService.notifyContractor({
-              message: `Tenant approved the scheduled time for "${smartCase?.title || updatedJob.title}"`,
+              message: `Tenant approved the scheduled time for "${jobTitle}"`,
               type: 'schedule_approved',
               title: 'Schedule Approved',
               caseId: updatedJob.caseId,
@@ -7287,32 +7292,21 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           } else {
             console.log(`⚠️ No contractor assigned - skipping contractor notification for job ${updatedJob.id}`);
           }
-          
-          // Get approval policy to check involvement mode
-          const policies = await storage.getApprovalPolicies(updatedJob.orgId);
-          const adminPolicy = policies.find(p => p.isActive);
-          const involvementMode = adminPolicy?.involvementMode || 'hands-on';
-          console.log(`📧 Admin notification check: involvementMode=${involvementMode}, policyCount=${policies.length}, activePolicy=${!!adminPolicy}`);
-          
-          // Notify admin based on involvement mode (all modes should be notified of approvals)
-          if (involvementMode !== 'hands-off') {
-            await notificationService.notifyAdmins({
-              message: `Tenant approved scheduled maintenance for "${smartCase?.title || updatedJob.title}"`,
-              type: 'schedule_approved',
-              title: 'Schedule Approved by Tenant',
-              subject: 'Maintenance Schedule Approved',
-              caseId: updatedJob.caseId,
-              orgId: updatedJob.orgId
-            }, updatedJob.orgId);
-            console.log(`✅ Notified admins of approval for job ${updatedJob.id} (${involvementMode} mode)`);
-          } else {
-            console.log(`⚠️ Skipping admin notification (hands-off mode) for job ${updatedJob.id}`);
-          }
-        } catch (error) {
-          console.error('❌ Error sending approval notifications:', error);
         }
-      } else {
-        console.log(`⚠️ No caseId for job ${updatedJob.id} - skipping notifications`);
+        
+        // Always notify admins of approvals regardless of policy mode or case linkage
+        // The involvement mode only applies to initial scheduling, not to tenant responses
+        await notificationService.notifyAdmins({
+          message: `Tenant approved scheduled maintenance for "${jobTitle}"`,
+          type: 'schedule_approved',
+          title: 'Schedule Approved by Tenant',
+          subject: 'Maintenance Schedule Approved',
+          caseId: updatedJob.caseId || undefined,
+          orgId: updatedJob.orgId
+        }, updatedJob.orgId);
+        console.log(`✅ Notified admins of approval for job ${updatedJob.id}`);
+      } catch (error) {
+        console.error('❌ Error sending approval notifications:', error);
       }
       
       res.json(updatedJob);
@@ -7354,19 +7348,26 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         await storage.updateSmartCase(updatedJob.caseId, { status: 'On Hold' as any });
       }
       
-      // Notify contractor and admin that tenant rejected the proposed time
-      if (updatedJob.caseId) {
-        try {
-          const smartCase = await storage.getSmartCase(updatedJob.caseId);
-          const { notificationService } = await import('./notificationService');
+      // Send notifications
+      console.log(`📧 Starting notification process for rejected job ${updatedJob.id}`);
+      try {
+        const { notificationService } = await import('./notificationService');
+        let smartCase = null;
+        let jobTitle = updatedJob.title;
+        
+        // Get case details if linked
+        if (updatedJob.caseId) {
+          smartCase = await storage.getSmartCase(updatedJob.caseId);
+          jobTitle = smartCase?.title || updatedJob.title;
           
           // Get contractor ID from job or from assigned case
           const contractorId = updatedJob.contractorId || smartCase?.assignedContractorId;
+          console.log(`📧 Contractor lookup: job.contractorId=${updatedJob.contractorId}, case.assignedContractorId=${smartCase?.assignedContractorId}, final=${contractorId}`);
           
           // Notify contractor if there is one
           if (contractorId) {
             await notificationService.notifyContractor({
-              message: `Tenant rejected the proposed time for "${smartCase?.title || updatedJob.title}". Please propose a new time.`,
+              message: `Tenant rejected the proposed time for "${jobTitle}". Please propose a new time.`,
               type: 'schedule_rejected',
               title: 'Schedule Rejected',
               caseId: updatedJob.caseId,
@@ -7374,28 +7375,24 @@ If you cannot identify the equipment with confidence, return an empty object {}.
               orgId: updatedJob.orgId
             }, contractorId, updatedJob.orgId);
             console.log(`❌ Notified contractor ${contractorId} of rejection for job ${updatedJob.id}`);
+          } else {
+            console.log(`⚠️ No contractor assigned - skipping contractor notification for rejected job ${updatedJob.id}`);
           }
-          
-          // Get approval policy to check involvement mode
-          const policies = await storage.getApprovalPolicies(updatedJob.orgId);
-          const adminPolicy = policies.find(p => p.isActive);
-          const involvementMode = adminPolicy?.involvementMode || 'hands-on';
-          
-          // Notify admin based on involvement mode
-          if (involvementMode !== 'hands-off') {
-            await notificationService.notifyAdmins({
-              message: `Tenant rejected proposed time for "${smartCase?.title || updatedJob.title}". Contractor needs to propose a new time.`,
-              type: 'schedule_rejected',
-              title: 'Schedule Rejected by Tenant',
-              subject: 'Maintenance Schedule Rejected',
-              caseId: updatedJob.caseId,
-              orgId: updatedJob.orgId
-            }, updatedJob.orgId);
-            console.log(`❌ Notified admins of rejection for job ${updatedJob.id} (${involvementMode} mode)`);
-          }
-        } catch (error) {
-          console.error('Error sending notifications:', error);
         }
+        
+        // Always notify admins of rejections regardless of policy mode or case linkage
+        // The involvement mode only applies to initial scheduling, not to tenant responses
+        await notificationService.notifyAdmins({
+          message: `Tenant rejected proposed time for "${jobTitle}". Contractor needs to propose a new time.`,
+          type: 'schedule_rejected',
+          title: 'Schedule Rejected by Tenant',
+          subject: 'Maintenance Schedule Rejected',
+          caseId: updatedJob.caseId || undefined,
+          orgId: updatedJob.orgId
+        }, updatedJob.orgId);
+        console.log(`❌ Notified admins of rejection for job ${updatedJob.id}`);
+      } catch (error) {
+        console.error('❌ Error sending rejection notifications:', error);
       }
       
       res.json(updatedJob);
