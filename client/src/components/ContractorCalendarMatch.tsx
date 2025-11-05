@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Check, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, AlertTriangle } from "lucide-react";
 import { format, addDays, startOfWeek, parseISO, addMinutes, isWithinInterval, areIntervalsOverlapping } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
@@ -143,12 +143,11 @@ export default function ContractorCalendarMatch({
 
     if (hasPerfectMatch) {
       return "bg-green-100 dark:bg-green-900 border-green-400 hover:bg-green-200 dark:hover:bg-green-800 cursor-pointer";
-    } else if (hasTenantAvail && hasJob) {
-      return "bg-blue-50 dark:bg-blue-950 border-blue-300 opacity-60";
+    } else if (hasJob) {
+      // Booked Jobs - consolidated state for any time contractor is busy
+      return "bg-orange-100 dark:bg-orange-900 border-orange-400";
     } else if (hasTenantAvail) {
       return "bg-blue-100 dark:bg-blue-900 border-blue-300";
-    } else if (hasJob) {
-      return "bg-gray-100 dark:bg-gray-800 border-gray-300";
     }
     
     return "bg-white dark:bg-gray-900 border-gray-200";
@@ -269,12 +268,16 @@ export default function ContractorCalendarMatch({
     const slotStart = slot.start;
     const slotEnd = slot.end;
     
-    // Count how many hour blocks are perfect matches
+    // Count how many hour blocks are perfect matches (tenant available AND contractor free)
     let perfectMatchHours = 0;
-    let current = slotStart;
+    let current = new Date(slotStart);
     
     while (current < slotEnd) {
-      if (!hasExistingJob(current, new Date(2000, 0, 1, current.getHours(), 0))) {
+      // Create a time reference for the hour check
+      const timeRef = new Date(2000, 0, 1, current.getHours(), current.getMinutes());
+      
+      // Check if contractor is free during this hour
+      if (!hasExistingJob(current, timeRef)) {
         perfectMatchHours++;
       }
       current = addMinutes(current, 60);
@@ -429,15 +432,11 @@ export default function ContractorCalendarMatch({
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900 border border-blue-300 rounded"></div>
-          <span>Tenant Available (You're Free)</span>
+          <span>Tenant Available</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-50 dark:bg-blue-950 border border-blue-300 rounded opacity-60"></div>
-          <span>Tenant Available (You Have Job)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-gray-100 dark:bg-gray-800 border border-gray-300 rounded"></div>
-          <span>Your Scheduled Job</span>
+          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border border-orange-400 rounded"></div>
+          <span>Booked Jobs</span>
         </div>
       </div>
 
@@ -513,40 +512,6 @@ export default function ContractorCalendarMatch({
         </div>
       </div>
 
-      {/* All Proposed Slots */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">All Tenant Proposed Times</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {proposedSlots.map((slot, index) => {
-            const matchInfo = rankedSlots.find(r => r.index === index);
-            return (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div>
-                  <div className="font-medium">
-                    {formatInTimeZone(parseISO(slot.startAt), TIMEZONE, "EEE, MMM d 'at' h:mm a")} - {formatInTimeZone(parseISO(slot.endAt), TIMEZONE, "h:mm a")}
-                  </div>
-                  {matchInfo && matchInfo.perfectMatchHours > 0 && (
-                    <div className="text-sm text-green-600">
-                      ✓ {matchInfo.perfectMatchHours}h available
-                    </div>
-                  )}
-                </div>
-                <Button
-                  onClick={() => onAccept(index)}
-                  disabled={isPending}
-                  variant={matchInfo && matchInfo.perfectMatchHours > 0 ? "default" : "outline"}
-                  data-testid={`button-accept-list-${index}`}
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Accept
-                </Button>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
     </div>
   );
 }
