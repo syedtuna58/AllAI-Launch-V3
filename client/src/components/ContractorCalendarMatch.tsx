@@ -33,11 +33,6 @@ export default function ContractorCalendarMatch({
   onReject,
   isPending,
 }: ContractorCalendarMatchProps) {
-  // Debug logging
-  console.log("📅 ContractorCalendarMatch - scheduledJobs received:", scheduledJobs);
-  console.log("📅 ContractorCalendarMatch - currentJobId:", currentJobId);
-  console.log("📅 ContractorCalendarMatch - proposedSlots:", proposedSlots);
-  
   // Parse proposed slots and convert to timezone
   const tenantSlots = proposedSlots.map(slot => ({
     start: toZonedTime(parseISO(slot.startAt), TIMEZONE),
@@ -120,9 +115,73 @@ export default function ContractorCalendarMatch({
     );
   };
 
-  // Check if this is a perfect match (tenant available AND contractor free)
+  // Find the valid consecutive window that contains this cell (returns start and end of window)
+  const findValidWindowForCell = (day: Date, time: Date, requiredMinutes: number): { start: Date; end: Date } | null => {
+    const cellStart = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      time.getHours(),
+      time.getMinutes()
+    );
+    
+    const hoursNeeded = Math.ceil(requiredMinutes / 60);
+    
+    // Check if this cell could be the START of a valid window
+    let canStartHere = true;
+    for (let i = 0; i < hoursNeeded; i++) {
+      const checkTime = new Date(2000, 0, 1, addMinutes(cellStart, i * 60).getHours(), 0);
+      const isAvailable = isTenantAvailable(day, checkTime) && !hasExistingJob(day, checkTime);
+      if (!isAvailable) {
+        canStartHere = false;
+        break;
+      }
+    }
+    if (canStartHere) {
+      return {
+        start: cellStart,
+        end: addMinutes(cellStart, requiredMinutes)
+      };
+    }
+    
+    // Check if this cell could be WITHIN a valid window that started earlier
+    for (let startOffset = 1; startOffset < hoursNeeded; startOffset++) {
+      const potentialStart = addMinutes(cellStart, -startOffset * 60);
+      
+      // Verify all hours from potential start through the required duration are available
+      let isValidWindow = true;
+      for (let i = 0; i < hoursNeeded; i++) {
+        const checkTime = new Date(2000, 0, 1, addMinutes(potentialStart, i * 60).getHours(), 0);
+        const isAvailable = isTenantAvailable(day, checkTime) && !hasExistingJob(day, checkTime);
+        if (!isAvailable) {
+          isValidWindow = false;
+          break;
+        }
+      }
+      
+      if (isValidWindow) {
+        return {
+          start: potentialStart,
+          end: addMinutes(potentialStart, requiredMinutes)
+        };
+      }
+    }
+    
+    return null;
+  };
+
+  // Check if this cell is part of a valid consecutive time window for the job
+  const isPartOfValidWindow = (day: Date, time: Date, requiredMinutes: number): boolean => {
+    return findValidWindowForCell(day, time, requiredMinutes) !== null;
+  };
+
+  // Check if this is a perfect match (tenant available AND contractor free AND part of valid time window)
   const isPerfectMatch = (day: Date, time: Date) => {
-    return isTenantAvailable(day, time) && !hasExistingJob(day, time);
+    const isBasicMatch = isTenantAvailable(day, time) && !hasExistingJob(day, time);
+    if (!isBasicMatch) return false;
+    
+    // Also check if this cell is part of a valid consecutive window for the job duration
+    return isPartOfValidWindow(day, time, jobDurationMinutes);
   };
 
   // Find which tenant slot this cell belongs to (for accept button)
@@ -147,16 +206,16 @@ export default function ContractorCalendarMatch({
     const hasJob = hasExistingJob(day, time);
 
     if (hasPerfectMatch) {
-      return "bg-green-100 dark:bg-green-900 border-green-400 hover:bg-green-200 dark:hover:bg-green-800 cursor-pointer";
+      return "bg-green-100 dark:bg-green-900 border-green-400 hover:bg-green-200 dark:hover:bg-green-800 cursor-pointer relative";
     } else if (hasJob && hasTenantAvail) {
       // Flexibility zone - contractor busy BUT tenant available (could reschedule for urgent work)
       return "bg-orange-100 dark:bg-orange-900 border-orange-400 relative";
     } else if (hasJob) {
       // Truly blocked - contractor busy AND tenant not available
-      return "bg-orange-100 dark:bg-orange-900 border-orange-400";
+      return "bg-orange-100 dark:bg-orange-900 border-orange-400 relative";
     }
     
-    return "bg-white dark:bg-gray-900 border-gray-200";
+    return "bg-white dark:bg-gray-900 border-gray-200 relative";
   };
 
   // Check if cell should have diagonal stripes (flexibility zone)
@@ -211,17 +270,18 @@ export default function ContractorCalendarMatch({
     // Only allow selection in perfect match areas
     if (!isPerfectMatch(day, time)) return;
     
-    const cellTime = new Date(
-      day.getFullYear(),
-      day.getMonth(),
-      day.getDate(),
-      time.getHours(),
-      time.getMinutes()
-    );
+    // Find the actual valid window that contains this clicked cell
+    const validWindow = findValidWindowForCell(day, time, jobDurationMinutes);
+    if (!validWindow) return; // Should not happen if isPerfectMatch is true, but safety check
+    
+    // Auto-snap to the ACTUAL valid window bounds
+    // This ensures clicking ANY hour in a 2-hour window selects the SAME 2-hour window
+    // dragEnd is set to the LAST cell in the selection (not the end time)
+    const endCellTime = addMinutes(validWindow.start, jobDurationMinutes - INTERVAL_MINUTES);
     
     setIsDragging(true);
-    setDragStart(cellTime);
-    setDragEnd(cellTime);
+    setDragStart(validWindow.start);
+    setDragEnd(endCellTime);
   };
 
   const handleMouseEnter = (day: Date, time: Date) => {
@@ -520,8 +580,8 @@ export default function ContractorCalendarMatch({
                     className={cn(
                       "p-1 border-r last:border-r-0 min-h-[50px] flex items-center justify-center text-xs transition-colors",
                       getCellStyle(day, time),
-                      isSelected && "bg-purple-200 dark:bg-purple-900 border-purple-500 ring-2 ring-purple-400",
-                      isDraggingOver && isMatch && "bg-purple-100 dark:bg-purple-800"
+                      isSelected && "!bg-purple-200 dark:!bg-purple-900 !border-purple-600 ring-4 ring-purple-500 ring-inset z-10",
+                      isDraggingOver && isMatch && "!bg-purple-100 dark:!bg-purple-800 ring-2 ring-purple-400 ring-inset"
                     )}
                     onMouseDown={() => handleMouseDown(day, time)}
                     onMouseEnter={() => handleMouseEnter(day, time)}
@@ -529,7 +589,7 @@ export default function ContractorCalendarMatch({
                   >
                     {hasStripes && (
                       <div 
-                        className="absolute inset-0 pointer-events-none"
+                        className="absolute inset-0 pointer-events-none z-0"
                         style={{
                           background: 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(59, 130, 246, 0.2) 6px, rgba(59, 130, 246, 0.2) 12px)'
                         }}
