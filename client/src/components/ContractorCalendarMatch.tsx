@@ -143,14 +143,22 @@ export default function ContractorCalendarMatch({
 
     if (hasPerfectMatch) {
       return "bg-green-100 dark:bg-green-900 border-green-400 hover:bg-green-200 dark:hover:bg-green-800 cursor-pointer";
+    } else if (hasJob && hasTenantAvail) {
+      // Flexibility zone - contractor busy BUT tenant available (could reschedule for urgent work)
+      return "bg-orange-100 dark:bg-orange-900 border-orange-400 relative";
     } else if (hasJob) {
-      // Booked Jobs - consolidated state for any time contractor is busy
+      // Truly blocked - contractor busy AND tenant not available
       return "bg-orange-100 dark:bg-orange-900 border-orange-400";
-    } else if (hasTenantAvail) {
-      return "bg-blue-100 dark:bg-blue-900 border-blue-300";
     }
     
     return "bg-white dark:bg-gray-900 border-gray-200";
+  };
+
+  // Check if cell should have diagonal stripes (flexibility zone)
+  const hasFlexibilityPattern = (day: Date, time: Date) => {
+    const hasTenantAvail = isTenantAvailable(day, time);
+    const hasJob = hasExistingJob(day, time);
+    return hasJob && hasTenantAvail;
   };
 
   // Check if a cell is currently selected
@@ -431,12 +439,21 @@ export default function ContractorCalendarMatch({
           <span>Your Selection</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900 border border-blue-300 rounded"></div>
-          <span>Tenant Available</span>
-        </div>
-        <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border border-orange-400 rounded"></div>
           <span>Booked Jobs</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border border-orange-400 rounded relative overflow-hidden"
+          >
+            <div 
+              className="absolute inset-0"
+              style={{
+                background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(59, 130, 246, 0.3) 3px, rgba(59, 130, 246, 0.3) 6px)'
+              }}
+            />
+          </div>
+          <span>Booked (Tenant Available - Could Reschedule)</span>
         </div>
       </div>
 
@@ -490,6 +507,7 @@ export default function ContractorCalendarMatch({
                 const isMatch = isPerfectMatch(day, time);
                 const isSelected = isSelectedCell(day, time);
                 const isDraggingOver = isDraggingOverCell(day, time);
+                const hasStripes = hasFlexibilityPattern(day, time);
                 
                 return (
                   <div
@@ -504,6 +522,14 @@ export default function ContractorCalendarMatch({
                     onMouseEnter={() => handleMouseEnter(day, time)}
                     data-testid={`cell-${dayIdx}-${timeIdx}`}
                   >
+                    {hasStripes && (
+                      <div 
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background: 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(59, 130, 246, 0.2) 6px, rgba(59, 130, 246, 0.2) 12px)'
+                        }}
+                      />
+                    )}
                   </div>
                 );
               })}
