@@ -2121,17 +2121,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const adminPolicy = policies.find(p => p.isActive);
       const involvementMode = adminPolicy?.involvementMode || 'hands-on';
       
-      // Only notify admin at case creation if hands-on or balanced (not hands-off)
-      if (involvementMode !== 'hands-off') {
+      // Notify admin at case creation if:
+      // - Involvement mode is hands-on or balanced (not hands-off), OR
+      // - Case is Urgent priority (always notify for urgent cases regardless of mode)
+      const isUrgent = smartCase.priority === 'Urgent';
+      if (involvementMode !== 'hands-off' || isUrgent) {
         await notificationService.notifyAdmins({
-          message: `Action Required - New maintenance request: ${smartCase.title}`,
+          message: isUrgent 
+            ? `🚨 URGENT - New critical maintenance request: ${smartCase.title}`
+            : `Action Required - New maintenance request: ${smartCase.title}`,
           type: 'case_created',
-          title: 'Action Required: New Maintenance Case',
-          subject: 'Action Required: New Maintenance Case Created',
+          title: isUrgent ? '🚨 Urgent Maintenance Case' : 'Action Required: New Maintenance Case',
+          subject: isUrgent ? 'URGENT: Critical Maintenance Case Created' : 'Action Required: New Maintenance Case Created',
           caseId: smartCase.id,
           caseNumber: smartCase.id,
           priority: smartCase.priority || 'Medium'
         }, org.id);
+        console.log(`✅ Notified admins of new ${isUrgent ? 'URGENT' : ''} case ${smartCase.id} (involvement_mode: ${involvementMode})`);
+      } else {
+        console.log(`⏭️ Skipped admin notification for case ${smartCase.id} (involvement_mode: ${involvementMode}, priority: ${smartCase.priority})`);
       }
 
       // If creator has user account (tenant), notify them their request was received
@@ -2149,7 +2157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Trigger AI triage and contractor assignment in the background
       (async () => {
         try {
-          console.log(`🤖 Starting AI triage for case ${smartCase.id}...`);
+          console.log(`🤖 Starting AI triage for case ${smartCase.id} (priority: ${smartCase.priority})...`);
           
           // Step 1: AI Triage Analysis
           const { aiTriageService } = await import('./aiTriage');
@@ -2245,6 +2253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Step 4: Notify contractor
+            console.log(`📧 Notifying contractor ${bestContractor.contractorId} of new case assignment...`);
             const { notificationService } = await import('./notificationService');
             await notificationService.notifyContractor({
               message: `New ${triageResult.urgency} priority maintenance request assigned to you: ${smartCase.title}`,
@@ -2254,6 +2263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               orgId: smartCase.orgId
             }, bestContractor.contractorId, smartCase.orgId);
             
+            console.log(`✅ Contractor ${bestContractor.contractorId} notified of case ${smartCase.id} assignment`);
             console.log(`✅ Case ${smartCase.id} fully processed and assigned`);
           } else {
             console.log(`⚠️ No contractors available for case ${smartCase.id}`);
@@ -2295,7 +2305,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         } catch (error) {
-          console.error('Error in AI triage pipeline:', error);
+          console.error(`❌ Error in AI triage pipeline for case ${smartCase.id}:`, error);
+          
+          // If AI triage fails and case is urgent, notify admin immediately
+          if (smartCase.priority === 'Urgent') {
+            try {
+              const { notificationService } = await import('./notificationService');
+              await notificationService.notifyAdmins({
+                message: `⚠️ AI triage failed for URGENT case "${smartCase.title}". Manual contractor assignment required.`,
+                type: 'case_created',
+                title: '⚠️ Urgent Case Needs Manual Assignment',
+                subject: 'URGENT: AI Triage Failed - Manual Action Required',
+                caseId: smartCase.id,
+                priority: 'Urgent'
+              }, org.id);
+              console.log(`✅ Sent fallback notification to admins about failed triage for urgent case ${smartCase.id}`);
+            } catch (notifError) {
+              console.error(`❌ Failed to send fallback notification:`, notifError);
+            }
+          }
           // Don't fail the request - case is still created
         }
       })();
