@@ -67,8 +67,32 @@ export default function ContractorCalendarMatch({
   const [dragEnd, setDragEnd] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
   
-  // Generate week days (Monday to Friday if hideWeekends is true, otherwise Monday to Sunday)
-  const weekDays = Array.from({ length: hideWeekends ? 5 : 7 }, (_, i) => addDays(currentWeekStart, i));
+  // Generate days based on view mode
+  const weekDays = (() => {
+    if (viewMode === 'day') {
+      return [currentWeekStart]; // Show only single day
+    } else if (viewMode === 'month') {
+      // Show 4 weeks worth of days
+      if (hideWeekends) {
+        // Generate enough days to get 20 weekdays (approximately 4 weeks)
+        const days = [];
+        let currentDay = currentWeekStart;
+        while (days.length < 20) {
+          if (currentDay.getDay() !== 0 && currentDay.getDay() !== 6) {
+            days.push(currentDay);
+          }
+          currentDay = addDays(currentDay, 1);
+        }
+        return days;
+      } else {
+        // Show 28 days (4 weeks) including weekends
+        return Array.from({ length: 28 }, (_, i) => addDays(currentWeekStart, i));
+      }
+    } else {
+      // Week view: Monday to Friday if hideWeekends is true, otherwise Monday to Sunday
+      return Array.from({ length: hideWeekends ? 5 : 7 }, (_, i) => addDays(currentWeekStart, i));
+    }
+  })();
   
   // Generate time slots
   const generateTimeSlots = () => {
@@ -253,9 +277,9 @@ export default function ContractorCalendarMatch({
     const hasTenantAvail = isTenantAvailable(day, time);
     const hasJob = hasExistingJob(day, time);
 
-    // Initial proposal - shown in light blue on calendar
+    // Initial proposal - shown in pastel red on calendar
     if (isInitial) {
-      return "bg-blue-100 dark:bg-blue-900 border-blue-400 relative";
+      return "bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 relative";
     }
     
     // Perfect match - green
@@ -268,14 +292,14 @@ export default function ContractorCalendarMatch({
       return "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900 relative opacity-60";
     }
     
-    // Booked job with tenant available - purple border with orange fill
+    // Booked job with tenant available - pastel purple border (thinner) with orange fill
     if (hasJob && (hasTenantAvail || isInitial)) {
-      return "bg-orange-100 dark:bg-orange-900 border-4 border-purple-500 dark:border-purple-400 relative";
+      return "bg-orange-100 dark:bg-orange-900 border-2 border-purple-300 dark:border-purple-400 relative";
     }
     
-    // Booked job with tenant NOT available - purple fill
+    // Booked job with tenant NOT available - pastel purple fill
     if (hasJob) {
-      return "bg-purple-500 dark:bg-purple-600 border-purple-500 dark:border-purple-600 relative";
+      return "bg-purple-200 dark:bg-purple-800 border-purple-300 dark:border-purple-700 relative";
     }
     
     return "bg-white dark:bg-gray-900 border-gray-200 relative";
@@ -429,6 +453,178 @@ export default function ContractorCalendarMatch({
         </CardContent>
       </Card>
 
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-green-100 dark:bg-green-900 border border-green-400 rounded"></div>
+          <span>Perfect Match</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-green-50 dark:bg-green-950 border border-green-300 dark:border-green-700 rounded opacity-60"></div>
+          <span>Partial Match</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded"></div>
+          <span>Initial Proposal (Declined)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-blue-200 dark:bg-blue-900 border-2 border-blue-500 rounded"></div>
+          <span>Your New Selection</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-purple-200 dark:bg-purple-800 border border-purple-300 dark:border-purple-700 rounded"></div>
+          <span>Booked (Tenant Not Available)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border-2 border-purple-300 dark:border-purple-400 rounded"></div>
+          <span>Booked (Tenant Available)</span>
+        </div>
+      </div>
+
+      {/* View Controls and Navigation */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const increment = viewMode === 'day' ? -1 : viewMode === 'month' ? -30 : -7;
+              setCurrentWeekStart(addDays(currentWeekStart, increment));
+            }}
+            data-testid="button-prev-period"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const today = new Date();
+              if (viewMode === 'day') {
+                setCurrentWeekStart(today);
+              } else {
+                setCurrentWeekStart(startOfWeek(today, { weekStartsOn: 1 }));
+              }
+            }}
+            data-testid="button-today"
+          >
+            Today
+          </Button>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={viewMode === 'day' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('day')}
+              data-testid="button-view-day"
+            >
+              Day
+            </Button>
+            <Button
+              variant={viewMode === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('week')}
+              data-testid="button-view-week"
+            >
+              Week
+            </Button>
+            <Button
+              variant={viewMode === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('month')}
+              data-testid="button-view-month"
+            >
+              Month
+            </Button>
+          </div>
+          
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hideWeekends}
+              onChange={(e) => setHideWeekends(e.target.checked)}
+              className="rounded"
+              data-testid="checkbox-hide-weekends"
+            />
+            <span>Hide Weekends</span>
+          </label>
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const increment = viewMode === 'day' ? 1 : viewMode === 'month' ? 30 : 7;
+            setCurrentWeekStart(addDays(currentWeekStart, increment));
+          }}
+          data-testid="button-next-period"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="border rounded-lg overflow-hidden">
+        <div 
+          className="grid border-b bg-muted"
+          style={{ gridTemplateColumns: `auto repeat(${weekDays.length}, minmax(0, 1fr))` }}
+        >
+          <div className="p-2 text-xs font-medium border-r">Time</div>
+          {weekDays.map((day, i) => (
+            <div key={i} className="p-2 text-xs font-medium text-center">
+              <div>{format(day, 'EEE')}</div>
+              <div className="text-muted-foreground">{format(day, 'M/d')}</div>
+            </div>
+          ))}
+        </div>
+        <div 
+          className="max-h-[600px] overflow-y-auto select-none"
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          {timeSlots.map((time, timeIdx) => (
+            <div 
+              key={timeIdx}
+              className="grid border-b last:border-b-0"
+              style={{ gridTemplateColumns: `auto repeat(${weekDays.length}, minmax(0, 1fr))` }}
+            >
+              <div className="p-2 text-xs border-r bg-muted flex items-center justify-center">
+                {format(time, 'h a')}
+              </div>
+              {weekDays.map((day, dayIdx) => {
+                const isMatch = isPerfectMatch(day, time);
+                const isSelected = isSelectedCell(day, time);
+                const isDraggingOver = isDraggingOverCell(day, time);
+                const isInitial = isInitialProposal(day, time);
+                
+                return (
+                  <div
+                    key={dayIdx}
+                    className={cn(
+                      "p-1 border-r last:border-r-0 min-h-[50px] flex items-center justify-center text-xs transition-colors",
+                      getCellStyle(day, time),
+                      isSelected && "!bg-blue-200 dark:!bg-blue-900 !border-blue-600 ring-4 ring-blue-500 ring-inset z-10",
+                      isDraggingOver && isMatch && "!bg-blue-100 dark:!bg-blue-800 ring-2 ring-blue-400 ring-inset"
+                    )}
+                    onMouseDown={() => handleMouseDown(day, time)}
+                    onMouseEnter={() => handleMouseEnter(day, time)}
+                    data-testid={`cell-${dayIdx}-${timeIdx}`}
+                  >
+                    {isInitial && (
+                      <div 
+                        className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Selected Time Slot */}
       {selectedSlot && (() => {
         const selectedDurationMinutes = Math.round((selectedSlot.end.getTime() - selectedSlot.start.getTime()) / (1000 * 60));
@@ -487,167 +683,6 @@ export default function ContractorCalendarMatch({
         </Card>
         );
       })()}
-
-      {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-100 dark:bg-green-900 border border-green-400 rounded"></div>
-          <span>Perfect Match</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-50 dark:bg-green-950 border border-green-300 dark:border-green-700 rounded opacity-60"></div>
-          <span>Partial Match</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900 border border-blue-400 rounded"></div>
-          <span>Initial Proposal (Declined)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-200 dark:bg-blue-900 border-2 border-blue-500 rounded"></div>
-          <span>Your New Selection</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-purple-500 dark:bg-purple-600 border border-purple-500 rounded"></div>
-          <span>Booked (Tenant Not Available)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border-4 border-purple-500 rounded"></div>
-          <span>Booked (Tenant Available)</span>
-        </div>
-      </div>
-
-      {/* View Controls and Navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, viewMode === 'week' ? -7 : -1))}
-            data-testid="button-prev-period"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const today = new Date();
-              setCurrentWeekStart(startOfWeek(today, { weekStartsOn: 1 }));
-            }}
-            data-testid="button-today"
-          >
-            Today
-          </Button>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            <Button
-              variant={viewMode === 'day' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('day')}
-              data-testid="button-view-day"
-            >
-              Day
-            </Button>
-            <Button
-              variant={viewMode === 'week' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('week')}
-              data-testid="button-view-week"
-            >
-              Week
-            </Button>
-            <Button
-              variant={viewMode === 'month' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('month')}
-              data-testid="button-view-month"
-            >
-              Month
-            </Button>
-          </div>
-          
-          <label className="flex items-center gap-2 text-sm cursor-pointer">
-            <input
-              type="checkbox"
-              checked={hideWeekends}
-              onChange={(e) => setHideWeekends(e.target.checked)}
-              className="rounded"
-              data-testid="checkbox-hide-weekends"
-            />
-            <span>Hide Weekends</span>
-          </label>
-        </div>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, viewMode === 'week' ? 7 : 1))}
-          data-testid="button-next-period"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="border rounded-lg overflow-hidden">
-        <div className={cn(
-          "grid border-b bg-muted",
-          hideWeekends ? "grid-cols-6" : "grid-cols-8"
-        )}>
-          <div className="p-2 text-xs font-medium border-r">Time</div>
-          {weekDays.map((day, i) => (
-            <div key={i} className="p-2 text-xs font-medium text-center">
-              <div>{format(day, 'EEE')}</div>
-              <div className="text-muted-foreground">{format(day, 'M/d')}</div>
-            </div>
-          ))}
-        </div>
-        <div 
-          className="max-h-[600px] overflow-y-auto select-none"
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
-          {timeSlots.map((time, timeIdx) => (
-            <div key={timeIdx} className={cn(
-              "grid border-b last:border-b-0",
-              hideWeekends ? "grid-cols-6" : "grid-cols-8"
-            )}>
-              <div className="p-2 text-xs border-r bg-muted flex items-center justify-center">
-                {format(time, 'h a')}
-              </div>
-              {weekDays.map((day, dayIdx) => {
-                const isMatch = isPerfectMatch(day, time);
-                const isSelected = isSelectedCell(day, time);
-                const isDraggingOver = isDraggingOverCell(day, time);
-                const isInitial = isInitialProposal(day, time);
-                
-                return (
-                  <div
-                    key={dayIdx}
-                    className={cn(
-                      "p-1 border-r last:border-r-0 min-h-[50px] flex items-center justify-center text-xs transition-colors",
-                      getCellStyle(day, time),
-                      isSelected && "!bg-blue-200 dark:!bg-blue-900 !border-blue-600 ring-4 ring-blue-500 ring-inset z-10",
-                      isDraggingOver && isMatch && "!bg-blue-100 dark:!bg-blue-800 ring-2 ring-blue-400 ring-inset"
-                    )}
-                    onMouseDown={() => handleMouseDown(day, time)}
-                    onMouseEnter={() => handleMouseEnter(day, time)}
-                    data-testid={`cell-${dayIdx}-${timeIdx}`}
-                  >
-                    {isInitial && (
-                      <div 
-                        className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
 
     </div>
   );
