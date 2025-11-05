@@ -2212,7 +2212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               : `${triageResult.category}: ${smartCase.title}`;
             
             await storage.updateSmartCase(smartCase.id, {
-              assignedTo: bestContractor.contractorId,
+              assignedContractorId: bestContractor.contractorId,
               aiTriageResult: triageResult,
               priority: triageResult.urgency,
               category: triageResult.category,
@@ -5800,8 +5800,8 @@ Consider:
       let contractor = contractors.find((c: any) => c.userId === userId);
       
       // If no contractor found by userId (role simulation mode), use the assigned contractor
-      if (!contractor && smartCase.assignedTo) {
-        contractor = contractors.find((c: any) => c.id === smartCase.assignedTo);
+      if (!contractor && smartCase.assignedContractorId) {
+        contractor = contractors.find((c: any) => c.id === smartCase.assignedContractorId);
         if (!contractor) {
           return res.status(404).json({ message: "Assigned contractor not found" });
         }
@@ -7269,7 +7269,7 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           const { notificationService } = await import('./notificationService');
           
           // Get contractor ID from job or from assigned case
-          const contractorId = updatedJob.contractorId || smartCase?.assignedTo;
+          const contractorId = updatedJob.contractorId || smartCase?.assignedContractorId;
           
           // Notify contractor if there is one
           if (contractorId) {
@@ -7352,7 +7352,7 @@ If you cannot identify the equipment with confidence, return an empty object {}.
           const { notificationService } = await import('./notificationService');
           
           // Get contractor ID from job or from assigned case
-          const contractorId = updatedJob.contractorId || smartCase?.assignedTo;
+          const contractorId = updatedJob.contractorId || smartCase?.assignedContractorId;
           
           // Notify contractor if there is one
           if (contractorId) {
