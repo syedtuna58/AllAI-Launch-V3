@@ -33,6 +33,11 @@ export default function ContractorCalendarMatch({
   onReject,
   isPending,
 }: ContractorCalendarMatchProps) {
+  // Debug logging
+  console.log("📅 ContractorCalendarMatch - scheduledJobs received:", scheduledJobs);
+  console.log("📅 ContractorCalendarMatch - currentJobId:", currentJobId);
+  console.log("📅 ContractorCalendarMatch - proposedSlots:", proposedSlots);
+  
   // Parse proposed slots and convert to timezone
   const tenantSlots = proposedSlots.map(slot => ({
     start: toZonedTime(parseISO(slot.startAt), TIMEZONE),

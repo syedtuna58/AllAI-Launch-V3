@@ -1685,29 +1685,43 @@ export default function ContractorSchedulePage() {
                   Compare the tenant's proposed times with your schedule and choose the best option
                 </DialogDescription>
               </DialogHeader>
-              {reviewingCounterProposal && counterProposalsForJob.length > 0 && (
-                <ContractorCalendarMatch
-                  counterProposalId={counterProposalsForJob[0].id}
-                  currentJobId={reviewingCounterProposal.job.id}
-                  proposedSlots={counterProposalsForJob[0].availabilitySlots || []}
-                  scheduledJobs={smartCases?.flatMap((c: any) => c.scheduledJobs || []) || []}
-                  jobDurationMinutes={reviewingCounterProposal.job.scheduledStartAt && reviewingCounterProposal.job.scheduledEndAt 
-                    ? Math.round((new Date(reviewingCounterProposal.job.scheduledEndAt).getTime() - new Date(reviewingCounterProposal.job.scheduledStartAt).getTime()) / (1000 * 60))
-                    : 120}
-                  onAccept={(selectedSlotIndex: number, selectedStart?: string, selectedEnd?: string) => {
-                    acceptCounterProposalMutation.mutate({
-                      proposalId: counterProposalsForJob[0].id,
-                      selectedSlotIndex,
-                      selectedStart,
-                      selectedEnd
-                    });
-                  }}
-                  onReject={() => {
-                    rejectCounterProposalMutation.mutate(counterProposalsForJob[0].id);
-                  }}
-                  isPending={acceptCounterProposalMutation.isPending || rejectCounterProposalMutation.isPending}
-                />
-              )}
+              {reviewingCounterProposal && counterProposalsForJob.length > 0 && (() => {
+                // Get current contractor's ID
+                const contractorUserId = user?.id;
+                // Filter jobs for current contractor
+                const contractorJobs = jobs.filter((job: any) => {
+                  // Check if job has contractor assignment
+                  if (job.contractorId) {
+                    // Find the contractor vendor record to match user ID
+                    return job.contractorId;  // For now, include all contractor jobs
+                  }
+                  return false;
+                });
+
+                return (
+                  <ContractorCalendarMatch
+                    counterProposalId={counterProposalsForJob[0].id}
+                    currentJobId={reviewingCounterProposal.job.id}
+                    proposedSlots={counterProposalsForJob[0].availabilitySlots || []}
+                    scheduledJobs={contractorJobs}
+                    jobDurationMinutes={reviewingCounterProposal.job.scheduledStartAt && reviewingCounterProposal.job.scheduledEndAt 
+                      ? Math.round((new Date(reviewingCounterProposal.job.scheduledEndAt).getTime() - new Date(reviewingCounterProposal.job.scheduledStartAt).getTime()) / (1000 * 60))
+                      : 120}
+                    onAccept={(selectedSlotIndex: number, selectedStart?: string, selectedEnd?: string) => {
+                      acceptCounterProposalMutation.mutate({
+                        proposalId: counterProposalsForJob[0].id,
+                        selectedSlotIndex,
+                        selectedStart,
+                        selectedEnd
+                      });
+                    }}
+                    onReject={() => {
+                      rejectCounterProposalMutation.mutate(counterProposalsForJob[0].id);
+                    }}
+                    isPending={acceptCounterProposalMutation.isPending || rejectCounterProposalMutation.isPending}
+                  />
+                );
+              })()}
             </DialogContent>
           </Dialog>
 
