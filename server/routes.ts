@@ -2219,10 +2219,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ? smartCase.title 
               : `${triageResult.category}: ${smartCase.title}`;
             
+            // Normalize priority: map AI values to database enum (Low, Medium, High, Urgent)
+            const priorityMap: Record<string, string> = {
+              'Low': 'Low',
+              'Medium': 'Medium',
+              'High': 'High',
+              'Urgent': 'Urgent',
+              'Critical': 'Urgent',  // AI sometimes returns "Critical" - map to Urgent
+              'Emergent': 'Urgent'   // Map emergent to urgent as well
+            };
+            const normalizedPriority = priorityMap[triageResult.urgency] || 'Medium';
+            
             await storage.updateSmartCase(smartCase.id, {
               assignedContractorId: bestContractor.contractorId,
               aiTriageResult: triageResult,
-              priority: triageResult.urgency,
+              priority: normalizedPriority,
               category: triageResult.category,
               title: updatedTitle
             });
@@ -2232,11 +2243,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const jobs = await storage.getScheduledJobs(org.id, { caseId: smartCase.id });
               if (jobs.length > 0) {
                 const linkedJob = jobs[0];
+                // Map case priority to job urgency (Low/High/Emergent)
                 const urgencyMap: Record<string, string> = {
                   'Low': 'Low',
                   'Medium': 'Low',
                   'High': 'High',
-                  'Urgent': 'Emergent'
+                  'Urgent': 'Emergent',
+                  'Critical': 'Emergent',  // AI may return Critical
+                  'Emergent': 'Emergent'
                 };
                 
                 await storage.updateScheduledJob(linkedJob.id, {
@@ -2272,10 +2286,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ? smartCase.title 
               : `${triageResult.category}: ${smartCase.title}`;
             
+            // Normalize priority: map AI values to database enum (Low, Medium, High, Urgent)
+            const priorityMap: Record<string, string> = {
+              'Low': 'Low',
+              'Medium': 'Medium',
+              'High': 'High',
+              'Urgent': 'Urgent',
+              'Critical': 'Urgent',  // AI sometimes returns "Critical" - map to Urgent
+              'Emergent': 'Urgent'   // Map emergent to urgent as well
+            };
+            const normalizedPriority = priorityMap[triageResult.urgency] || 'Medium';
+            
             await storage.updateSmartCase(smartCase.id, {
               aiTriageResult: triageResult,
               status: 'In Review',
-              priority: triageResult.urgency,
+              priority: normalizedPriority,
               category: triageResult.category,
               title: updatedTitle
             });
@@ -2285,11 +2310,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const jobs = await storage.getScheduledJobs(org.id, { caseId: smartCase.id });
               if (jobs.length > 0) {
                 const linkedJob = jobs[0];
+                // Map case priority to job urgency (Low/High/Emergent)
                 const urgencyMap: Record<string, string> = {
                   'Low': 'Low',
                   'Medium': 'Low',
                   'High': 'High',
-                  'Urgent': 'Emergent'
+                  'Urgent': 'Emergent',
+                  'Critical': 'Emergent',  // AI may return Critical
+                  'Emergent': 'Emergent'
                 };
                 
                 await storage.updateScheduledJob(linkedJob.id, {
