@@ -7264,12 +7264,14 @@ If you cannot identify the equipment with confidence, return an empty object {}.
       
       // Notify contractor and admin that tenant approved
       if (updatedJob.caseId) {
+        console.log(`📧 Starting notification process for approved job ${updatedJob.id}`);
         try {
           const smartCase = await storage.getSmartCase(updatedJob.caseId);
           const { notificationService } = await import('./notificationService');
           
           // Get contractor ID from job or from assigned case
           const contractorId = updatedJob.contractorId || smartCase?.assignedContractorId;
+          console.log(`📧 Contractor lookup: job.contractorId=${updatedJob.contractorId}, case.assignedContractorId=${smartCase?.assignedContractorId}, final=${contractorId}`);
           
           // Notify contractor if there is one
           if (contractorId) {
@@ -7282,12 +7284,15 @@ If you cannot identify the equipment with confidence, return an empty object {}.
               orgId: updatedJob.orgId
             }, contractorId, updatedJob.orgId);
             console.log(`✅ Notified contractor ${contractorId} of approval for job ${updatedJob.id}`);
+          } else {
+            console.log(`⚠️ No contractor assigned - skipping contractor notification for job ${updatedJob.id}`);
           }
           
           // Get approval policy to check involvement mode
           const policies = await storage.getApprovalPolicies(updatedJob.orgId);
           const adminPolicy = policies.find(p => p.isActive);
           const involvementMode = adminPolicy?.involvementMode || 'hands-on';
+          console.log(`📧 Admin notification check: involvementMode=${involvementMode}, policyCount=${policies.length}, activePolicy=${!!adminPolicy}`);
           
           // Notify admin based on involvement mode (all modes should be notified of approvals)
           if (involvementMode !== 'hands-off') {
@@ -7300,10 +7305,14 @@ If you cannot identify the equipment with confidence, return an empty object {}.
               orgId: updatedJob.orgId
             }, updatedJob.orgId);
             console.log(`✅ Notified admins of approval for job ${updatedJob.id} (${involvementMode} mode)`);
+          } else {
+            console.log(`⚠️ Skipping admin notification (hands-off mode) for job ${updatedJob.id}`);
           }
         } catch (error) {
-          console.error('Error sending notifications:', error);
+          console.error('❌ Error sending approval notifications:', error);
         }
+      } else {
+        console.log(`⚠️ No caseId for job ${updatedJob.id} - skipping notifications`);
       }
       
       res.json(updatedJob);
