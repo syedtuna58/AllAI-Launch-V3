@@ -43,13 +43,23 @@ export default function ContractorCalendarMatch({
     end: toZonedTime(parseISO(slot.endAt), TIMEZONE),
   }));
   
-  // Start from the earliest proposed slot's week
+  // Parse initial proposal times
+  const initialProposal = initialProposedStart && initialProposedEnd ? {
+    start: toZonedTime(parseISO(initialProposedStart), TIMEZONE),
+    end: toZonedTime(parseISO(initialProposedEnd), TIMEZONE),
+  } : null;
+
+  // Start from the earliest proposed slot's week (Monday start)
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     if (tenantSlots.length > 0) {
-      return startOfWeek(tenantSlots[0].start, { weekStartsOn: 0 });
+      return startOfWeek(tenantSlots[0].start, { weekStartsOn: 1 }); // 1 = Monday
     }
-    return startOfWeek(new Date(), { weekStartsOn: 0 });
+    return startOfWeek(new Date(), { weekStartsOn: 1 });
   });
+  
+  // View mode state
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+  const [hideWeekends, setHideWeekends] = useState(true);
   
   // Selection state for contractor to pick a time block
   const [isDragging, setIsDragging] = useState(false);
@@ -57,8 +67,8 @@ export default function ContractorCalendarMatch({
   const [dragEnd, setDragEnd] = useState<Date | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
   
-  // Generate week days
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  // Generate week days (Monday to Friday if hideWeekends is true, otherwise Monday to Sunday)
+  const weekDays = Array.from({ length: hideWeekends ? 5 : 7 }, (_, i) => addDays(currentWeekStart, i));
   
   // Generate time slots
   const generateTimeSlots = () => {
@@ -99,8 +109,31 @@ export default function ContractorCalendarMatch({
     });
   };
 
-  // Check if tenant is available during this cell time
+  // Check if this cell is the initial proposal (which should be blocked/unavailable)
+  const isInitialProposal = (day: Date, time: Date) => {
+    if (!initialProposal) return false;
+    
+    const cellStart = new Date(
+      day.getFullYear(),
+      day.getMonth(),
+      day.getDate(),
+      time.getHours(),
+      time.getMinutes()
+    );
+    const cellEnd = addMinutes(cellStart, INTERVAL_MINUTES);
+    
+    return areIntervalsOverlapping(
+      { start: initialProposal.start, end: initialProposal.end },
+      { start: cellStart, end: cellEnd },
+      { inclusive: true }
+    );
+  };
+
+  // Check if tenant is available during this cell time (excluding initial proposal)
   const isTenantAvailable = (day: Date, time: Date) => {
+    // If this is the initial proposal time, it's NOT available
+    if (isInitialProposal(day, time)) return false;
+    
     const cellStart = new Date(
       day.getFullYear(),
       day.getMonth(),
@@ -214,32 +247,38 @@ export default function ContractorCalendarMatch({
 
   // Get cell styling based on availability
   const getCellStyle = (day: Date, time: Date) => {
+    const isInitial = isInitialProposal(day, time);
     const hasPerfectMatch = isPerfectMatch(day, time);
     const hasPartialMatch = isPartialMatch(day, time);
     const hasTenantAvail = isTenantAvailable(day, time);
     const hasJob = hasExistingJob(day, time);
 
+    // Initial proposal - shown in light blue on calendar
+    if (isInitial) {
+      return "bg-blue-100 dark:bg-blue-900 border-blue-400 relative";
+    }
+    
+    // Perfect match - green
     if (hasPerfectMatch) {
       return "bg-green-100 dark:bg-green-900 border-green-400 hover:bg-green-200 dark:hover:bg-green-800 cursor-pointer relative";
-    } else if (hasPartialMatch) {
-      // Partial match - both available but not enough consecutive hours
+    }
+    
+    // Partial match - faded green
+    if (hasPartialMatch) {
       return "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900 relative opacity-60";
-    } else if (hasJob && hasTenantAvail) {
-      // Flexibility zone - contractor busy BUT tenant available (could reschedule for urgent work)
-      return "bg-orange-100 dark:bg-orange-900 border-orange-400 relative";
-    } else if (hasJob) {
-      // Truly blocked - contractor busy AND tenant not available
-      return "bg-orange-100 dark:bg-orange-900 border-orange-400 relative";
+    }
+    
+    // Booked job with tenant available - purple border with orange fill
+    if (hasJob && (hasTenantAvail || isInitial)) {
+      return "bg-orange-100 dark:bg-orange-900 border-4 border-purple-500 dark:border-purple-400 relative";
+    }
+    
+    // Booked job with tenant NOT available - purple fill
+    if (hasJob) {
+      return "bg-purple-500 dark:bg-purple-600 border-purple-500 dark:border-purple-600 relative";
     }
     
     return "bg-white dark:bg-gray-900 border-gray-200 relative";
-  };
-
-  // Check if cell should have diagonal stripes (flexibility zone)
-  const hasFlexibilityPattern = (day: Date, time: Date) => {
-    const hasTenantAvail = isTenantAvailable(day, time);
-    const hasJob = hasExistingJob(day, time);
-    return hasJob && hasTenantAvail;
   };
 
   // Check if a cell is currently selected
@@ -350,28 +389,6 @@ export default function ContractorCalendarMatch({
     onAccept(slotIndex, selectedSlot.start.toISOString(), selectedSlot.end.toISOString());
   };
 
-  // Rank slots by best match
-  const rankedSlots = tenantSlots.map((slot, index) => {
-    const slotStart = slot.start;
-    const slotEnd = slot.end;
-    
-    // Count how many hour blocks are perfect matches (tenant available AND contractor free)
-    let perfectMatchHours = 0;
-    let current = new Date(slotStart);
-    
-    while (current < slotEnd) {
-      // Create a time reference for the hour check
-      const timeRef = new Date(2000, 0, 1, current.getHours(), current.getMinutes());
-      
-      // Check if contractor is free during this hour
-      if (!hasExistingJob(current, timeRef)) {
-        perfectMatchHours++;
-      }
-      current = addMinutes(current, 60);
-    }
-    
-    return { index, slot, perfectMatchHours };
-  }).sort((a, b) => b.perfectMatchHours - a.perfectMatchHours);
 
   return (
     <div className="space-y-4">
@@ -395,64 +412,6 @@ export default function ContractorCalendarMatch({
         </Button>
       </div>
 
-      {/* Top Matches */}
-      {rankedSlots.length > 0 && rankedSlots[0].perfectMatchHours > 0 && (
-        <Card className="border-green-300 bg-green-50 dark:bg-green-950">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Check className="h-5 w-5 text-green-600" />
-              Best Match{rankedSlots.filter(s => s.perfectMatchHours > 0).length > 1 ? 'es' : ''}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {rankedSlots.filter(s => s.perfectMatchHours > 0).slice(0, 3).map(({ index, slot, perfectMatchHours }) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 rounded-lg">
-                <div>
-                  <div className="font-medium">
-                    {formatInTimeZone(slot.start, TIMEZONE, "EEE, MMM d")} at {formatInTimeZone(slot.start, TIMEZONE, "h:mm a")} - {formatInTimeZone(slot.end, TIMEZONE, "h:mm a")}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {perfectMatchHours === Math.ceil((slot.end.getTime() - slot.start.getTime()) / (1000 * 60 * 60)) 
-                      ? "✓ Completely free" 
-                      : `${perfectMatchHours}h available`}
-                  </div>
-                </div>
-                <Button
-                  onClick={() => onAccept(index)}
-                  disabled={isPending}
-                  data-testid={`button-accept-slot-${index}`}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Check className="h-4 w-4 mr-1" />
-                  Accept This Time
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Initial Proposal Info */}
-      {initialProposedStart && initialProposedEnd && (
-        <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Info className="h-5 w-5 text-blue-600" />
-              Initial Proposal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm">
-              <div className="font-medium">
-                {formatInTimeZone(toZonedTime(parseISO(initialProposedStart), TIMEZONE), TIMEZONE, "EEE, MMM d 'at' h:mm a")} - {formatInTimeZone(toZonedTime(parseISO(initialProposedEnd), TIMEZONE), TIMEZONE, "h:mm a")}
-              </div>
-              <div className="text-muted-foreground mt-1">
-                Tenant requested a different time. Select a new time from the green areas below.
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Job Duration Info */}
       <Card className="bg-slate-50 dark:bg-slate-950 border-slate-200">
@@ -477,17 +436,17 @@ export default function ContractorCalendarMatch({
         
         return (
           <Card className={cn(
-            "border-purple-300 bg-purple-50 dark:bg-purple-950",
+            "border-blue-300 bg-blue-50 dark:bg-blue-950",
             !durationMatch && "border-amber-300 bg-amber-50 dark:bg-amber-950"
           )}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 {durationMatch ? (
-                  <Check className="h-5 w-5 text-purple-600" />
+                  <Check className="h-5 w-5 text-blue-600" />
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-amber-600" />
                 )}
-                Selected Time
+                Your New Selection
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -517,7 +476,7 @@ export default function ContractorCalendarMatch({
                   onClick={handleAcceptSelected}
                   disabled={isPending}
                   data-testid="button-accept-selected"
-                  className="bg-purple-600 hover:bg-purple-700"
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Check className="h-4 w-4 mr-1" />
                   Accept This Time
@@ -533,63 +492,110 @@ export default function ContractorCalendarMatch({
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-100 dark:bg-green-900 border border-green-400 rounded"></div>
-          <span>Perfect Match (Both Available)</span>
+          <span>Perfect Match</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-50 dark:bg-green-950 border border-green-300 dark:border-green-700 rounded opacity-60"></div>
-          <span>Partial Match (Available, Not Enough Time)</span>
+          <span>Partial Match</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-purple-200 dark:bg-purple-900 border border-purple-500 rounded"></div>
+          <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900 border border-blue-400 rounded"></div>
+          <span>Initial Proposal (Declined)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-blue-200 dark:bg-blue-900 border-2 border-blue-500 rounded"></div>
           <span>Your New Selection</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border border-orange-400 rounded"></div>
-          <span>Booked Jobs</span>
+          <div className="w-4 h-4 bg-purple-500 dark:bg-purple-600 border border-purple-500 rounded"></div>
+          <span>Booked (Tenant Not Available)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div 
-            className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border border-orange-400 rounded relative overflow-hidden"
-          >
-            <div 
-              className="absolute inset-0"
-              style={{
-                background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(59, 130, 246, 0.3) 3px, rgba(59, 130, 246, 0.3) 6px)'
-              }}
-            />
-          </div>
-          <span>Booked (Tenant Available - Could Reschedule)</span>
+          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border-4 border-purple-500 rounded"></div>
+          <span>Booked (Tenant Available)</span>
         </div>
       </div>
 
-      {/* Week Navigation */}
+      {/* View Controls and Navigation */}
       <div className="flex items-center justify-between">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, viewMode === 'week' ? -7 : -1))}
+            data-testid="button-prev-period"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const today = new Date();
+              setCurrentWeekStart(startOfWeek(today, { weekStartsOn: 1 }));
+            }}
+            data-testid="button-today"
+          >
+            Today
+          </Button>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            <Button
+              variant={viewMode === 'day' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('day')}
+              data-testid="button-view-day"
+            >
+              Day
+            </Button>
+            <Button
+              variant={viewMode === 'week' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('week')}
+              data-testid="button-view-week"
+            >
+              Week
+            </Button>
+            <Button
+              variant={viewMode === 'month' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('month')}
+              data-testid="button-view-month"
+            >
+              Month
+            </Button>
+          </div>
+          
+          <label className="flex items-center gap-2 text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hideWeekends}
+              onChange={(e) => setHideWeekends(e.target.checked)}
+              className="rounded"
+              data-testid="checkbox-hide-weekends"
+            />
+            <span>Hide Weekends</span>
+          </label>
+        </div>
+        
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -7))}
-          data-testid="button-prev-week"
+          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, viewMode === 'week' ? 7 : 1))}
+          data-testid="button-next-period"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Previous Week
-        </Button>
-        <span className="text-sm font-medium">
-          {formatInTimeZone(currentWeekStart, TIMEZONE, 'MMM d')} - {formatInTimeZone(addDays(currentWeekStart, 6), TIMEZONE, 'MMM d, yyyy')}
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 7))}
-          data-testid="button-next-week"
-        >
-          Next Week
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Calendar Grid */}
       <div className="border rounded-lg overflow-hidden">
-        <div className="grid grid-cols-8 border-b bg-muted">
+        <div className={cn(
+          "grid border-b bg-muted",
+          hideWeekends ? "grid-cols-6" : "grid-cols-8"
+        )}>
           <div className="p-2 text-xs font-medium border-r">Time</div>
           {weekDays.map((day, i) => (
             <div key={i} className="p-2 text-xs font-medium text-center">
@@ -604,7 +610,10 @@ export default function ContractorCalendarMatch({
           onMouseLeave={handleMouseUp}
         >
           {timeSlots.map((time, timeIdx) => (
-            <div key={timeIdx} className="grid grid-cols-8 border-b last:border-b-0">
+            <div key={timeIdx} className={cn(
+              "grid border-b last:border-b-0",
+              hideWeekends ? "grid-cols-6" : "grid-cols-8"
+            )}>
               <div className="p-2 text-xs border-r bg-muted flex items-center justify-center">
                 {format(time, 'h a')}
               </div>
@@ -612,7 +621,7 @@ export default function ContractorCalendarMatch({
                 const isMatch = isPerfectMatch(day, time);
                 const isSelected = isSelectedCell(day, time);
                 const isDraggingOver = isDraggingOverCell(day, time);
-                const hasStripes = hasFlexibilityPattern(day, time);
+                const isInitial = isInitialProposal(day, time);
                 
                 return (
                   <div
@@ -620,19 +629,16 @@ export default function ContractorCalendarMatch({
                     className={cn(
                       "p-1 border-r last:border-r-0 min-h-[50px] flex items-center justify-center text-xs transition-colors",
                       getCellStyle(day, time),
-                      isSelected && "!bg-purple-200 dark:!bg-purple-900 !border-purple-600 ring-4 ring-purple-500 ring-inset z-10",
-                      isDraggingOver && isMatch && "!bg-purple-100 dark:!bg-purple-800 ring-2 ring-purple-400 ring-inset"
+                      isSelected && "!bg-blue-200 dark:!bg-blue-900 !border-blue-600 ring-4 ring-blue-500 ring-inset z-10",
+                      isDraggingOver && isMatch && "!bg-blue-100 dark:!bg-blue-800 ring-2 ring-blue-400 ring-inset"
                     )}
                     onMouseDown={() => handleMouseDown(day, time)}
                     onMouseEnter={() => handleMouseEnter(day, time)}
                     data-testid={`cell-${dayIdx}-${timeIdx}`}
                   >
-                    {hasStripes && (
+                    {isInitial && (
                       <div 
-                        className="absolute inset-0 pointer-events-none z-0"
-                        style={{
-                          background: 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(59, 130, 246, 0.2) 6px, rgba(59, 130, 246, 0.2) 12px)'
-                        }}
+                        className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center"
                       />
                     )}
                   </div>
