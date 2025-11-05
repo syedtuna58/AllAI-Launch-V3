@@ -3355,6 +3355,8 @@ export default function Maintenance() {
               proposedSlots={counterProposals[0].availabilitySlots || []}
               scheduledJobs={smartCases?.flatMap((c: any) => c.scheduledJobs || []) || []}
               currentJobId={reviewingCounterProposal.job.id}
+              initialProposedStart={reviewingCounterProposal.job.scheduledStartAt}
+              initialProposedEnd={reviewingCounterProposal.job.scheduledEndAt}
               onAccept={(slotIndex) => {
                 acceptCounterProposalMutation.mutate({
                   proposalId: counterProposals[0].id,

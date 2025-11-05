@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Check, X, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, AlertTriangle, Info } from "lucide-react";
 import { format, addDays, startOfWeek, parseISO, addMinutes, isWithinInterval, areIntervalsOverlapping } from "date-fns";
 import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,8 @@ interface ContractorCalendarMatchProps {
   scheduledJobs: Array<any>;  // Contractor's existing schedule
   currentJobId: string;  // The job being rescheduled
   jobDurationMinutes?: number;  // Expected duration of the job in minutes
+  initialProposedStart?: string;  // Original/initial proposal start time
+  initialProposedEnd?: string;  // Original/initial proposal end time
   onAccept: (slotIndex: number, selectedStart?: string, selectedEnd?: string) => void;
   onReject: () => void;
   isPending: boolean;
@@ -29,6 +31,8 @@ export default function ContractorCalendarMatch({
   scheduledJobs,
   currentJobId,
   jobDurationMinutes = 120, // Default to 2 hours
+  initialProposedStart,
+  initialProposedEnd,
   onAccept,
   onReject,
   isPending,
@@ -184,6 +188,15 @@ export default function ContractorCalendarMatch({
     return isPartOfValidWindow(day, time, jobDurationMinutes);
   };
 
+  // Check if this is a partial match (both available but not enough consecutive hours)
+  const isPartialMatch = (day: Date, time: Date) => {
+    const isBasicMatch = isTenantAvailable(day, time) && !hasExistingJob(day, time);
+    if (!isBasicMatch) return false;
+    
+    // It's a partial match if both are available but NOT part of a valid consecutive window
+    return !isPartOfValidWindow(day, time, jobDurationMinutes);
+  };
+
   // Find which tenant slot this cell belongs to (for accept button)
   const getTenantSlotIndex = (day: Date, time: Date) => {
     const cellStart = new Date(
@@ -202,11 +215,15 @@ export default function ContractorCalendarMatch({
   // Get cell styling based on availability
   const getCellStyle = (day: Date, time: Date) => {
     const hasPerfectMatch = isPerfectMatch(day, time);
+    const hasPartialMatch = isPartialMatch(day, time);
     const hasTenantAvail = isTenantAvailable(day, time);
     const hasJob = hasExistingJob(day, time);
 
     if (hasPerfectMatch) {
       return "bg-green-100 dark:bg-green-900 border-green-400 hover:bg-green-200 dark:hover:bg-green-800 cursor-pointer relative";
+    } else if (hasPartialMatch) {
+      // Partial match - both available but not enough consecutive hours
+      return "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900 relative opacity-60";
     } else if (hasJob && hasTenantAvail) {
       // Flexibility zone - contractor busy BUT tenant available (could reschedule for urgent work)
       return "bg-orange-100 dark:bg-orange-900 border-orange-400 relative";
@@ -236,13 +253,10 @@ export default function ContractorCalendarMatch({
       time.getHours(),
       time.getMinutes()
     );
-    const cellEnd = addMinutes(cellStart, INTERVAL_MINUTES);
     
-    return areIntervalsOverlapping(
-      { start: selectedSlot.start, end: selectedSlot.end },
-      { start: cellStart, end: cellEnd },
-      { inclusive: true }
-    );
+    // Cell is selected if its START time is within the selection window
+    // (but before the end boundary to avoid selecting the next cell)
+    return cellStart >= selectedSlot.start && cellStart < selectedSlot.end;
   };
 
   // Check if currently dragging over this cell
@@ -418,8 +432,30 @@ export default function ContractorCalendarMatch({
         </Card>
       )}
 
+      {/* Initial Proposal Info */}
+      {initialProposedStart && initialProposedEnd && (
+        <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Info className="h-5 w-5 text-blue-600" />
+              Initial Proposal
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm">
+              <div className="font-medium">
+                {formatInTimeZone(toZonedTime(parseISO(initialProposedStart), TIMEZONE), TIMEZONE, "EEE, MMM d 'at' h:mm a")} - {formatInTimeZone(toZonedTime(parseISO(initialProposedEnd), TIMEZONE), TIMEZONE, "h:mm a")}
+              </div>
+              <div className="text-muted-foreground mt-1">
+                Tenant requested a different time. Select a new time from the green areas below.
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Job Duration Info */}
-      <Card className="bg-blue-50 dark:bg-blue-950 border-blue-200">
+      <Card className="bg-slate-50 dark:bg-slate-950 border-slate-200">
         <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div className="text-sm">
@@ -500,8 +536,12 @@ export default function ContractorCalendarMatch({
           <span>Perfect Match (Both Available)</span>
         </div>
         <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-green-50 dark:bg-green-950 border border-green-300 dark:border-green-700 rounded opacity-60"></div>
+          <span>Partial Match (Available, Not Enough Time)</span>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-purple-200 dark:bg-purple-900 border border-purple-500 rounded"></div>
-          <span>Your Selection</span>
+          <span>Your New Selection</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border border-orange-400 rounded"></div>

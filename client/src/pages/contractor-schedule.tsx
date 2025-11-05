@@ -1707,6 +1707,8 @@ export default function ContractorSchedulePage() {
                     jobDurationMinutes={reviewingCounterProposal.job.scheduledStartAt && reviewingCounterProposal.job.scheduledEndAt 
                       ? Math.round((new Date(reviewingCounterProposal.job.scheduledEndAt).getTime() - new Date(reviewingCounterProposal.job.scheduledStartAt).getTime()) / (1000 * 60))
                       : 120}
+                    initialProposedStart={reviewingCounterProposal.job.scheduledStartAt}
+                    initialProposedEnd={reviewingCounterProposal.job.scheduledEndAt}
                     onAccept={(selectedSlotIndex: number, selectedStart?: string, selectedEnd?: string) => {
                       acceptCounterProposalMutation.mutate({
                         proposalId: counterProposalsForJob[0].id,
