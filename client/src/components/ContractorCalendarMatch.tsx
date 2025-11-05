@@ -569,7 +569,7 @@ export default function ContractorCalendarMatch({
       <div className="border rounded-lg overflow-hidden">
         <div 
           className="grid border-b bg-muted"
-          style={{ gridTemplateColumns: `auto repeat(${weekDays.length}, minmax(0, 1fr))` }}
+          style={{ gridTemplateColumns: `70px repeat(${weekDays.length}, minmax(0, 1fr))` }}
         >
           <div className="p-2 text-xs font-medium border-r">Time</div>
           {weekDays.map((day, i) => (
@@ -588,7 +588,7 @@ export default function ContractorCalendarMatch({
             <div 
               key={timeIdx}
               className="grid border-b last:border-b-0"
-              style={{ gridTemplateColumns: `auto repeat(${weekDays.length}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `70px repeat(${weekDays.length}, minmax(0, 1fr))` }}
             >
               <div className="p-2 text-xs border-r bg-muted flex items-center justify-center">
                 {format(time, 'h a')}
@@ -605,7 +605,7 @@ export default function ContractorCalendarMatch({
                     className={cn(
                       "p-1 border-r last:border-r-0 min-h-[50px] flex items-center justify-center text-xs transition-colors",
                       getCellStyle(day, time),
-                      isSelected && "!bg-blue-200 dark:!bg-blue-900 !border-blue-600 ring-4 ring-blue-500 ring-inset z-10",
+                      isSelected && "!bg-blue-200 dark:!bg-blue-900 !border-blue-600 ring-2 ring-blue-500 ring-inset z-10",
                       isDraggingOver && isMatch && "!bg-blue-100 dark:!bg-blue-800 ring-2 ring-blue-400 ring-inset"
                     )}
                     onMouseDown={() => handleMouseDown(day, time)}
