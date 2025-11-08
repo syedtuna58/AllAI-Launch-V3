@@ -449,9 +449,16 @@ export default function ContractorSchedulePage() {
       return { previousReminders };
     },
     onSuccess: () => {
-      // Don't refetch for drag operations - rely on optimistic update
-      // Only refetch when editing through dialog
-      if (!dragMutationInProgress.current) {
+      // For drag operations, invalidate to ensure next page load gets fresh data
+      // Don't show toast for drag operations
+      if (dragMutationInProgress.current) {
+        // Invalidate with refetchType: 'none' to not trigger immediate refetch
+        // but ensure next mount gets fresh data
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/reminders'],
+          refetchType: 'none'
+        });
+      } else {
         queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
         toast({ 
           title: "Reminder updated successfully",
