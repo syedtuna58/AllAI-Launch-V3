@@ -35,6 +35,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -1002,6 +1008,10 @@ export default function ContractorSchedulePage() {
     setShowTeamDialog(true);
   };
 
+  const handleTeamChange = (jobId: string, teamId: string) => {
+    updateJobMutation.mutate({ id: jobId, data: { teamId } });
+  };
+
   const activeJob = activeId ? jobs.find(j => j.id === activeId) : null;
 
   if (!user) {
@@ -1873,6 +1883,7 @@ export default function ContractorSchedulePage() {
                                 activeId={activeId}
                                 organization={organization}
                                 onDoubleClick={handleJobDoubleClick}
+                                onTeamChange={handleTeamChange}
                                 onClick={(job) => {
                                   setEditingJob(job);
                                   setJobFormData({
@@ -1996,6 +2007,7 @@ export default function ContractorSchedulePage() {
                 teams={teams} 
                 activeId={activeId}
                 onDoubleClick={handleJobDoubleClick}
+                onTeamChange={handleTeamChange}
                 onJobClick={(job) => {
                   setEditingJob(job);
                   setJobFormData({
@@ -2027,6 +2039,8 @@ export default function ContractorSchedulePage() {
                     team={teams.find(t => t.id === activeJob.teamId)}
                     isDragging
                     onDoubleClick={() => handleJobDoubleClick(activeJob)}
+                    teams={teams}
+                    onTeamChange={(teamId) => handleTeamChange(activeJob.id, teamId)}
                   />
                 </div>
               ) : null}
@@ -2056,7 +2070,9 @@ function JobCard({
   extendsBeyondWeek = false,
   overlapCount,
   onClick,
-  onDoubleClick
+  onDoubleClick,
+  teams = [],
+  onTeamChange
 }: { 
   job: ScheduledJob & { caseStatus?: string }; 
   team?: Team; 
@@ -2067,6 +2083,8 @@ function JobCard({
   overlapCount?: number;
   onClick?: () => void;
   onDoubleClick?: () => void;
+  teams?: Team[];
+  onTeamChange?: (teamId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: job.id,
@@ -2266,6 +2284,52 @@ function JobCard({
             </p>
           )}
         </div>
+        
+        {/* Quick Team Changer - Bottom Right Circular Color Chip */}
+        {teams.length > 0 && onTeamChange && !isDragging && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                className="absolute bottom-1 right-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity rounded-full w-5 h-5 border-2 border-white shadow-lg hover:scale-110 pointer-events-auto"
+                style={{ backgroundColor: team?.color || '#6b7280' }}
+                title="Change team"
+                data-testid={`button-change-team-${job.id}`}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {teams.map((t) => (
+                <DropdownMenuItem
+                  key={t.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTeamChange(t.id);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                  data-testid={`team-option-${t.id}`}
+                >
+                  <div
+                    className="w-4 h-4 rounded-full border border-white/50"
+                    style={{ backgroundColor: t.color }}
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{t.name}</div>
+                    <div className="text-xs text-muted-foreground">{t.specialty}</div>
+                  </div>
+                  {t.id === job.teamId && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );
@@ -2362,7 +2426,7 @@ function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
   );
 }
 
-function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, onDoubleClick, organization }: {
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, onDoubleClick, organization, onTeamChange }: {
   dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
@@ -2380,6 +2444,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   onClick?: (job: ScheduledJob) => void;
   onDoubleClick?: (job: ScheduledJob) => void;
   organization?: any;
+  onTeamChange?: (jobId: string, teamId: string) => void;
 }) {
   // Generate hours from 6 AM to 8 PM (for visual hourly grid)
   const hours = Array.from({ length: 15 }, (_, i) => i + 6);
@@ -2698,6 +2763,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       onClick={() => onClick?.(job)}
                       onDoubleClick={() => onDoubleClick?.(job)}
                       overlapCount={totalColumns > 1 ? totalColumns : undefined}
+                      teams={teams}
+                      onTeamChange={(teamId) => onTeamChange?.(job.id, teamId)}
                     />
                   </div>
               );
@@ -2778,6 +2845,24 @@ function TeamLegend({ teams, jobs, isCollapsed, onToggle }: {
             </div>
             
             <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Job Status</p>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2" data-testid="status-legend-pending">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-yellow-500/90 text-white border-yellow-400/40 font-bold">
+                    Pending
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Awaiting tenant approval</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="status-legend-alternate">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-orange-600/95 text-white border-orange-500/40 font-bold">
+                    Alternate Time
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Tenant proposed new time</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
               <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Urgency Levels</p>
               <div className="flex flex-wrap gap-3">
                 <div className="flex items-center gap-2" data-testid="urgency-legend-low">
@@ -2806,13 +2891,15 @@ function UnscheduledJobsPanel({
   teams, 
   activeId, 
   onJobClick,
-  onDoubleClick
+  onDoubleClick,
+  onTeamChange
 }: { 
   jobs: ScheduledJob[]; 
   teams: Team[]; 
   activeId: string | null;
   onJobClick: (job: ScheduledJob) => void;
   onDoubleClick?: (job: ScheduledJob) => void;
+  onTeamChange?: (jobId: string, teamId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'unscheduled',
@@ -2853,6 +2940,8 @@ function UnscheduledJobsPanel({
                   team={team}
                   onClick={() => onJobClick(job)}
                   onDoubleClick={() => onDoubleClick?.(job)}
+                  teams={teams}
+                  onTeamChange={(teamId) => handleTeamChange(job.id, teamId)}
                 />
               );
             })

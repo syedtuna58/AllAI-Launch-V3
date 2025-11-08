@@ -277,9 +277,9 @@ export default function ContractorCalendarMatch({
     const hasTenantAvail = isTenantAvailable(day, time);
     const hasJob = hasExistingJob(day, time);
 
-    // Initial proposal - shown with light orange-red background (no banner)
+    // Initial proposal - shown with light rose/pink background (no banner)
     if (isInitial) {
-      return "bg-orange-100 dark:bg-orange-700 border-orange-200 dark:border-orange-600 relative";
+      return "bg-rose-100 dark:bg-rose-800 border-rose-200 dark:border-rose-700 relative";
     }
     
     // Perfect match - green
@@ -452,7 +452,7 @@ export default function ContractorCalendarMatch({
           <span>Partial Match</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-700 border border-orange-200 rounded"></div>
+          <div className="w-4 h-4 bg-rose-100 dark:bg-rose-800 border border-rose-200 rounded"></div>
           <span>Initial Proposal (Declined)</span>
         </div>
         <div className="flex items-center gap-2">
