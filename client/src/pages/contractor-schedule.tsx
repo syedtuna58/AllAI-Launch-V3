@@ -3057,12 +3057,22 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
             
             {/* Reminder bars overlay */}
             {(() => {
+              // Debug logging
+              if (dayIndex === 0) {
+                console.log('🔔 Reminders passed to DayColumn:', reminders.length);
+                console.log('🔔 Reminders array:', reminders);
+              }
+              
               // Filter reminders for this day
               const dayReminders = reminders.filter(reminder => {
                 if (!reminder.dueAt) return false;
                 const reminderDate = startOfDay(parseISO(reminder.dueAt));
                 const currentDayStart = startOfDay(date);
-                return isSameDay(reminderDate, currentDayStart);
+                const match = isSameDay(reminderDate, currentDayStart);
+                if (dayIndex === 0 && match) {
+                  console.log('🔔 Matched reminder for day:', format(date, 'yyyy-MM-dd'), reminder.title);
+                }
+                return match;
               });
               
               return dayReminders.map(reminder => {
