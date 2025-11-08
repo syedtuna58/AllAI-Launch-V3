@@ -207,6 +207,7 @@ export default function ContractorSchedulePage() {
   });
   const [hideWeekends, setHideWeekends] = useState(true);
   const [filterMode, setFilterMode] = useState<"all" | "jobs" | "reminders">("all");
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [legendCollapsed, setLegendCollapsed] = useState(true);
   const [addressExpanded, setAddressExpanded] = useState(false);
   const [teamFormData, setTeamFormData] = useState({
@@ -2023,6 +2024,70 @@ export default function ContractorSchedulePage() {
                             </SelectContent>
                           </Select>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="team-filter" className="text-sm whitespace-nowrap">
+                            Teams:
+                          </Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-[180px] justify-between text-sm"
+                                data-testid="button-team-filter"
+                              >
+                                {selectedTeamIds.length === 0
+                                  ? "All Teams"
+                                  : selectedTeamIds.length === teams.length
+                                  ? "All Teams"
+                                  : `${selectedTeamIds.length} selected`}
+                                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[250px] p-3" align="start">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-sm font-medium">Filter by Teams</p>
+                                  {selectedTeamIds.length > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => setSelectedTeamIds([])}
+                                    >
+                                      Clear
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto space-y-1">
+                                  {teams.map((team) => (
+                                    <label
+                                      key={team.id}
+                                      className="flex items-center gap-2 p-1.5 hover:bg-muted rounded cursor-pointer"
+                                      data-testid={`team-filter-${team.id}`}
+                                    >
+                                      <Checkbox
+                                        checked={selectedTeamIds.includes(team.id)}
+                                        onCheckedChange={(checked) => {
+                                          setSelectedTeamIds((prev) =>
+                                            checked
+                                              ? [...prev, team.id]
+                                              : prev.filter((id) => id !== team.id)
+                                          );
+                                        }}
+                                      />
+                                      <div
+                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: team.color }}
+                                      />
+                                      <span className="text-sm flex-1">{team.name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         <Button
                           variant="outline"
                           onClick={() => {
@@ -2059,6 +2124,9 @@ export default function ContractorSchedulePage() {
                           {/* Day columns */}
                           {weekDays.map((day, index) => {
                             const dayJobs = getJobsForDay(day);
+                            const filteredDayJobs = selectedTeamIds.length > 0
+                              ? dayJobs.filter(job => selectedTeamIds.includes(job.teamId))
+                              : dayJobs;
                             const isToday = isSameDay(day, new Date());
                             
                             return (
@@ -2066,7 +2134,7 @@ export default function ContractorSchedulePage() {
                                 key={index}
                                 dayIndex={index}
                                 date={day}
-                                jobs={filterMode === "reminders" ? [] : dayJobs}
+                                jobs={filterMode === "reminders" ? [] : filteredDayJobs}
                                 teams={teams}
                                 weekDays={weekDays}
                                 calculateJobSpan={calculateJobSpan}
@@ -2123,7 +2191,11 @@ export default function ContractorSchedulePage() {
                           <DayColumn
                             dayIndex={0}
                             date={currentDate}
-                            jobs={filterMode === "reminders" ? [] : getJobsForDay(currentDate)}
+                            jobs={filterMode === "reminders" ? [] : (
+                              selectedTeamIds.length > 0
+                                ? getJobsForDay(currentDate).filter(job => selectedTeamIds.includes(job.teamId))
+                                : getJobsForDay(currentDate)
+                            )}
                             teams={teams}
                             weekDays={[currentDate]}
                             calculateJobSpan={calculateJobSpan}
@@ -3140,6 +3212,9 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                 const widthPercent = 100 / totalColumns;
                 const leftPercent = widthPercent * columnIndex;
                 
+                // Add visual separator for overlapping jobs (except the last column)
+                const hasRightBorder = totalColumns > 1 && columnIndex < totalColumns - 1;
+                
                 return (
                   <div
                     key={job.id}
@@ -3150,7 +3225,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       width: `${widthPercent}%`,
                       height: job.scheduledStartAt ? `${heightPx}px` : 'auto',
                       visibility: activeId === job.id ? 'hidden' : 'visible',
-                      paddingRight: totalColumns > 1 ? '4px' : '0',
+                      paddingRight: totalColumns > 1 ? '2px' : '0',
+                      borderRight: hasRightBorder ? '1px solid rgba(255, 255, 255, 0.3)' : 'none',
                     }}
                   >
                     <JobCard
@@ -3367,6 +3443,24 @@ function TeamLegend({ teams, jobs, isCollapsed, onToggle }: {
                   <Zap className="h-4 w-4 text-red-600 dark:text-red-500" />
                   <span className="text-sm text-foreground dark:text-white">Emergent</span>
                 </div>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Multi-Team Overlap</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2" data-testid="overlap-legend-info">
+                  <Badge 
+                    variant="secondary" 
+                    className="h-4 px-1 text-[9px] bg-white/30 text-gray-900 dark:text-white border border-white/40 font-semibold"
+                  >
+                    3 teams
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Overlap count badge (top-left)</span>
+                </div>
+                <p className="text-xs text-muted-foreground dark:text-gray-400 pl-0">
+                  When multiple teams have jobs at the same time, jobs are displayed side-by-side with a separator line between them.
+                </p>
               </div>
             </div>
           </div>
