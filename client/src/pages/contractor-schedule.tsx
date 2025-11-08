@@ -206,7 +206,7 @@ export default function ContractorSchedulePage() {
     allDay: false,
   });
   const [hideWeekends, setHideWeekends] = useState(true);
-  const [showReminders, setShowReminders] = useState(true);
+  const [filterMode, setFilterMode] = useState<"all" | "jobs" | "reminders">("all");
   const [legendCollapsed, setLegendCollapsed] = useState(true);
   const [addressExpanded, setAddressExpanded] = useState(false);
   const [teamFormData, setTeamFormData] = useState({
@@ -1926,31 +1926,36 @@ export default function ContractorSchedulePage() {
                           </Button>
                         </div>
                         {viewMode === 'week' && (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="hide-weekends"
-                                checked={hideWeekends}
-                                onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
-                                data-testid="checkbox-hide-weekends"
-                              />
-                              <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
-                                Hide Weekends
-                              </Label>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                id="show-reminders"
-                                checked={showReminders}
-                                onCheckedChange={(checked) => setShowReminders(checked as boolean)}
-                                data-testid="checkbox-show-reminders"
-                              />
-                              <Label htmlFor="show-reminders" className="text-sm cursor-pointer">
-                                Show Reminders
-                              </Label>
-                            </div>
-                          </>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="hide-weekends"
+                              checked={hideWeekends}
+                              onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
+                              data-testid="checkbox-hide-weekends"
+                            />
+                            <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
+                              Hide Weekends
+                            </Label>
+                          </div>
                         )}
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="filter-mode" className="text-sm whitespace-nowrap">
+                            Display:
+                          </Label>
+                          <Select
+                            value={filterMode}
+                            onValueChange={(value) => setFilterMode(value as "all" | "jobs" | "reminders")}
+                          >
+                            <SelectTrigger id="filter-mode" className="w-[140px]" data-testid="select-filter-mode">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="jobs">Jobs Only</SelectItem>
+                              <SelectItem value="reminders">Reminders Only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <Button
                           variant="outline"
                           onClick={() => {
@@ -1994,7 +1999,7 @@ export default function ContractorSchedulePage() {
                                 key={index}
                                 dayIndex={index}
                                 date={day}
-                                jobs={dayJobs}
+                                jobs={filterMode === "reminders" ? [] : dayJobs}
                                 teams={teams}
                                 weekDays={weekDays}
                                 calculateJobSpan={calculateJobSpan}
@@ -2003,7 +2008,7 @@ export default function ContractorSchedulePage() {
                                 organization={organization}
                                 onDoubleClick={handleJobDoubleClick}
                                 onTeamChange={handleTeamChange}
-                                reminders={showReminders ? reminders : []}
+                                reminders={filterMode === "jobs" ? [] : reminders}
                                 onReminderClick={handleReminderClick}
                                 onClick={(job) => {
                                   setEditingJob(job);
@@ -2051,7 +2056,7 @@ export default function ContractorSchedulePage() {
                           <DayColumn
                             dayIndex={0}
                             date={currentDate}
-                            jobs={getJobsForDay(currentDate)}
+                            jobs={filterMode === "reminders" ? [] : getJobsForDay(currentDate)}
                             teams={teams}
                             weekDays={[currentDate]}
                             calculateJobSpan={calculateJobSpan}
@@ -2060,7 +2065,7 @@ export default function ContractorSchedulePage() {
                             hourHeight={60}
                             organization={organization}
                             onDoubleClick={handleJobDoubleClick}
-                            reminders={showReminders ? reminders : []}
+                            reminders={filterMode === "jobs" ? [] : reminders}
                             onReminderClick={handleReminderClick}
                             onClick={(job) => {
                               setEditingJob(job);
