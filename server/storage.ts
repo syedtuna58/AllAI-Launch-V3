@@ -2456,6 +2456,368 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Consolidated compliance and recurring payment reminder generation
+  async generateComplianceReminders(): Promise<void> {
+    console.log('🔔 Generating compliance and recurring payment reminders...');
+    const now = new Date();
+
+    // Get all active properties with organization data
+    const propertiesData = await db
+      .select({
+        id: properties.id,
+        name: properties.name,
+        orgId: properties.orgId,
+        monthlyMortgage: properties.monthlyMortgage,
+        mortgageStartDate: properties.mortgageStartDate,
+        monthlyMortgage2: properties.monthlyMortgage2,
+        mortgageStartDate2: properties.mortgageStartDate2,
+        saleDate: properties.saleDate,
+        insuranceExpiryDate: properties.insuranceExpiryDate,
+        insuranceCarrier: properties.insuranceCarrier,
+        propertyTaxDueMonth: properties.propertyTaxDueMonth,
+        propertyTaxDueDay: properties.propertyTaxDueDay,
+        hoaFeeAmount: properties.hoaFeeAmount,
+        hoaFeeDueDay: properties.hoaFeeDueDay,
+        hoaName: properties.hoaName,
+      })
+      .from(properties)
+      .where(eq(properties.status, 'Active'));
+
+    for (const property of propertiesData) {
+      // 1. Generate mortgage payment reminders (monthly, 5 days before due on 1st)
+      if (property.monthlyMortgage && property.mortgageStartDate && !property.saleDate) {
+        const startDate = new Date(property.mortgageStartDate);
+        if (startDate <= now) {
+          await this.upsertMonthlyReminder({
+            orgId: property.orgId,
+            propertyId: property.id,
+            propertyName: property.name,
+            type: 'mortgage',
+            title: `Mortgage Payment Due - ${property.name}`,
+            dueDay: 1,
+            leadDays: 5,
+            amount: property.monthlyMortgage,
+          });
+        }
+      }
+
+      // 2. Generate second mortgage reminders if applicable
+      if (property.monthlyMortgage2 && property.mortgageStartDate2 && !property.saleDate) {
+        const startDate = new Date(property.mortgageStartDate2);
+        if (startDate <= now) {
+          await this.upsertMonthlyReminder({
+            orgId: property.orgId,
+            propertyId: property.id,
+            propertyName: property.name,
+            type: 'mortgage',
+            title: `2nd Mortgage Payment Due - ${property.name}`,
+            dueDay: 1,
+            leadDays: 5,
+            amount: property.monthlyMortgage2,
+          });
+        }
+      }
+
+      // 3. Generate insurance renewal reminders (90, 60, 30 days before expiry)
+      if (property.insuranceExpiryDate) {
+        const expiryDate = new Date(property.insuranceExpiryDate);
+        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        for (const leadDays of [90, 60, 30]) {
+          if (daysUntilExpiry <= leadDays && daysUntilExpiry > 0) {
+            await this.upsertComplianceReminder({
+              orgId: property.orgId,
+              propertyId: property.id,
+              propertyName: property.name,
+              type: 'insurance',
+              title: `Insurance Renewal Due (${leadDays} days) - ${property.name}`,
+              dueDate: expiryDate,
+              leadDays,
+              metadata: {
+                carrier: property.insuranceCarrier,
+                expiryDate: property.insuranceExpiryDate,
+              },
+            });
+          }
+        }
+      }
+
+      // 4. Generate property tax reminders (60, 30, 7 days before due)
+      if (property.propertyTaxDueMonth && property.propertyTaxDueDay) {
+        const currentYear = now.getFullYear();
+        const taxDueDate = new Date(currentYear, property.propertyTaxDueMonth - 1, property.propertyTaxDueDay);
+        
+        // If this year's tax date has passed, check next year
+        if (taxDueDate < now) {
+          taxDueDate.setFullYear(currentYear + 1);
+        }
+        
+        const daysUntilDue = Math.ceil((taxDueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        for (const leadDays of [60, 30, 7]) {
+          if (daysUntilDue <= leadDays && daysUntilDue > 0) {
+            await this.upsertComplianceReminder({
+              orgId: property.orgId,
+              propertyId: property.id,
+              propertyName: property.name,
+              type: 'property_tax',
+              title: `Property Tax Due (${leadDays} days) - ${property.name}`,
+              dueDate: taxDueDate,
+              leadDays,
+              metadata: {
+                taxYear: taxDueDate.getFullYear(),
+              },
+            });
+          }
+        }
+      }
+
+      // 5. Generate HOA fee reminders (monthly, 5 days before due)
+      if (property.hoaFeeAmount && property.hoaFeeDueDay && property.hoaName) {
+        await this.upsertMonthlyReminder({
+          orgId: property.orgId,
+          propertyId: property.id,
+          propertyName: property.name,
+          type: 'hoa',
+          title: `HOA Fee Due - ${property.name}`,
+          dueDay: property.hoaFeeDueDay,
+          leadDays: 5,
+          amount: property.hoaFeeAmount,
+        });
+      }
+    }
+
+    // 6. Generate entity license/permit renewal reminders
+    const entitiesData = await db
+      .select({
+        id: ownershipEntities.id,
+        name: ownershipEntities.name,
+        orgId: ownershipEntities.orgId,
+        licenseRenewalDate: ownershipEntities.licenseRenewalDate,
+        permitExpiryDate: ownershipEntities.permitExpiryDate,
+      })
+      .from(ownershipEntities)
+      .where(eq(ownershipEntities.status, 'Active'));
+
+    for (const entity of entitiesData) {
+      // License renewal reminders (90, 60, 30 days before)
+      if (entity.licenseRenewalDate) {
+        const renewalDate = new Date(entity.licenseRenewalDate);
+        const daysUntilRenewal = Math.ceil((renewalDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        for (const leadDays of [90, 60, 30]) {
+          if (daysUntilRenewal <= leadDays && daysUntilRenewal > 0) {
+            await this.upsertEntityReminderByDate({
+              orgId: entity.orgId,
+              entityId: entity.id,
+              entityName: entity.name,
+              type: 'permit',
+              title: `Business License Renewal (${leadDays} days) - ${entity.name}`,
+              dueDate: renewalDate,
+              leadDays,
+            });
+          }
+        }
+      }
+
+      // Permit expiry reminders (90, 60, 30 days before)
+      if (entity.permitExpiryDate) {
+        const expiryDate = new Date(entity.permitExpiryDate);
+        const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        for (const leadDays of [90, 60, 30]) {
+          if (daysUntilExpiry <= leadDays && daysUntilExpiry > 0) {
+            await this.upsertEntityReminderByDate({
+              orgId: entity.orgId,
+              entityId: entity.id,
+              entityName: entity.name,
+              type: 'permit',
+              title: `Operating Permit Renewal (${leadDays} days) - ${entity.name}`,
+              dueDate: expiryDate,
+              leadDays,
+            });
+          }
+        }
+      }
+    }
+
+    console.log('✅ Compliance reminder generation complete');
+  }
+
+  // Helper: Upsert monthly recurring reminder (idempotent)
+  private async upsertMonthlyReminder(params: {
+    orgId: string;
+    propertyId: string;
+    propertyName: string;
+    type: 'rent' | 'mortgage' | 'property_tax' | 'hoa' | 'regulatory';
+    title: string;
+    dueDay: number;
+    leadDays: number;
+    amount?: any;
+  }): Promise<void> {
+    const { orgId, propertyId, propertyName, type, title, dueDay, leadDays, amount } = params;
+    const now = new Date();
+    
+    // Calculate next due date
+    const nextDueDate = new Date(now.getFullYear(), now.getMonth(), dueDay);
+    if (nextDueDate < now) {
+      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+    }
+    
+    // Calculate reminder date (leadDays before due)
+    const reminderDate = new Date(nextDueDate);
+    reminderDate.setDate(reminderDate.getDate() - leadDays);
+
+    // Check if reminder already exists for this property and month
+    const existing = await db
+      .select()
+      .from(reminders)
+      .where(
+        and(
+          eq(reminders.orgId, orgId),
+          eq(reminders.scope, 'property'),
+          eq(reminders.scopeId, propertyId),
+          eq(reminders.type, type),
+          eq(reminders.title, title),
+          eq(reminders.leadDays, leadDays)
+        )
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      await this.createReminder({
+        orgId,
+        scope: 'property',
+        scopeId: propertyId,
+        title,
+        type,
+        dueAt: reminderDate,
+        leadDays,
+        channels: ['inapp'],
+        status: 'Pending',
+        isRecurring: false,
+        recurringInterval: 1,
+        isBulkEntry: false,
+        payloadJson: {
+          propertyName,
+          dueDay,
+          amount: amount ? amount.toString() : undefined,
+        },
+      });
+      console.log(`  ✓ Created: ${title}`);
+    }
+  }
+
+  // Helper: Upsert compliance reminder by specific date (idempotent)
+  private async upsertComplianceReminder(params: {
+    orgId: string;
+    propertyId: string;
+    propertyName: string;
+    type: 'insurance' | 'property_tax' | 'regulatory';
+    title: string;
+    dueDate: Date;
+    leadDays: number;
+    metadata?: any;
+  }): Promise<void> {
+    const { orgId, propertyId, propertyName, type, title, dueDate, leadDays, metadata } = params;
+    
+    // Calculate reminder date
+    const reminderDate = new Date(dueDate);
+    reminderDate.setDate(reminderDate.getDate() - leadDays);
+
+    // Check if reminder already exists
+    const existing = await db
+      .select()
+      .from(reminders)
+      .where(
+        and(
+          eq(reminders.orgId, orgId),
+          eq(reminders.scope, 'property'),
+          eq(reminders.scopeId, propertyId),
+          eq(reminders.type, type),
+          eq(reminders.title, title),
+          eq(reminders.leadDays, leadDays)
+        )
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      await this.createReminder({
+        orgId,
+        scope: 'property',
+        scopeId: propertyId,
+        title,
+        type,
+        dueAt: reminderDate,
+        leadDays,
+        channels: ['inapp'],
+        status: 'Pending',
+        isRecurring: false,
+        recurringInterval: 1,
+        isBulkEntry: false,
+        payloadJson: {
+          propertyName,
+          dueDate: dueDate.toISOString(),
+          ...metadata,
+        },
+      });
+      console.log(`  ✓ Created: ${title} (${leadDays} days lead)`);
+    }
+  }
+
+  // Helper: Upsert entity reminder by specific date (idempotent)
+  private async upsertEntityReminderByDate(params: {
+    orgId: string;
+    entityId: string;
+    entityName: string;
+    type: 'permit' | 'regulatory';
+    title: string;
+    dueDate: Date;
+    leadDays: number;
+  }): Promise<void> {
+    const { orgId, entityId, entityName, type, title, dueDate, leadDays } = params;
+    
+    // Calculate reminder date
+    const reminderDate = new Date(dueDate);
+    reminderDate.setDate(reminderDate.getDate() - leadDays);
+
+    // Check if reminder already exists
+    const existing = await db
+      .select()
+      .from(reminders)
+      .where(
+        and(
+          eq(reminders.orgId, orgId),
+          eq(reminders.entityId, entityId),
+          eq(reminders.type, type),
+          eq(reminders.title, title),
+          eq(reminders.leadDays, leadDays)
+        )
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      await this.createReminder({
+        orgId,
+        entityId,
+        title,
+        type,
+        dueAt: reminderDate,
+        leadDays,
+        channels: ['inapp'],
+        status: 'Pending',
+        isRecurring: false,
+        recurringInterval: 1,
+        isBulkEntry: false,
+        payloadJson: {
+          entityName,
+          dueDate: dueDate.toISOString(),
+        },
+      });
+      console.log(`  ✓ Created: ${title} (${leadDays} days lead)`);
+    }
+  }
+
   // Notification operations
   async getUserNotifications(userId: string): Promise<Notification[]> {
     return await db

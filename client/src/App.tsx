@@ -21,6 +21,7 @@ import ContractorDashboard from "@/pages/contractor-dashboard";
 import ContractorAvailability from "@/pages/contractor-availability";
 import ContractorSchedule from "@/pages/contractor-schedule";
 import AdminDashboard from "@/pages/admin-dashboard";
+import AdminCalendar from "@/pages/admin-calendar";
 import TenantDashboard from "@/pages/tenant-dashboard";
 import Expenses from "@/pages/expenses";
 import Revenue from "@/pages/revenue";
@@ -87,6 +88,7 @@ function Router() {
           <Route path="/contractor-availability" component={ContractorAvailability} />
           <Route path="/contractor-schedule" component={ContractorSchedule} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
+          <Route path="/admin-calendar" component={AdminCalendar} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/revenue" component={Revenue} />
           <Route path="/tax" component={Tax} />

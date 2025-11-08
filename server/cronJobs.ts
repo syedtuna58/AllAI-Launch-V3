@@ -65,6 +65,18 @@ export function startCronJobs() {
     }
   });
 
+  // Generate compliance reminders (run daily at 8 AM)
+  cron.schedule('0 8 * * *', async () => {
+    console.log('Generating compliance reminders...');
+    
+    try {
+      await storage.generateComplianceReminders();
+      console.log('Compliance reminder generation completed');
+    } catch (error) {
+      console.error('Error generating compliance reminders:', error);
+    }
+  });
+
   // Generate missing recurring transactions (run daily at 2 AM)
   cron.schedule('0 2 * * *', async () => {
     console.log('Generating missing recurring transactions...');

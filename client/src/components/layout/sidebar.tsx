@@ -24,6 +24,7 @@ export default function Sidebar() {
     { name: "Tenants", href: "/tenants", icon: Users },
     { name: "Maintenance", href: "/maintenance", icon: Wrench },
     { name: "Financial", href: "/financial", icon: DollarSign },
+    { name: "Calendar", href: "/admin-calendar", icon: Calendar },
     { name: "Reminders", href: "/reminders", icon: Clock },
   ];
 

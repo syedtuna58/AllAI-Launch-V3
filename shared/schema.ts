@@ -88,6 +88,9 @@ export const ownershipEntities = pgTable("ownership_entities", {
   ein: varchar("ein"),
   registeredAgent: varchar("registered_agent"),
   renewalMonth: integer("renewal_month"),
+  // License and permit tracking
+  licenseRenewalDate: timestamp("license_renewal_date"), // Business license renewal date
+  permitExpiryDate: timestamp("permit_expiry_date"), // Operating permit expiry date
   notes: text("notes"),
   // Archive status
   status: varchar("status").default("Active").notNull(),
@@ -113,6 +116,15 @@ export const properties = pgTable("properties", {
   sqft: integer("sqft"),
   hoaName: varchar("hoa_name"),
   hoaContact: varchar("hoa_contact"),
+  hoaFeeAmount: decimal("hoa_fee_amount", { precision: 10, scale: 2 }), // Monthly HOA fee
+  hoaFeeDueDay: integer("hoa_fee_due_day"), // Day of month HOA fee is due (1-31)
+  // Insurance tracking
+  insuranceExpiryDate: timestamp("insurance_expiry_date"), // When property insurance expires
+  insuranceCarrier: varchar("insurance_carrier"), // Insurance company name
+  insurancePolicyNumber: varchar("insurance_policy_number"),
+  // Property tax tracking
+  propertyTaxDueMonth: integer("property_tax_due_month"), // Month taxes are due (1-12)
+  propertyTaxDueDay: integer("property_tax_due_day"), // Day of month (1-31)
   notes: text("notes"),
   // Building-level equipment (for buildings only)
   buildingHvacBrand: varchar("building_hvac_brand"),
@@ -604,7 +616,7 @@ export const camEntries = pgTable("cam_entries", {
 
 // Reminders
 export const reminderScopeEnum = pgEnum("reminder_scope", ["entity", "property", "lease", "asset"]);
-export const reminderTypeEnum = pgEnum("reminder_type", ["rent", "lease", "regulatory", "maintenance", "custom"]);
+export const reminderTypeEnum = pgEnum("reminder_type", ["rent", "lease", "regulatory", "maintenance", "custom", "mortgage", "insurance", "property_tax", "hoa", "permit"]);
 export const reminderChannelEnum = pgEnum("reminder_channel", ["inapp", "email", "sms", "push"]);
 export const reminderStatusEnum = pgEnum("reminder_status", ["Pending", "Overdue", "Completed", "Cancelled"]);
 

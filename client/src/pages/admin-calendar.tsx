@@ -1,0 +1,3540 @@
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2, CalendarClock, Clock } from "lucide-react";
+import Sidebar from "@/components/layout/sidebar";
+import Header from "@/components/layout/header";
+import ContractorCalendarMatch from "@/components/ContractorCalendarMatch";
+import ReminderForm from "@/components/forms/reminder-form";
+import {
+  DndContext,
+  DragOverlay,
+  pointerWithin,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+  type CollisionDetection,
+  getFirstCollision,
+} from "@dnd-kit/core";
+import { format, addDays, startOfWeek, isSameDay, isBefore, parseISO, startOfDay, endOfDay, differenceInCalendarDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths } from "date-fns";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import type { InsertScheduledJob } from "@shared/schema";
+
+type Team = {
+  id: string;
+  name: string;
+  specialty: string;
+  color: string;
+  orgId: string;
+};
+
+type ScheduledJob = {
+  id: string;
+  title: string;
+  description: string | null;
+  teamId: string;
+  propertyId: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
+  isAllDay: boolean;
+  status: 'Unscheduled' | 'Scheduled' | 'Pending Approval' | 'Needs Review' | 'Confirmed' | 'In Progress' | 'Completed' | 'Cancelled';
+  urgency: 'Low' | 'High' | 'Emergent';
+  tenantConfirmed: boolean;
+  notes: string | null;
+  address: string | null;
+  durationDays: number;
+  orgId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const URGENCY_COLORS = {
+  Low: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  High: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  Emergent: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+};
+
+const PRESET_COLORS = [
+  { name: 'Blue', value: '#3b82f6' },
+  { name: 'Green', value: '#22c55e' },
+  { name: 'Purple', value: '#a855f7' },
+  { name: 'Orange', value: '#f97316' },
+  { name: 'Pink', value: '#ec4899' },
+  { name: 'Teal', value: '#14b8a6' },
+];
+
+const ALL_SPECIALTIES = [
+  'Appliance Repair',
+  'Carpentry',
+  'Cleaning',
+  'Concrete',
+  'Countertops',
+  'Demolition',
+  'Drywall',
+  'Electrical',
+  'Fencing',
+  'Flooring',
+  'General',
+  'Gutter',
+  'Handyman',
+  'HVAC',
+  'Insulation',
+  'Landscaping',
+  'Locksmith',
+  'Masonry',
+  'Other',
+  'Painting',
+  'Pest Control',
+  'Plumbing',
+  'Pool/Spa',
+  'Roofing',
+  'Siding',
+  'Tile',
+  'Window/Door',
+].sort();
+
+// Custom collision detection that uses the top edge of the dragged card
+const topEdgeCollisionDetection: CollisionDetection = (args) => {
+  const { active, droppableRects, droppableContainers } = args;
+  
+  // Get the active card's current position (after transform)
+  const activeRect = active.rect.current.translated;
+  if (!activeRect) {
+    return [];
+  }
+  
+  const activeTop = activeRect.top;
+  const activeLeft = activeRect.left;
+  const activeRight = activeRect.right;
+  
+  const collisions: Array<{ id: string; data: { value: number } }> = [];
+  
+  // Calculate distance from active top edge to each droppable's top edge
+  for (const droppableContainer of droppableContainers) {
+    const { id } = droppableContainer;
+    const rect = droppableRects.get(id);
+    
+    if (!rect) continue;
+    
+    // Check horizontal overlap (to ensure we're in the same column)
+    const hasHorizontalOverlap = activeLeft < rect.right && activeRight > rect.left;
+    
+    if (!hasHorizontalOverlap) continue;
+    
+    // Calculate distance from active's top edge to droppable's top edge
+    const distance = Math.abs(activeTop - rect.top);
+    
+    collisions.push({
+      id: id as string,
+      data: { value: distance }
+    });
+  }
+  
+  // Sort by distance (ascending) - closest first
+  collisions.sort((a, b) => a.data.value - b.data.value);
+  
+  return collisions;
+};
+
+export default function AdminCalendarPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 })); // 1 = Monday
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [hideWeekends, setHideWeekends] = useState(true);
+  const [filterMode, setFilterMode] = useState<"all" | "reminders" | "maintenance">("all");
+  const [selectedReminderTypes, setSelectedReminderTypes] = useState<string[]>([]);
+  const [selectedMaintenanceStatuses, setSelectedMaintenanceStatuses] = useState<string[]>([]);
+  const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
+  const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([]);
+  const [legendCollapsed, setLegendCollapsed] = useState(true);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<any | null>(null);
+  const dragMutationInProgress = useRef(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
+  const { data: organization } = useQuery<{ id: string; name: string; timezone: string }>({
+    queryKey: ['/api/organizations/current'],
+  });
+
+  const { data: maintenanceCases = [] } = useQuery<any[]>({
+    queryKey: ['/api/cases'],
+  });
+
+  const { data: properties = [] } = useQuery<any[]>({
+    queryKey: ['/api/properties'],
+  });
+
+  const { data: entities = [] } = useQuery<any[]>({
+    queryKey: ['/api/entities'],
+  });
+
+  const { data: reminders = [] } = useQuery<any[]>({
+    queryKey: ['/api/reminders'],
+  });
+
+  // Initialize calendar to today in organization's timezone
+  useEffect(() => {
+    if (organization?.timezone) {
+      const nowUTC = new Date();
+      const nowInOrgTz = toZonedTime(nowUTC, organization.timezone);
+      setCurrentDate(nowInOrgTz);
+      setCurrentWeekStart(startOfWeek(nowInOrgTz, { weekStartsOn: 1 }));
+    }
+  }, [organization?.timezone]);
+
+  const getFavoriteSpecialties = (): string[] => {
+    try {
+      const stored = localStorage.getItem('contractor-favorite-specialties');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const toggleFavoriteSpecialty = (specialty: string) => {
+    const favorites = getFavoriteSpecialties();
+    const newFavorites = favorites.includes(specialty)
+      ? favorites.filter(s => s !== specialty)
+      : [...favorites, specialty];
+    localStorage.setItem('contractor-favorite-specialties', JSON.stringify(newFavorites));
+  };
+
+  const getSortedSpecialties = () => {
+    const favorites = getFavoriteSpecialties();
+    const favoriteSpecs = ALL_SPECIALTIES.filter(s => favorites.includes(s));
+    const otherSpecs = ALL_SPECIALTIES.filter(s => !favorites.includes(s));
+    return { favoriteSpecs, otherSpecs };
+  };
+
+  const createTeamMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/teams', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+      toast({ 
+        title: "Team created successfully",
+        duration: 2000
+      });
+      setShowTeamDialog(false);
+      setEditingTeam(null);
+      setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to create team",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const updateTeamMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest('PUT', `/api/teams/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+      toast({ 
+        title: "Team updated successfully",
+        duration: 2000
+      });
+      setShowTeamDialog(false);
+      setEditingTeam(null);
+      setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update team",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const deleteTeamMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest('DELETE', `/api/teams/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+      toast({ 
+        title: "Team deleted successfully",
+        duration: 2000
+      });
+      setShowTeamDialog(false);
+      setEditingTeam(null);
+      setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete team",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const createJobMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/scheduled-jobs', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      toast({ 
+        title: "Job created successfully",
+        duration: 2000
+      });
+      setShowJobDialog(false);
+      setJobFormData({
+        title: '',
+        description: '',
+        teamId: '',
+        urgency: 'Low',
+        propertyId: null,
+        address: '',
+        city: '',
+        state: '',
+        tel: '',
+        email: '',
+        contactPerson: '',
+        startTime: '08:00',
+        duration: 120,
+        durationDays: 1,
+        allDay: false,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to create job",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const createReminderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/reminders', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+      toast({ 
+        title: "Reminder created successfully",
+        duration: 2000
+      });
+      setShowReminderDialog(false);
+      setEditingReminder(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to create reminder",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const updateReminderMutation = useMutation({
+    mutationFn: async (data: { id: string; updates: any }) => {
+      return apiRequest('PUT', `/api/reminders/${data.id}`, data.updates);
+    },
+    onMutate: async ({ id, updates }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/reminders'] });
+      
+      // Snapshot the previous value
+      const previousReminders = queryClient.getQueryData(['/api/reminders']);
+      
+      // Optimistically update the cache to avoid visual glitch
+      if (previousReminders) {
+        const optimisticReminders = (previousReminders as any[]).map((reminder: any) => 
+          reminder.id === id ? { ...reminder, ...updates } : reminder
+        );
+        queryClient.setQueryData(['/api/reminders'], optimisticReminders);
+      }
+      
+      return { previousReminders };
+    },
+    onSuccess: () => {
+      // For drag operations, invalidate to ensure next page load gets fresh data
+      // Don't show toast for drag operations
+      if (dragMutationInProgress.current) {
+        // Invalidate with refetchType: 'none' to not trigger immediate refetch
+        // but ensure next mount gets fresh data
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/reminders'],
+          refetchType: 'none'
+        });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+        toast({ 
+          title: "Reminder updated successfully",
+          duration: 2000
+        });
+        setShowReminderDialog(false);
+        setEditingReminder(null);
+      }
+      dragMutationInProgress.current = false;
+    },
+    onError: (error: any, variables, context: any) => {
+      // Rollback on error
+      if (context?.previousReminders) {
+        queryClient.setQueryData(['/api/reminders'], context.previousReminders);
+      }
+      toast({
+        title: "Failed to update reminder",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+      dragMutationInProgress.current = false;
+    },
+  });
+
+  const updateJobMutation = useMutation<
+    ScheduledJob,
+    Error,
+    { id: string; data: any },
+    { previousJobs?: ScheduledJob[] }
+  >({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest('PUT', `/api/scheduled-jobs/${id}`, data) as Promise<ScheduledJob>;
+    },
+    onMutate: async ({ id, data }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/scheduled-jobs'] });
+      
+      // Snapshot the previous value
+      const previousJobs = queryClient.getQueryData<ScheduledJob[]>(['/api/scheduled-jobs']);
+      
+      // Optimistically update the cache to avoid visual glitch
+      if (previousJobs) {
+        const optimisticJobs = previousJobs.map(job => 
+          job.id === id ? { ...job, ...data } : job
+        );
+        queryClient.setQueryData(['/api/scheduled-jobs'], optimisticJobs);
+      }
+      
+      return { previousJobs };
+    },
+    onSuccess: (data: ScheduledJob) => {
+      // Invalidate queries to refetch from server with new data
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      toast({ 
+        title: "Job updated successfully",
+        duration: 2000
+      });
+      dragMutationInProgress.current = false;
+    },
+    onError: (error: Error, variables, context) => {
+      // Rollback on error
+      if (context?.previousJobs) {
+        queryClient.setQueryData(['/api/scheduled-jobs'], context.previousJobs);
+      }
+      toast({
+        title: "Failed to update job",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+      dragMutationInProgress.current = false;
+    },
+  });
+
+  const deleteJobMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingJob) throw new Error('No job to delete');
+      return apiRequest('DELETE', `/api/scheduled-jobs/${editingJob.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      toast({ 
+        title: "Job deleted successfully",
+        duration: 2000
+      });
+      setShowJobDialog(false);
+      setEditingJob(null);
+      setJobFormData({
+        title: '',
+        description: '',
+        teamId: '',
+        urgency: 'Low',
+        propertyId: null,
+        address: '',
+        city: '',
+        state: '',
+        tel: '',
+        email: '',
+        contactPerson: '',
+        startTime: '08:00',
+        duration: 120,
+        durationDays: 1,
+        allDay: false,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete job",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  const weekDays = hideWeekends ? allWeekDays.filter((_, i) => i < 5) : allWeekDays; // Filter out Sat/Sun if hideWeekends is true
+
+  const unscheduledJobs = jobs.filter(job => !job.scheduledStartAt);
+  const scheduledJobs = jobs.filter(job => job.scheduledStartAt);
+
+  const getJobsForDay = (date: Date) => {
+    return scheduledJobs.filter(job => {
+      if (!job.scheduledStartAt) return false;
+      
+      // Build day boundaries in organization timezone using explicit wall-time strings
+      const orgTimezone = organization?.timezone || 'America/New_York';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      // Create 00:00:00 and 23:59:59.999 for this day in org timezone
+      const dayStartStr = `${year}-${month}-${day} 00:00:00`;
+      const dayEndStr = `${year}-${month}-${day} 23:59:59.999`;
+      
+      // Convert to UTC for comparison with job times
+      const dayStart = fromZonedTime(dayStartStr, orgTimezone);
+      const dayEnd = fromZonedTime(dayEndStr, orgTimezone);
+      
+      // Parse job times with full precision
+      const jobStart = parseISO(job.scheduledStartAt);
+      const jobEnd = job.scheduledEndAt ? parseISO(job.scheduledEndAt) : jobStart;
+      
+      // Treat end time as exclusive: a job ending at midnight should not appear on the next day
+      // Check if job overlaps with the day: jobStart < dayEnd (exclusive) AND jobEnd > dayStart
+      return jobStart <= dayEnd && jobEnd > dayStart;
+    });
+  };
+
+  const calculateJobSpan = (job: ScheduledJob, currentDay: Date, weekDays: Date[]): {
+    shouldRender: boolean;
+    spanDays: number;
+    isFirstDay: boolean;
+    extendsBeyondWeek: boolean;
+  } => {
+    if (!job.scheduledStartAt || job.durationDays <= 1) {
+      return { shouldRender: true, spanDays: 1, isFirstDay: true, extendsBeyondWeek: false };
+    }
+
+    const jobStartDate = startOfDay(parseISO(job.scheduledStartAt));
+    const currentDayStart = startOfDay(currentDay);
+    
+    const currentDayIndex = weekDays.findIndex(d => isSameDay(d, currentDay));
+    if (currentDayIndex === -1) {
+      return { shouldRender: false, spanDays: 1, isFirstDay: false, extendsBeyondWeek: false };
+    }
+
+    const firstVisibleDay = startOfDay(weekDays[0]);
+    const lastVisibleDay = startOfDay(weekDays[weekDays.length - 1]);
+    
+    const isFirstDay = isSameDay(jobStartDate, currentDayStart);
+    const jobStartsBeforeWeek = jobStartDate < firstVisibleDay;
+    const firstDayInWeek = jobStartsBeforeWeek ? firstVisibleDay : jobStartDate;
+    
+    const shouldRender = isSameDay(currentDayStart, firstDayInWeek);
+    
+    if (!shouldRender) {
+      return { shouldRender: false, spanDays: 1, isFirstDay, extendsBeyondWeek: false };
+    }
+
+    const jobEndDate = addDays(jobStartDate, job.durationDays);
+    const daysUntilWeekEnd = weekDays.length - currentDayIndex;
+    const daysUntilJobEnd = differenceInCalendarDays(jobEndDate, currentDayStart);
+    
+    const spanDays = Math.min(daysUntilWeekEnd, daysUntilJobEnd);
+    const extendsBeyondWeek = jobEndDate > lastVisibleDay;
+
+    return {
+      shouldRender: true,
+      spanDays: Math.max(1, spanDays),
+      isFirstDay,
+      extendsBeyondWeek
+    };
+  };
+
+  const getTeamColor = (teamId: string) => {
+    const team = teams.find(t => t.id === teamId);
+    return team?.color || '#3b82f6';
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleJobDoubleClick = (job: ScheduledJob) => {
+    // If it's a counter-proposal, open the review dialog
+    if (job.status === 'Needs Review') {
+      setReviewingCounterProposal({ job, proposalId: '' });
+    } else {
+      setViewingJob(job);
+    }
+  };
+
+  const handleReminderClick = (reminder: any) => {
+    setEditingReminder(reminder);
+    setShowReminderDialog(true);
+  };
+
+  const acceptCounterProposalMutation = useMutation({
+    mutationFn: async (data: { proposalId: string; selectedSlotIndex: number; selectedStart?: string; selectedEnd?: string }) => {
+      const response = await apiRequest("POST", `/api/counter-proposals/${data.proposalId}/accept`, {
+        selectedSlotIndex: data.selectedSlotIndex,
+        selectedStart: data.selectedStart,
+        selectedEnd: data.selectedEnd
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
+      setReviewingCounterProposal(null);
+      toast({
+        title: "Success",
+        description: "Counter-proposal accepted! The tenant and admin have been notified.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to accept counter-proposal",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectCounterProposalMutation = useMutation({
+    mutationFn: async (proposalId: string) => {
+      const response = await apiRequest("POST", `/api/counter-proposals/${proposalId}/reject`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
+      setReviewingCounterProposal(null);
+      toast({
+        title: "Success",
+        description: "Counter-proposal declined. The tenant will be notified.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to decline counter-proposal",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    // Prevent duplicate drag-end events from triggering multiple mutations
+    if (dragMutationInProgress.current) {
+      setActiveId(null);
+      return;
+    }
+    
+    if (!over) {
+      setActiveId(null);
+      return;
+    }
+
+    const activeIdStr = active.id as string;
+    
+    // Check if dragging a reminder
+    if (activeIdStr.startsWith('reminder-')) {
+      const reminderId = activeIdStr.replace('reminder-', '');
+      const reminder = reminders.find(r => r.id === reminderId);
+      
+      if (!reminder) {
+        setActiveId(null);
+        return;
+      }
+      
+      // Only allow dropping on time slots
+      if (over.id.toString().startsWith('day-') && over.id.toString().includes('-time-')) {
+        const parts = over.id.toString().split('-');
+        const dayIndex = parseInt(parts[1]);
+        const targetHour = parseInt(parts[3]);
+        const targetMinute = parseInt(parts[4]);
+        const targetDate = viewMode === 'day' ? currentDate : weekDays[dayIndex];
+        
+        // Get organization timezone
+        if (!organization?.timezone) {
+          toast({
+            title: "Update unavailable",
+            description: "Please wait for the page to finish loading.",
+            variant: "destructive",
+            duration: 4000
+          });
+          setActiveId(null);
+          return;
+        }
+        const orgTimezone = organization.timezone;
+        
+        // Calculate new dueAt time
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const hour = String(targetHour).padStart(2, '0');
+        const minute = String(targetMinute).padStart(2, '0');
+        const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
+        
+        const newDueAt = fromZonedTime(dateTimeString, orgTimezone);
+        
+        console.log('📅 REMINDER DRAG:', {
+          reminderId,
+          targetHour,
+          targetMinute,
+          orgTimezone,
+          dateTimeString,
+          newDueAt: newDueAt.toISOString(),
+        });
+        
+        dragMutationInProgress.current = true;
+        updateReminderMutation.mutate({
+          id: reminderId,
+          updates: { dueAt: newDueAt.toISOString() }
+        });
+      }
+      
+      setActiveId(null);
+      return;
+    }
+
+    // Handle job dragging
+    const jobId = activeIdStr;
+    const job = jobs.find(j => j.id === jobId);
+    
+    if (!job) {
+      setActiveId(null);
+      return;
+    }
+
+    // If dropped on unscheduled area - keep team color but remove schedule
+    if (over.id === 'unscheduled') {
+      dragMutationInProgress.current = true;
+      updateJobMutation.mutate({
+        id: jobId,
+        data: {
+          scheduledStartAt: null,
+          scheduledEndAt: null,
+          status: 'Unscheduled',
+        },
+      });
+      setActiveId(null);
+      return;
+    }
+
+    // If dropped on a time slot
+    if (over.id.toString().startsWith('day-') && over.id.toString().includes('-time-')) {
+      const parts = over.id.toString().split('-');
+      const dayIndex = parseInt(parts[1]);
+      const targetHour = parseInt(parts[3]);
+      const targetMinute = parseInt(parts[4]);
+      // In Day view, use currentDate; in Week view, use weekDays[dayIndex]
+      const targetDate = viewMode === 'day' ? currentDate : weekDays[dayIndex];
+      
+      console.log('🎯 DROP ZONE DEBUG:', {
+        dropZoneId: over.id,
+        parsedHour: targetHour,
+        parsedMinute: targetMinute,
+        targetDate: format(targetDate, 'yyyy-MM-dd'),
+        targetDateISO: targetDate.toISOString(),
+        viewMode
+      });
+      
+      // Calculate duration in milliseconds to preserve exact time components
+      let durationMs = 0;
+      if (job.scheduledStartAt && job.scheduledEndAt) {
+        const originalStart = parseISO(job.scheduledStartAt);
+        const originalEnd = parseISO(job.scheduledEndAt);
+        durationMs = originalEnd.getTime() - originalStart.getTime();
+      }
+      
+      // Calculate new start and end times
+      let newStartDate: Date;
+      let newEndDate: Date;
+      
+      // Get organization timezone - abort if not available to avoid wrong timezone
+      if (!organization?.timezone) {
+        console.error('❌ Organization timezone not loaded - cannot schedule job');
+        toast({
+          title: "Scheduling unavailable",
+          description: "Please wait for the page to finish loading before scheduling jobs.",
+          variant: "destructive",
+          duration: 4000
+        });
+        setActiveId(null);
+        return;
+      }
+      const orgTimezone = organization.timezone;
+      
+      if (!job.scheduledStartAt) {
+        // New job being scheduled - use the dropped time slot
+        let durationMinutes = 120; // default 2 hours
+        let useAllDayTimes = false;
+        
+        // If this is an all-day job, set it to 8am-5pm (540 minutes = 9 hours)
+        if (job.isAllDay) {
+          durationMinutes = 540; // 9 hours: 8am to 5pm
+          useAllDayTimes = true;
+        } else {
+          // Try to parse time preferences from notes field
+          if (job.notes) {
+            try {
+              const parsed = JSON.parse(job.notes);
+              if (parsed.timePreferences) {
+                durationMinutes = parsed.timePreferences.duration || 120;
+              }
+            } catch (e) {
+              // If notes isn't JSON or doesn't have timePreferences, use defaults
+            }
+          }
+        }
+        
+        // Use fromZonedTime to properly convert from organization timezone to UTC
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        
+        // For all-day jobs, force start at 8am regardless of drop position
+        const hour = String(useAllDayTimes ? 8 : targetHour).padStart(2, '0');
+        const minute = String(useAllDayTimes ? 0 : targetMinute).padStart(2, '0');
+        const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
+        
+        newStartDate = fromZonedTime(dateTimeString, orgTimezone);
+        
+        console.log('📅 NEW JOB SCHEDULE:', {
+          isAllDay: job.isAllDay,
+          targetHour,
+          targetMinute,
+          actualHour: useAllDayTimes ? 8 : targetHour,
+          actualMinute: useAllDayTimes ? 0 : targetMinute,
+          orgTimezone,
+          dateTimeString,
+          newStartDate: newStartDate.toISOString(),
+          willDisplay: format(newStartDate, 'h:mm a')
+        });
+        
+        // Calculate end time based on duration
+        newEndDate = new Date(newStartDate.getTime() + durationMinutes * 60 * 1000);
+        
+        // For multi-day jobs, extend the end date
+        if (job.durationDays > 1) {
+          newEndDate = new Date(addDays(newStartDate, job.durationDays - 1).getTime() + durationMinutes * 60 * 1000);
+        }
+      } else {
+        // Existing job being rescheduled
+        // Check if this is an all-day job (either marked as all-day or has 540 min duration)
+        const isAllDayJob = job.isAllDay || (durationMs === 540 * 60 * 1000);
+        
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        
+        // For all-day jobs, force start at 8am regardless of drop position
+        const hour = String(isAllDayJob ? 8 : targetHour).padStart(2, '0');
+        const minute = String(isAllDayJob ? 0 : targetMinute).padStart(2, '0');
+        const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
+        
+        newStartDate = fromZonedTime(dateTimeString, orgTimezone);
+        
+        console.log('📅 RESCHEDULE JOB:', {
+          isAllDay: job.isAllDay,
+          isAllDayJob,
+          targetHour,
+          targetMinute,
+          actualHour: isAllDayJob ? 8 : targetHour,
+          actualMinute: isAllDayJob ? 0 : targetMinute,
+          orgTimezone,
+          dateTimeString,
+          newStartDate: newStartDate.toISOString(),
+          willDisplay: format(newStartDate, 'h:mm a')
+        });
+        
+        // For all-day jobs, always use 9 hours (8am-5pm), otherwise preserve duration
+        if (isAllDayJob) {
+          newEndDate = new Date(newStartDate.getTime() + 540 * 60 * 1000);
+        } else {
+          newEndDate = new Date(newStartDate.getTime() + durationMs);
+        }
+      }
+      
+      // Update job with new scheduled date - jobs dropped on time slots are not all-day
+      const isoStart = newStartDate.toISOString();
+      const isoEnd = newEndDate.toISOString();
+      
+      // Check for same-team conflicts (different teams can overlap)
+      const hasConflict = scheduledJobs?.some(existingJob => {
+        // Skip the job being moved
+        if (existingJob.id === jobId) return false;
+        
+        // Only check jobs from the same team
+        if (existingJob.teamId !== job.teamId) return false;
+        
+        // Skip unscheduled jobs
+        if (!existingJob.scheduledStartAt || !existingJob.scheduledEndAt) return false;
+        
+        // Check for time overlap
+        const existingStart = parseISO(existingJob.scheduledStartAt);
+        const existingEnd = parseISO(existingJob.scheduledEndAt);
+        
+        // Two time ranges overlap if: start1 < end2 AND start2 < end1
+        return newStartDate < existingEnd && existingStart < newEndDate;
+      });
+      
+      if (hasConflict) {
+        toast({
+          title: "Schedule conflict",
+          description: "This team already has a job scheduled during this time. Different teams can share time slots, but the same team cannot.",
+          variant: "destructive",
+          duration: 5000
+        });
+        setActiveId(null);
+        return;
+      }
+      
+      dragMutationInProgress.current = true;
+      updateJobMutation.mutate({
+        id: jobId,
+        data: {
+          scheduledStartAt: isoStart,
+          scheduledEndAt: isoEnd,
+          isAllDay: job.isAllDay, // Preserve all-day flag for consistent 8am-5pm scheduling
+          status: 'Pending Approval', // Tenant needs to approve before job becomes "Scheduled"
+        },
+      });
+    }
+
+    setActiveId(null);
+  };
+
+  const handleCreateJob = () => {
+    // Store time preferences and address details in notes field as JSON
+    const addressDetails = {
+      address: jobFormData.address,
+      city: jobFormData.city,
+      state: jobFormData.state,
+      tel: jobFormData.tel,
+      email: jobFormData.email,
+      contactPerson: jobFormData.contactPerson,
+    };
+    
+    let notes: string;
+    if (!jobFormData.allDay) {
+      const timePrefs = {
+        startTime: jobFormData.startTime,
+        duration: jobFormData.duration,
+      };
+      notes = JSON.stringify({ 
+        timePreferences: timePrefs, 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
+    } else {
+      notes = JSON.stringify({ 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
+    }
+
+    // All new jobs start unscheduled (no scheduled times)
+    const payload: any = {
+      title: jobFormData.title,
+      description: jobFormData.description,
+      teamId: jobFormData.teamId,
+      urgency: jobFormData.urgency,
+      propertyId: jobFormData.propertyId,
+      address: jobFormData.address || null,
+      durationDays: jobFormData.durationDays,
+      status: 'Unscheduled',
+      isAllDay: jobFormData.allDay,
+      tenantConfirmed: false,
+      notes: notes,
+    };
+    
+    createJobMutation.mutate(payload);
+  };
+
+  const handleUpdateJob = () => {
+    if (!editingJob) return;
+
+    // Build notes with time preferences and address details (same as create)
+    const addressDetails = {
+      address: jobFormData.address,
+      city: jobFormData.city,
+      state: jobFormData.state,
+      tel: jobFormData.tel,
+      email: jobFormData.email,
+      contactPerson: jobFormData.contactPerson,
+    };
+    
+    let notes: string;
+    if (!jobFormData.allDay) {
+      const timePrefs = {
+        startTime: jobFormData.startTime,
+        duration: jobFormData.duration,
+      };
+      notes = JSON.stringify({ 
+        timePreferences: timePrefs, 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
+    } else {
+      notes = JSON.stringify({ 
+        description: jobFormData.description,
+        addressDetails: addressDetails,
+      });
+    }
+
+    const payload: Partial<InsertScheduledJob> = {
+      title: jobFormData.title,
+      description: jobFormData.description,
+      teamId: jobFormData.teamId || null,
+      urgency: jobFormData.urgency,
+      propertyId: jobFormData.propertyId || null,
+      address: jobFormData.address || null,
+      city: jobFormData.city || null,
+      state: jobFormData.state || null,
+      tel: jobFormData.tel || null,
+      email: jobFormData.email || null,
+      contactPerson: jobFormData.contactPerson || null,
+      durationDays: jobFormData.durationDays,
+      isAllDay: jobFormData.allDay,
+      notes: notes,
+    };
+
+    // If the job is scheduled and end time needs recalculation due to duration change
+    if (editingJob.scheduledStartAt && editingJob.durationDays !== jobFormData.durationDays) {
+      const startDate = parseISO(editingJob.scheduledStartAt);
+      const endDate = addDays(startDate, jobFormData.durationDays);
+      payload.scheduledEndAt = endDate.toISOString();
+    }
+
+    updateJobMutation.mutate({ 
+      id: editingJob.id, 
+      data: payload 
+    });
+    
+    setShowJobDialog(false);
+    setEditingJob(null);
+    setJobFormData({
+      title: '',
+      description: '',
+      teamId: '',
+      urgency: 'Low',
+      propertyId: null,
+      address: '',
+      city: '',
+      state: '',
+      tel: '',
+      email: '',
+      contactPerson: '',
+      startTime: '08:00',
+      duration: 120,
+      durationDays: 1,
+      allDay: false,
+    });
+  };
+
+  const handleCreateTeam = () => {
+    if (editingTeam) {
+      updateTeamMutation.mutate({
+        id: editingTeam.id,
+        data: {
+          name: teamFormData.name,
+          specialty: teamFormData.specialty,
+          color: teamFormData.color,
+        }
+      });
+    } else {
+      createTeamMutation.mutate({
+        name: teamFormData.name,
+        specialty: teamFormData.specialty,
+        color: teamFormData.color,
+      });
+    }
+  };
+
+  const handleEditTeam = (team: Team) => {
+    setEditingTeam(team);
+    setCreatingNewTeam(false);
+    setTeamFormData({
+      id: team.id,
+      name: team.name,
+      specialty: team.specialty,
+      color: team.color,
+      isActive: true,
+    });
+    setShowTeamDialog(true);
+  };
+
+  const handleTeamChange = (jobId: string, teamId: string) => {
+    updateJobMutation.mutate({ id: jobId, data: { teamId } });
+  };
+
+  const activeJob = activeId ? jobs.find(j => j.id === activeId) : null;
+  const activeReminder = activeId && activeId.startsWith('reminder-') 
+    ? reminders.find(r => r.id === activeId.replace('reminder-', ''))
+    : null;
+
+  if (!user) {
+    return (
+      <div className="flex h-screen bg-background text-foreground dark:bg-gray-900">
+        <Sidebar />
+        <div className="flex-1 flex flex-col">
+          <Header title="Admin Calendar" />
+          <main className="flex-1 p-6">
+            <p className="text-muted-foreground dark:text-gray-400">Please log in to view calendar.</p>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-background text-foreground dark:bg-gray-900">
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Calendar" />
+        <main className="flex-1 p-6 overflow-auto">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground dark:text-white mb-2" data-testid="text-page-title">
+                Calendar
+              </h1>
+              <p className="text-muted-foreground dark:text-gray-400">
+                Manage team schedules, jobs, and reminders
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Dialog open={showTeamDialog} onOpenChange={(open) => {
+                setShowTeamDialog(open);
+                if (!open) {
+                  setEditingTeam(null);
+                  setCreatingNewTeam(false);
+                  setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" data-testid="button-add-team">
+                    <Users className="mr-2 h-4 w-4" />
+                    Manage Teams
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingTeam ? 'Edit Team' : 'Manage Teams'}</DialogTitle>
+                    <DialogDescription>
+                      {editingTeam ? 'Update team information.' : 'Create a new team or edit existing teams.'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  {!editingTeam && !creatingNewTeam && teams.length > 0 && (
+                    <div className="space-y-2 mb-4 p-4 bg-muted dark:bg-gray-800 rounded-lg">
+                      <Label className="text-sm font-medium">Existing Teams</Label>
+                      <div className="space-y-2">
+                        {teams.map(team => (
+                          <div
+                            key={team.id}
+                            className="flex items-center justify-between p-2 bg-card dark:bg-gray-900 rounded border border-border dark:border-gray-700"
+                            data-testid={`team-item-${team.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-4 h-4 rounded"
+                                style={{ backgroundColor: team.color }}
+                              />
+                              <div>
+                                <p className="text-sm font-medium">{team.name}</p>
+                                <p className="text-xs text-muted-foreground">{team.specialty}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditTeam(team)}
+                              data-testid={`button-edit-team-${team.id}`}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(editingTeam || creatingNewTeam || teams.length === 0) && (
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="team-name">Team Name</Label>
+                        <Input
+                          id="team-name"
+                          value={teamFormData.name}
+                          onChange={(e) => setTeamFormData({ ...teamFormData, name: e.target.value })}
+                          placeholder="e.g., ABC Plumbing"
+                          data-testid="input-team-name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="team-specialty">Specialty</Label>
+                        <Select
+                          value={teamFormData.specialty}
+                          onValueChange={(value: any) => {
+                            setTeamFormData({ ...teamFormData, specialty: value });
+                          }}
+                        >
+                          <SelectTrigger id="team-specialty" data-testid="select-team-specialty">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(() => {
+                              const { favoriteSpecs, otherSpecs } = getSortedSpecialties();
+                              return (
+                                <>
+                                  {favoriteSpecs.length > 0 && (
+                                    <>
+                                      {favoriteSpecs.map(spec => (
+                                        <SelectItem key={spec} value={spec}>
+                                          <div className="flex items-center gap-2">
+                                            <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                                            {spec}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                      <div className="h-px bg-border my-1" />
+                                    </>
+                                  )}
+                                  {otherSpecs.map(spec => (
+                                    <SelectItem key={spec} value={spec}>
+                                      {spec}
+                                    </SelectItem>
+                                  ))}
+                                </>
+                              );
+                            })()}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleFavoriteSpecialty(teamFormData.specialty)}
+                          className="mt-1"
+                          data-testid="button-toggle-favorite-specialty"
+                        >
+                          <Star className={cn(
+                            "h-4 w-4 mr-1",
+                            getFavoriteSpecialties().includes(teamFormData.specialty)
+                              ? "fill-yellow-500 text-yellow-500"
+                              : "text-muted-foreground"
+                          )} />
+                          {getFavoriteSpecialties().includes(teamFormData.specialty) ? 'Remove from' : 'Add to'} favorites
+                        </Button>
+                      </div>
+                      <div>
+                        <Label htmlFor="team-color">Team Color</Label>
+                        <div className="space-y-3">
+                          <div className="flex gap-2">
+                            {PRESET_COLORS.map((color) => (
+                              <button
+                                key={color.value}
+                                type="button"
+                                className={cn(
+                                  "w-10 h-10 rounded-md border-2 transition-all",
+                                  teamFormData.color === color.value
+                                    ? "border-foreground dark:border-white scale-110"
+                                    : "border-transparent hover:scale-105"
+                                )}
+                                style={{ backgroundColor: color.value }}
+                                onClick={() => setTeamFormData({ ...teamFormData, color: color.value })}
+                                title={color.name}
+                                data-testid={`color-preset-${color.name.toLowerCase()}`}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="team-color-custom" className="text-sm">Custom:</Label>
+                            <Input
+                              id="team-color-custom"
+                              type="color"
+                              value={teamFormData.color}
+                              onChange={(e) => setTeamFormData({ ...teamFormData, color: e.target.value })}
+                              className="w-20 h-8"
+                              data-testid="input-team-color"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {editingTeam && (
+                          <Button
+                            variant="destructive"
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
+                                deleteTeamMutation.mutate(editingTeam.id);
+                              }
+                            }}
+                            disabled={deleteTeamMutation.isPending}
+                            data-testid="button-delete-team"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        )}
+                        {(editingTeam || creatingNewTeam) && (
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setEditingTeam(null);
+                              setCreatingNewTeam(false);
+                              setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+                            }}
+                            className="flex-1"
+                            data-testid="button-cancel-edit"
+                          >
+                            Cancel
+                          </Button>
+                        )}
+                        <Button
+                          onClick={handleCreateTeam}
+                          disabled={!teamFormData.name || createTeamMutation.isPending || updateTeamMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-submit-team"
+                        >
+                          {createTeamMutation.isPending || updateTeamMutation.isPending 
+                            ? 'Saving...' 
+                            : editingTeam 
+                              ? 'Update Team' 
+                              : 'Create Team'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!editingTeam && !creatingNewTeam && teams.length > 0 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCreatingNewTeam(true);
+                        setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+                      }}
+                      className="w-full"
+                      data-testid="button-add-new-team"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add New Team
+                    </Button>
+                  )}
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={showJobDialog} onOpenChange={(open) => {
+                setShowJobDialog(open);
+                if (!open) {
+                  setEditingJob(null);
+                  setJobFormData({
+                    title: '',
+                    description: '',
+                    teamId: '',
+                    urgency: 'Low' as const,
+                    propertyId: null,
+                    durationDays: 1,
+                    allDay: false,
+                    startTime: '09:00',
+                    duration: 120,
+                    address: '',
+                    city: '',
+                    state: '',
+                    tel: '',
+                    email: '',
+                    contactPerson: '',
+                  });
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-add-job">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Job
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{editingJob ? 'Edit Job' : 'Create New Job'}</DialogTitle>
+                    <DialogDescription>
+                      {editingJob ? 'Update job details and assignment' : 'Add a new job to the unscheduled queue. Drag it to a day to schedule it.'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="job-title">Job Title</Label>
+                      <Input
+                        id="job-title"
+                        value={jobFormData.title}
+                        onChange={(e) => setJobFormData({ ...jobFormData, title: e.target.value })}
+                        placeholder="e.g., Fix leaky faucet"
+                        data-testid="input-job-title"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="job-description">Description</Label>
+                      <Textarea
+                        id="job-description"
+                        value={jobFormData.description}
+                        onChange={(e) => setJobFormData({ ...jobFormData, description: e.target.value })}
+                        placeholder="Additional details..."
+                        data-testid="input-job-description"
+                      />
+                    </div>
+
+                    {/* Duration Slider (moved to top) */}
+                    <div>
+                      <Label htmlFor="duration" className="text-sm">
+                        Duration: {Math.floor(jobFormData.duration / 60)}h {jobFormData.duration % 60}m
+                      </Label>
+                      <Slider
+                        id="duration"
+                        min={15}
+                        max={480}
+                        step={15}
+                        value={[jobFormData.duration]}
+                        onValueChange={([value]) => setJobFormData({ ...jobFormData, duration: value })}
+                        className="mt-2"
+                        data-testid="slider-duration"
+                        disabled={jobFormData.allDay}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="job-team">Assign to Team</Label>
+                      <Select
+                        value={jobFormData.teamId}
+                        onValueChange={(value) => setJobFormData({ ...jobFormData, teamId: value })}
+                      >
+                        <SelectTrigger id="job-team" data-testid="select-job-team">
+                          <SelectValue placeholder="Select a team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {teams.map(team => (
+                            <SelectItem key={team.id} value={team.id}>
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full"
+                                  style={{ backgroundColor: team.color }}
+                                />
+                                <span>{team.name} ({team.specialty})</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Customer Info Section */}
+                    <Collapsible open={addressExpanded} onOpenChange={setAddressExpanded}>
+                      <div className="space-y-4">
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between"
+                            data-testid="button-toggle-customer-info"
+                          >
+                            <span>Customer Info (optional)</span>
+                            <ChevronDown className={cn(
+                              "h-4 w-4 transition-transform",
+                              addressExpanded && "rotate-180"
+                            )} />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-3">
+                          <div>
+                            <Label htmlFor="job-contact-person" className="text-sm">Customer Name</Label>
+                            <Input
+                              id="job-contact-person"
+                              value={jobFormData.contactPerson}
+                              onChange={(e) => setJobFormData({ ...jobFormData, contactPerson: e.target.value })}
+                              placeholder="Contact name"
+                              data-testid="input-job-contact-person"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="job-tel" className="text-sm">Phone</Label>
+                              <Input
+                                id="job-tel"
+                                value={jobFormData.tel}
+                                onChange={(e) => setJobFormData({ ...jobFormData, tel: e.target.value })}
+                                placeholder="Phone number"
+                                type="tel"
+                                data-testid="input-job-tel"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="job-email" className="text-sm">Email</Label>
+                              <Input
+                                id="job-email"
+                                value={jobFormData.email}
+                                onChange={(e) => setJobFormData({ ...jobFormData, email: e.target.value })}
+                                placeholder="Email address"
+                                type="email"
+                                data-testid="input-job-email"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="job-address" className="text-sm">Street Address</Label>
+                            <Input
+                              id="job-address"
+                              value={jobFormData.address}
+                              onChange={(e) => setJobFormData({ ...jobFormData, address: e.target.value })}
+                              placeholder="e.g., 123 Main St, Apt 4B"
+                              data-testid="input-job-address"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label htmlFor="job-city" className="text-sm">City</Label>
+                              <Input
+                                id="job-city"
+                                value={jobFormData.city}
+                                onChange={(e) => setJobFormData({ ...jobFormData, city: e.target.value })}
+                                placeholder="City"
+                                data-testid="input-job-city"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="job-state" className="text-sm">State</Label>
+                              <Input
+                                id="job-state"
+                                value={jobFormData.state}
+                                onChange={(e) => setJobFormData({ ...jobFormData, state: e.target.value })}
+                                placeholder="State"
+                                data-testid="input-job-state"
+                              />
+                            </div>
+                          </div>
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+
+                    <div>
+                      <Label htmlFor="job-urgency">Urgency</Label>
+                      <Select
+                        value={jobFormData.urgency}
+                        onValueChange={(value: any) => setJobFormData({ ...jobFormData, urgency: value })}
+                      >
+                        <SelectTrigger id="job-urgency" data-testid="select-job-urgency">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Low">Low</SelectItem>
+                          <SelectItem value="High">High</SelectItem>
+                          <SelectItem value="Emergent">Emergent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Start Time */}
+                    {!jobFormData.allDay && (
+                      <div>
+                        <Label htmlFor="start-time" className="text-sm">Start Time</Label>
+                        <Input
+                          id="start-time"
+                          type="time"
+                          value={jobFormData.startTime}
+                          onChange={(e) => setJobFormData({ ...jobFormData, startTime: e.target.value })}
+                          data-testid="input-start-time"
+                        />
+                      </div>
+                    )}
+
+                    {/* All Day Checkbox (moved to bottom) */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-border dark:border-gray-700">
+                      <input
+                        type="checkbox"
+                        id="all-day"
+                        checked={jobFormData.allDay}
+                        onChange={(e) => setJobFormData({ ...jobFormData, allDay: e.target.checked })}
+                        className="rounded"
+                        data-testid="checkbox-all-day"
+                      />
+                      <Label htmlFor="all-day" className="cursor-pointer">All Day</Label>
+                    </div>
+
+                    {/* Multi-day Duration (optional) */}
+                    <div>
+                      <Label htmlFor="duration-days" className="text-sm">
+                        Number of Days: {jobFormData.durationDays} {jobFormData.durationDays === 1 ? 'day' : 'days'}
+                      </Label>
+                      <Slider
+                        id="duration-days"
+                        min={1}
+                        max={7}
+                        step={1}
+                        value={[jobFormData.durationDays]}
+                        onValueChange={([value]) => setJobFormData({ 
+                          ...jobFormData, 
+                          durationDays: value,
+                          allDay: value > 1 ? true : jobFormData.allDay
+                        })}
+                        className="mt-2"
+                        data-testid="slider-duration-days"
+                      />
+                      {jobFormData.durationDays > 1 && (
+                        <p className="text-xs text-muted-foreground dark:text-gray-400 mt-2 flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          This job will span {jobFormData.durationDays} consecutive days on the calendar
+                        </p>
+                      )}
+                    </div>
+
+                    {editingJob ? (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="destructive"
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+                              deleteJobMutation.mutate();
+                            }
+                          }}
+                          disabled={deleteJobMutation.isPending}
+                          data-testid="button-delete-job"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {deleteJobMutation.isPending ? 'Deleting...' : 'Delete'}
+                        </Button>
+                        <Button
+                          onClick={handleUpdateJob}
+                          disabled={!jobFormData.title || !jobFormData.teamId || updateJobMutation.isPending}
+                          className="flex-1"
+                          data-testid="button-update-job"
+                        >
+                          {updateJobMutation.isPending ? 'Updating...' : 'Update Job'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={handleCreateJob}
+                        disabled={!jobFormData.title || !jobFormData.teamId || createJobMutation.isPending}
+                        className="w-full"
+                        data-testid="button-submit-job"
+                      >
+                        {createJobMutation.isPending ? 'Creating...' : 'Create Job'}
+                      </Button>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={showReminderDialog} onOpenChange={(open) => {
+                setShowReminderDialog(open);
+                if (!open) {
+                  setEditingReminder(null);
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-100 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900" data-testid="button-add-reminder">
+                    <Clock className="mr-2 h-4 w-4" />
+                    Add Reminder
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</DialogTitle>
+                    <DialogDescription>
+                      {editingReminder ? 'Update reminder details' : 'Set up a reminder for important dates and tasks'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <ReminderForm
+                    properties={properties}
+                    entities={entities}
+                    reminder={editingReminder}
+                    onSubmit={(data) => {
+                      if (editingReminder) {
+                        updateReminderMutation.mutate({ id: editingReminder.id, updates: data });
+                      } else {
+                        createReminderMutation.mutate(data);
+                      }
+                    }}
+                    isLoading={createReminderMutation.isPending || updateReminderMutation.isPending}
+                    onCancel={() => {
+                      setShowReminderDialog(false);
+                      setEditingReminder(null);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* Job Details Dialog (Read-Only) */}
+          <Dialog open={!!viewingJob} onOpenChange={() => setViewingJob(null)}>
+            <DialogContent className="max-w-2xl" data-testid="dialog-job-details">
+              <DialogHeader>
+                <DialogTitle>Job Details</DialogTitle>
+                <DialogDescription>View complete job information</DialogDescription>
+              </DialogHeader>
+              {viewingJob && (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="font-semibold">Title</Label>
+                    <p className="text-sm mt-1">{viewingJob.title}</p>
+                  </div>
+                  {viewingJob.description && (
+                    <div>
+                      <Label className="font-semibold">Description</Label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{viewingJob.description}</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="font-semibold">Status</Label>
+                      <p className="text-sm mt-1">
+                        <Badge className={
+                          viewingJob.status === 'Needs Review' ? 'bg-orange-600' :
+                          viewingJob.status === 'Pending Approval' ? 'bg-yellow-500' :
+                          viewingJob.status === 'Completed' ? 'bg-green-500' : 'bg-blue-500'
+                        }>
+                          {viewingJob.status}
+                        </Badge>
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="font-semibold">Urgency</Label>
+                      <p className="text-sm mt-1">
+                        <Badge variant="outline">{viewingJob.urgency}</Badge>
+                      </p>
+                    </div>
+                  </div>
+                  {viewingJob.scheduledStartAt && (
+                    <div>
+                      <Label className="font-semibold">Scheduled Time</Label>
+                      <p className="text-sm mt-1">
+                        {format(parseISO(viewingJob.scheduledStartAt), 'EEEE, MMM d, yyyy')}
+                        {!viewingJob.isAllDay && viewingJob.scheduledEndAt && (
+                          <> • {format(parseISO(viewingJob.scheduledStartAt), 'h:mm a')} - {format(parseISO(viewingJob.scheduledEndAt), 'h:mm a')}</>
+                        )}
+                        {viewingJob.isAllDay && <> • All Day</>}
+                      </p>
+                    </div>
+                  )}
+                  {viewingJob.durationDays > 1 && (
+                    <div>
+                      <Label className="font-semibold">Duration</Label>
+                      <p className="text-sm mt-1">{viewingJob.durationDays} days</p>
+                    </div>
+                  )}
+                  {viewingJob.address && (
+                    <div>
+                      <Label className="font-semibold">Address</Label>
+                      <p className="text-sm mt-1">
+                        {viewingJob.address}
+                        {viewingJob.city && `, ${viewingJob.city}`}
+                        {viewingJob.state && `, ${viewingJob.state}`}
+                      </p>
+                    </div>
+                  )}
+                  {(viewingJob.contactPerson || viewingJob.tel || viewingJob.email) && (
+                    <div>
+                      <Label className="font-semibold">Contact Information</Label>
+                      <div className="text-sm mt-1 space-y-1">
+                        {viewingJob.contactPerson && <p>Name: {viewingJob.contactPerson}</p>}
+                        {viewingJob.tel && <p>Phone: {viewingJob.tel}</p>}
+                        {viewingJob.email && <p>Email: {viewingJob.email}</p>}
+                      </div>
+                    </div>
+                  )}
+                  {viewingJob.notes && (
+                    <div>
+                      <Label className="font-semibold">Notes</Label>
+                      <p className="text-sm mt-1 whitespace-pre-wrap">{viewingJob.notes}</p>
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-2 pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      onClick={() => setViewingJob(null)}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingJob(viewingJob);
+                        setJobFormData({
+                          title: viewingJob.title,
+                          description: viewingJob.description || '',
+                          teamId: viewingJob.teamId || '',
+                          urgency: viewingJob.urgency,
+                          durationDays: viewingJob.durationDays,
+                          allDay: viewingJob.isAllDay,
+                          startTime: viewingJob.scheduledStartAt ? format(parseISO(viewingJob.scheduledStartAt), 'HH:mm') : '09:00',
+                          duration: 120,
+                          propertyId: viewingJob.propertyId || null,
+                          address: viewingJob.address || '',
+                          city: viewingJob.city || '',
+                          state: viewingJob.state || '',
+                          tel: viewingJob.tel || '',
+                          email: viewingJob.email || '',
+                          contactPerson: viewingJob.contactPerson || '',
+                        });
+                        setViewingJob(null);
+                        setShowJobDialog(true);
+                      }}
+                    >
+                      Edit Job
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Contractor Calendar Match Dialog */}
+          <Dialog open={!!reviewingCounterProposal} onOpenChange={(open) => !open && setReviewingCounterProposal(null)}>
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto" data-testid="dialog-calendar-match">
+              <DialogHeader>
+                <DialogTitle>Review Counter-Proposal</DialogTitle>
+                <DialogDescription>
+                  Compare the tenant's proposed times with your schedule and choose the best option
+                </DialogDescription>
+              </DialogHeader>
+              {reviewingCounterProposal && counterProposalsForJob.length > 0 && (() => {
+                // Get current contractor's ID
+                const contractorUserId = user?.id;
+                // Filter jobs for current contractor
+                const contractorJobs = jobs.filter((job: any) => {
+                  // Check if job has contractor assignment
+                  if (job.contractorId) {
+                    // Find the contractor vendor record to match user ID
+                    return job.contractorId;  // For now, include all contractor jobs
+                  }
+                  return false;
+                });
+
+                return (
+                  <ContractorCalendarMatch
+                    counterProposalId={counterProposalsForJob[0].id}
+                    currentJobId={reviewingCounterProposal.job.id}
+                    proposedSlots={counterProposalsForJob[0].availabilitySlots || []}
+                    scheduledJobs={contractorJobs}
+                    jobDurationMinutes={reviewingCounterProposal.job.scheduledStartAt && reviewingCounterProposal.job.scheduledEndAt 
+                      ? Math.round((new Date(reviewingCounterProposal.job.scheduledEndAt).getTime() - new Date(reviewingCounterProposal.job.scheduledStartAt).getTime()) / (1000 * 60))
+                      : 120}
+                    initialProposedStart={reviewingCounterProposal.job.scheduledStartAt}
+                    initialProposedEnd={reviewingCounterProposal.job.scheduledEndAt}
+                    onAccept={(selectedSlotIndex: number, selectedStart?: string, selectedEnd?: string) => {
+                      acceptCounterProposalMutation.mutate({
+                        proposalId: counterProposalsForJob[0].id,
+                        selectedSlotIndex,
+                        selectedStart,
+                        selectedEnd
+                      });
+                    }}
+                    onReject={() => {
+                      rejectCounterProposalMutation.mutate(counterProposalsForJob[0].id);
+                    }}
+                    isPending={acceptCounterProposalMutation.isPending || rejectCounterProposalMutation.isPending}
+                  />
+                );
+              })()}
+            </DialogContent>
+          </Dialog>
+
+          <DndContext
+            sensors={sensors}
+            collisionDetection={topEdgeCollisionDetection}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-[1fr_250px] gap-6">
+              {/* Weekly Calendar */}
+              <div>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            if (viewMode === 'day') {
+                              const newDate = addDays(currentDate, -1);
+                              setCurrentDate(newDate);
+                              setCurrentWeekStart(startOfWeek(newDate, { weekStartsOn: 1 }));
+                            } else if (viewMode === 'week') {
+                              setCurrentWeekStart(addDays(currentWeekStart, -7));
+                            } else {
+                              setCurrentDate(addMonths(currentDate, -1));
+                            }
+                          }}
+                          data-testid="button-prev"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <CardTitle className="text-xl">
+                          {viewMode === 'day' && format(currentDate, 'EEEE, MMM d, yyyy')}
+                          {viewMode === 'week' && `${format(currentWeekStart, 'MMM d')} - ${format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}`}
+                          {viewMode === 'month' && format(currentDate, 'MMMM yyyy')}
+                        </CardTitle>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            if (viewMode === 'day') {
+                              const newDate = addDays(currentDate, 1);
+                              setCurrentDate(newDate);
+                              setCurrentWeekStart(startOfWeek(newDate, { weekStartsOn: 1 }));
+                            } else if (viewMode === 'week') {
+                              setCurrentWeekStart(addDays(currentWeekStart, 7));
+                            } else {
+                              setCurrentDate(addMonths(currentDate, 1));
+                            }
+                          }}
+                          data-testid="button-next"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1 border rounded-md p-1">
+                          <Button
+                            variant={viewMode === 'day' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('day')}
+                            data-testid="button-view-day"
+                          >
+                            Day
+                          </Button>
+                          <Button
+                            variant={viewMode === 'week' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('week')}
+                            data-testid="button-view-week"
+                          >
+                            Week
+                          </Button>
+                          <Button
+                            variant={viewMode === 'month' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('month')}
+                            data-testid="button-view-month"
+                          >
+                            Month
+                          </Button>
+                        </div>
+                        {viewMode === 'week' && (
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="hide-weekends"
+                              checked={hideWeekends}
+                              onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
+                              data-testid="checkbox-hide-weekends"
+                            />
+                            <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
+                              Hide Weekends
+                            </Label>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="filter-mode" className="text-sm whitespace-nowrap">
+                            Display:
+                          </Label>
+                          <Select
+                            value={filterMode}
+                            onValueChange={(value) => setFilterMode(value as "all" | "jobs" | "reminders")}
+                          >
+                            <SelectTrigger id="filter-mode" className="w-[140px]" data-testid="select-filter-mode">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="jobs">Jobs Only</SelectItem>
+                              <SelectItem value="reminders">Reminders Only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="team-filter" className="text-sm whitespace-nowrap">
+                            Teams:
+                          </Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className="w-[180px] justify-between text-sm"
+                                data-testid="button-team-filter"
+                              >
+                                {selectedTeamIds.length === 0
+                                  ? "All Teams"
+                                  : selectedTeamIds.length === teams.length
+                                  ? "All Teams"
+                                  : `${selectedTeamIds.length} selected`}
+                                <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[250px] p-3" align="start">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-sm font-medium">Filter by Teams</p>
+                                  {selectedTeamIds.length > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-xs"
+                                      onClick={() => setSelectedTeamIds([])}
+                                    >
+                                      Clear
+                                    </Button>
+                                  )}
+                                </div>
+                                <div className="max-h-[300px] overflow-y-auto space-y-1">
+                                  {teams.map((team) => (
+                                    <label
+                                      key={team.id}
+                                      className="flex items-center gap-2 p-1.5 hover:bg-muted rounded cursor-pointer"
+                                      data-testid={`team-filter-${team.id}`}
+                                    >
+                                      <Checkbox
+                                        checked={selectedTeamIds.includes(team.id)}
+                                        onCheckedChange={(checked) => {
+                                          setSelectedTeamIds((prev) =>
+                                            checked
+                                              ? [...prev, team.id]
+                                              : prev.filter((id) => id !== team.id)
+                                          );
+                                        }}
+                                      />
+                                      <div
+                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: team.color }}
+                                      />
+                                      <span className="text-sm flex-1">{team.name}</span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const nowUTC = new Date();
+                            const orgTimezone = organization?.timezone || 'America/New_York';
+                            const today = toZonedTime(nowUTC, orgTimezone);
+                            setCurrentDate(today);
+                            if (viewMode === 'week') {
+                              setCurrentWeekStart(startOfWeek(today, { weekStartsOn: 1 }));
+                            }
+                          }}
+                          data-testid="button-today"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Today
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {viewMode === 'week' && (
+                      <div className="relative">
+                        <div className="grid gap-2" style={{ gridTemplateColumns: hideWeekends ? '60px repeat(5, 1fr)' : '60px repeat(7, 1fr)' }}>
+                          {/* Time labels column */}
+                          <div className="pr-2 border-r border-border dark:border-gray-700 relative">
+                            <div className="h-[60px]"></div> {/* Spacer for header - match DayColumn header */}
+                            {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
+                              <div key={hour} className="h-[40px] relative">
+                                <div className="absolute top-0 right-2 text-xs text-muted-foreground dark:text-gray-400 leading-none">
+                                  {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Day columns */}
+                          {weekDays.map((day, index) => {
+                            const dayJobs = getJobsForDay(day);
+                            const filteredDayJobs = selectedTeamIds.length > 0
+                              ? dayJobs.filter(job => selectedTeamIds.includes(job.teamId))
+                              : dayJobs;
+                            const isToday = isSameDay(day, new Date());
+                            
+                            return (
+                              <DayColumn
+                                key={index}
+                                dayIndex={index}
+                                date={day}
+                                jobs={filterMode === "reminders" ? [] : filteredDayJobs}
+                                teams={teams}
+                                weekDays={weekDays}
+                                calculateJobSpan={calculateJobSpan}
+                                isToday={isToday}
+                                activeId={activeId}
+                                organization={organization}
+                                onDoubleClick={handleJobDoubleClick}
+                                onTeamChange={handleTeamChange}
+                                reminders={filterMode === "jobs" ? [] : reminders}
+                                onReminderClick={handleReminderClick}
+                                onClick={(job) => {
+                                  setEditingJob(job);
+                                  setJobFormData({
+                                    title: job.title,
+                                    description: job.description || '',
+                                    teamId: job.teamId || '',
+                                    urgency: job.urgency,
+                                    durationDays: job.durationDays,
+                                    allDay: job.isAllDay,
+                                    startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                                    duration: 120,
+                                    address: job.address || '',
+                                    city: job.city || '',
+                                    state: job.state || '',
+                                    tel: job.tel || '',
+                                    email: job.email || '',
+                                    contactPerson: job.contactPerson || '',
+                                  });
+                                  setShowJobDialog(true);
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {viewMode === 'day' && (
+                      <div className="relative">
+                        <div className="grid gap-2 grid-cols-[80px_1fr]">
+                          {/* Time labels column - wider for day view */}
+                          <div className="pr-3 border-r border-border dark:border-gray-700 relative pt-[1px]">
+                            <div className="h-[60px] border-b border-transparent"></div>
+                            {Array.from({ length: 15 }, (_, i) => i + 6).map((hour, index) => (
+                              <div key={hour} className="h-[60px] relative">
+                                <div className="absolute top-0 right-3 text-sm text-muted-foreground dark:text-gray-400 font-medium leading-none">
+                                  {hour === 12 ? '12 PM' : hour > 12 ? `${hour - 12} PM` : `${hour} AM`}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Single day column */}
+                          <DayColumn
+                            dayIndex={0}
+                            date={currentDate}
+                            jobs={filterMode === "reminders" ? [] : (
+                              selectedTeamIds.length > 0
+                                ? getJobsForDay(currentDate).filter(job => selectedTeamIds.includes(job.teamId))
+                                : getJobsForDay(currentDate)
+                            )}
+                            teams={teams}
+                            weekDays={[currentDate]}
+                            calculateJobSpan={calculateJobSpan}
+                            isToday={isSameDay(currentDate, new Date())}
+                            activeId={activeId}
+                            hourHeight={60}
+                            organization={organization}
+                            onDoubleClick={handleJobDoubleClick}
+                            reminders={filterMode === "jobs" ? [] : reminders}
+                            onReminderClick={handleReminderClick}
+                            onClick={(job) => {
+                              setEditingJob(job);
+                              setJobFormData({
+                                title: job.title,
+                                description: job.description || '',
+                                teamId: job.teamId || '',
+                                urgency: job.urgency,
+                                durationDays: job.durationDays,
+                                allDay: job.isAllDay,
+                                startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                                duration: 120,
+                                address: job.address || '',
+                                city: job.city || '',
+                                state: job.state || '',
+                                tel: job.tel || '',
+                                email: job.email || '',
+                                contactPerson: job.contactPerson || '',
+                              });
+                              setShowJobDialog(true);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {viewMode === 'month' && (
+                      <MonthView
+                        currentDate={currentDate}
+                        jobs={scheduledJobs}
+                        teams={teams}
+                        onDayClick={(date: Date) => {
+                          setCurrentDate(date);
+                          setCurrentWeekStart(startOfWeek(date, { weekStartsOn: 1 }));
+                          setViewMode('day');
+                        }}
+                        onJobClick={(job: ScheduledJob) => {
+                          setEditingJob(job);
+                          // Populate form with job data
+                          setJobFormData({
+                            title: job.title,
+                            description: job.description || '',
+                            teamId: job.teamId || '',
+                            urgency: job.urgency,
+                            durationDays: job.durationDays,
+                            allDay: job.isAllDay,
+                            startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                            duration: 120,
+                            address: job.address || '',
+                            city: job.city || '',
+                            state: job.state || '',
+                            tel: job.tel || '',
+                            email: job.email || '',
+                            contactPerson: job.contactPerson || '',
+                          });
+                          setShowJobDialog(true);
+                        }}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Unscheduled Jobs Sidebar */}
+              <UnscheduledJobsPanel 
+                jobs={unscheduledJobs} 
+                teams={teams} 
+                activeId={activeId}
+                onDoubleClick={handleJobDoubleClick}
+                onTeamChange={handleTeamChange}
+                onJobClick={(job) => {
+                  setEditingJob(job);
+                  setJobFormData({
+                    title: job.title,
+                    description: job.description || '',
+                    teamId: job.teamId || '',
+                    urgency: job.urgency,
+                    durationDays: job.durationDays,
+                    allDay: job.isAllDay,
+                    startTime: job.scheduledStartAt ? format(parseISO(job.scheduledStartAt), 'HH:mm') : '09:00',
+                    duration: 120,
+                    address: job.address || '',
+                    city: job.city || '',
+                    state: job.state || '',
+                    tel: job.tel || '',
+                    email: job.email || '',
+                    contactPerson: job.contactPerson || '',
+                  });
+                  setShowJobDialog(true);
+                }}
+              />
+            </div>
+
+            <DragOverlay dropAnimation={null}>
+              {activeJob ? (
+                <div className="cursor-grabbing">
+                  <JobCard
+                    job={activeJob}
+                    team={teams.find(t => t.id === activeJob.teamId)}
+                    isDragging
+                    onDoubleClick={() => handleJobDoubleClick(activeJob)}
+                    teams={teams}
+                    onTeamChange={(teamId) => handleTeamChange(activeJob.id, teamId)}
+                  />
+                </div>
+              ) : activeReminder ? (
+                <div className="cursor-grabbing" style={{ width: '150px', height: '26px' }}>
+                  <ReminderBar
+                    reminder={activeReminder}
+                  />
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+
+          <div className="mt-6">
+            <TeamLegend 
+              teams={teams} 
+              jobs={jobs} 
+              isCollapsed={legendCollapsed}
+              onToggle={() => setLegendCollapsed(!legendCollapsed)}
+            />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function JobCard({ 
+  job, 
+  team, 
+  isDragging, 
+  spanDays = 1,
+  isFirstDay = true,
+  extendsBeyondWeek = false,
+  overlapCount,
+  onClick,
+  onDoubleClick,
+  teams = [],
+  onTeamChange
+}: { 
+  job: ScheduledJob & { caseStatus?: string }; 
+  team?: Team; 
+  isDragging?: boolean; 
+  spanDays?: number;
+  isFirstDay?: boolean;
+  extendsBeyondWeek?: boolean;
+  overlapCount?: number;
+  onClick?: () => void;
+  onDoubleClick?: () => void;
+  teams?: Team[];
+  onTeamChange?: (teamId: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: job.id,
+  });
+
+  const isMultiDay = spanDays > 1 || extendsBeyondWeek;
+  
+  // Don't apply transform when dragging - DragOverlay handles the visual
+  const style = (transform && !isDragging) ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+  
+  // Removed tenant confirmation - not needed for drag/drop workflow
+  const showConfirmButton = false;
+
+  const getUrgencyIcon = (urgency: string) => {
+    switch (urgency) {
+      case 'Low':
+        return <Circle className="h-3 w-3 text-slate-500 dark:text-slate-400" />;
+      case 'High':
+        return <AlertTriangle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-500" />;
+      case 'Emergent':
+        return <Zap className="h-4 w-4 text-red-600 dark:text-red-500" />;
+      default:
+        return null;
+    }
+  };
+
+  // Always use team color, but adjust opacity based on status
+  const backgroundColor = team?.color || '#6b7280';
+  const isScheduled = !!job.scheduledStartAt;
+  const isCompleted = job.status === 'Completed' || job.caseStatus === 'Resolved' || job.caseStatus === 'Closed';
+  const isPendingApproval = job.status === 'Pending Approval';
+  const needsReview = job.status === 'Needs Review';
+  // Pending Approval: 50% opacity (greyed out), Completed jobs: 50% opacity, Scheduled jobs: 87% opacity (dd), Unscheduled jobs: 40% opacity (66)
+  const opacity = isPendingApproval ? '80' : (isCompleted ? '80' : (isScheduled ? 'dd' : '66'));
+  
+  const wrapperStyle = isMultiDay && job.scheduledStartAt ? {
+    ...style,
+    width: `calc(${spanDays * 100}% + ${(spanDays - 1) * 0.5}rem)`,
+    position: 'relative' as const,
+    zIndex: 20,
+  } : style;
+  
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <div
+            ref={setNodeRef}
+            style={wrapperStyle}
+            className={cn(
+              "transition-all overflow-hidden group h-full",
+              isDragging && "opacity-50",
+              isMultiDay ? "mb-1.5" : "mb-0"
+            )}
+            data-testid={`job-card-${job.id}`}
+          >
+            <div 
+              {...listeners} 
+              {...attributes}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onDoubleClick?.();
+              }}
+              className={cn(
+                "cursor-grab active:cursor-grabbing px-1.5 py-1.5 relative h-full",
+                isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
+              )}
+              style={{ 
+                backgroundColor: `${backgroundColor}${opacity}`,
+                backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}${opacity}, ${backgroundColor}${isScheduled ? 'bb' : '55'})` : undefined
+              }}
+            >
+        <div 
+          className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
+        />
+        
+        {/* Edit button - top left corner, visible on hover */}
+        <button
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onClick?.();
+          }}
+          className="absolute top-0 left-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 backdrop-blur-sm p-1 pointer-events-auto"
+          data-testid={`button-edit-job-${job.id}`}
+          title="Edit job"
+        >
+          <Edit2 className="h-3 w-3 text-white" />
+        </button>
+        
+        {/* Primary Status Badge - Top Right Corner (Priority: Alternate Time > Pending > NEW) */}
+        <div className="absolute top-0 right-0 z-10">
+          {needsReview && !isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-4 px-1 text-[9px] bg-rose-100 dark:bg-rose-200 text-rose-900 dark:text-rose-950 border-l border-b border-rose-300 dark:border-rose-400 font-bold shadow-sm"
+              data-testid={`badge-alternate-time-${job.id}`}
+              title="Tenant proposed alternate time - needs review"
+            >
+              Alternate Time
+            </Badge>
+          )}
+          {!needsReview && isPendingApproval && !isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-4 px-1 text-[9px] bg-purple-100 dark:bg-purple-200 text-purple-900 dark:text-purple-950 border-l border-b border-purple-300 dark:border-purple-400 font-bold shadow-sm"
+              data-testid={`badge-pending-approval-${job.id}`}
+              title="Pending tenant approval"
+            >
+              Pending
+            </Badge>
+          )}
+          {!needsReview && !isPendingApproval && job.caseStatus === 'New' && !isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-4 px-1 text-[9px] bg-sky-100 dark:bg-sky-200 text-sky-900 dark:text-sky-950 border-l border-b border-sky-300 dark:border-sky-400 font-bold shadow-sm"
+              data-testid={`badge-new-${job.id}`}
+              title="New case"
+            >
+              NEW
+            </Badge>
+          )}
+        </div>
+        
+        {/* Overlap count badge - top left if needed */}
+        {overlapCount && overlapCount > 1 && (
+          <div className="absolute top-0 left-0 z-10">
+            <Badge 
+              variant="secondary" 
+              className="h-4 px-1 text-[9px] bg-white/30 text-white border-r border-b border-white/40 backdrop-blur-sm font-semibold"
+              data-testid={`badge-overlap-${job.id}`}
+              title={`${overlapCount} teams at this time`}
+            >
+              {overlapCount} teams
+            </Badge>
+          </div>
+        )}
+        
+        <div className="pb-6 pt-5">
+          {/* Team name - small label at top */}
+          {team && (
+            <p className="text-[10px] text-white/80 font-medium truncate">
+              {team.name}
+            </p>
+          )}
+          
+          {/* Job title */}
+          <p className="font-medium text-sm text-white truncate drop-shadow-sm">
+            {job.title}
+          </p>
+          
+          {/* Time */}
+          {job.isAllDay && job.scheduledStartAt && (
+            <p className="text-xs text-white/90 font-medium drop-shadow-sm">
+              8:00 AM - 5:00 PM
+            </p>
+          )}
+          {!job.isAllDay && job.scheduledStartAt && job.scheduledEndAt && (
+            <p className="text-xs text-white/90 font-medium drop-shadow-sm">
+              {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt), 'h:mm a')}
+            </p>
+          )}
+          {!job.scheduledStartAt && !job.isAllDay && job.notes && (() => {
+            try {
+              const parsed = JSON.parse(job.notes);
+              if (parsed.timePreferences) {
+                const { startTime, duration } = parsed.timePreferences;
+                const [hours, mins] = startTime.split(':').map(Number);
+                const startMinutes = hours * 60 + mins;
+                const endMinutes = startMinutes + duration;
+                const endHours = Math.floor(endMinutes / 60) % 24;
+                const endMins = endMinutes % 60;
+                const formatTime = (h: number, m: number) => {
+                  const period = h >= 12 ? 'PM' : 'AM';
+                  const hour12 = h % 12 || 12;
+                  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+                };
+                return (
+                  <p className="text-xs text-white/90 font-medium drop-shadow-sm">
+                    {formatTime(hours, mins)} - {formatTime(endHours, endMins)}
+                  </p>
+                );
+              }
+            } catch (e) {}
+            return null;
+          })()}
+          
+          {/* Customer name and address */}
+          {job.address && (
+            <p className="text-[11px] text-white/80 truncate">
+              {job.address}
+            </p>
+          )}
+        </div>
+        
+        {/* Footer Bar - Secondary Info (Done, Duration, Urgency) */}
+        <div className="absolute bottom-0 left-0 right-0 bg-white/15 backdrop-blur-sm px-1.5 py-0.5 flex items-center justify-between gap-1">
+          <div className="flex items-center gap-1">
+            {isCompleted && (
+              <Badge 
+                variant="secondary" 
+                className="h-4 px-1 text-[9px] bg-emerald-100 dark:bg-emerald-200 text-emerald-900 dark:text-emerald-950 border border-emerald-300 dark:border-emerald-400 font-bold flex items-center gap-0.5"
+                data-testid={`badge-completed-${job.id}`}
+                title="Completed"
+              >
+                <Check className="h-2.5 w-2.5" />
+                Done
+              </Badge>
+            )}
+            {isMultiDay && (
+              <span className="text-[10px] text-white/90 font-medium px-1">
+                {job.durationDays} {job.durationDays === 1 ? 'day' : 'days'}
+                {extendsBeyondWeek && ' →'}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {!isCompleted && getUrgencyIcon(job.urgency)}
+          </div>
+        </div>
+        
+        {/* Quick Team Changer - Bottom Right Circular Color Chip */}
+        {teams.length > 0 && onTeamChange && !isDragging && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                className="absolute bottom-7 right-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity rounded-full w-5 h-5 border-2 border-white shadow-lg hover:scale-110 pointer-events-auto"
+                style={{ backgroundColor: team?.color || '#6b7280' }}
+                title="Change team"
+                data-testid={`button-change-team-${job.id}`}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {teams.map((t) => (
+                <DropdownMenuItem
+                  key={t.id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTeamChange(t.id);
+                  }}
+                  className="flex items-center gap-2 cursor-pointer"
+                  data-testid={`team-option-${t.id}`}
+                >
+                  <div
+                    className="w-4 h-4 rounded-full border border-white/50"
+                    style={{ backgroundColor: t.color }}
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{t.name}</div>
+                    <div className="text-xs text-muted-foreground">{t.specialty}</div>
+                  </div>
+                  {t.id === job.teamId && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+            </div>
+          </div>
+        </TooltipTrigger>
+        
+        <TooltipContent side="right" className="max-w-xs bg-card dark:bg-gray-800 border border-border dark:border-gray-700 p-3">
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="font-bold text-foreground dark:text-white">{job.title}</p>
+              {team && (
+                <p className="text-xs text-muted-foreground dark:text-gray-400">Team: {team.name} ({team.specialty})</p>
+              )}
+            </div>
+            
+            {job.scheduledStartAt && job.scheduledEndAt && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Time:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">
+                  {job.isAllDay ? '8:00 AM - 5:00 PM (All Day)' : `${format(parseISO(job.scheduledStartAt), 'h:mm a')} - ${format(parseISO(job.scheduledEndAt), 'h:mm a')}`}
+                </p>
+                {job.durationDays > 1 && (
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">
+                    Duration: {job.durationDays} days
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {job.description && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Description:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">{job.description}</p>
+              </div>
+            )}
+            
+            {job.address && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Location:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">{job.address}</p>
+              </div>
+            )}
+            
+            <div>
+              <p className="text-xs font-semibold text-foreground dark:text-white">Status:</p>
+              <p className="text-xs text-muted-foreground dark:text-gray-400">
+                {needsReview ? 'Needs Review (Tenant Proposed Alternate Time)' : 
+                 isPendingApproval ? 'Pending Tenant Approval' :
+                 isCompleted ? 'Completed' :
+                 job.caseStatus === 'New' ? 'New Case' : 
+                 job.status || 'Scheduled'}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-1">
+                {getUrgencyIcon(job.urgency)}
+                <span className="text-xs text-muted-foreground dark:text-gray-400">{job.urgency} Urgency</span>
+              </div>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function ReminderBar({ 
+  reminder,
+  onClick,
+  isAllDay = false
+}: { 
+  reminder: any;
+  onClick?: () => void;
+  isAllDay?: boolean;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <div
+            onClick={onClick}
+            className="h-full cursor-pointer group"
+            data-testid={`reminder-bar-${reminder.id}`}
+          >
+            <div 
+              className="px-2 py-1 h-full bg-amber-100 dark:bg-amber-900 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors flex items-center gap-1.5"
+            >
+              <Clock className="h-3 w-3 text-amber-900 dark:text-amber-100 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-amber-900 dark:text-amber-100 truncate">
+                  {reminder.title}
+                </p>
+                {reminder.dueAt && (
+                  <p className="text-[10px] text-amber-700 dark:text-amber-300 truncate">
+                    {isAllDay ? 'All day' : format(parseISO(reminder.dueAt), 'h:mm a')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </TooltipTrigger>
+        
+        <TooltipContent side="right" className="max-w-xs bg-card dark:bg-gray-800 border border-border dark:border-gray-700 p-3">
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="font-bold text-foreground dark:text-white flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                {reminder.title}
+              </p>
+            </div>
+            
+            {reminder.dueAt && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Due:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">
+                  {format(parseISO(reminder.dueAt), 'h:mm a')}
+                </p>
+              </div>
+            )}
+            
+            {reminder.type && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Type:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400 capitalize">{reminder.type}</p>
+              </div>
+            )}
+            
+            <p className="text-xs text-amber-600 dark:text-amber-400 italic">Click to view/edit reminder</p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function DraggableReminderBar({ 
+  reminder,
+  onClick,
+  isAllDay = false,
+  isDragging = false
+}: { 
+  reminder: any;
+  onClick?: () => void;
+  isAllDay?: boolean;
+  isDragging?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `reminder-${reminder.id}`,
+  });
+
+  const style = (transform && !isDragging) ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn("h-full transition-all", isDragging && "opacity-50")}
+    >
+      <div
+        {...listeners}
+        {...attributes}
+        className="h-full cursor-grab active:cursor-grabbing"
+      >
+        <ReminderBar
+          reminder={reminder}
+          onClick={onClick}
+          isAllDay={isAllDay}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
+  currentDate: Date;
+  jobs: ScheduledJob[];
+  teams: Team[];
+  onDayClick: (date: Date) => void;
+  onJobClick: (job: ScheduledJob) => void;
+}) {
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday
+  const endDate = startOfWeek(monthEnd, { weekStartsOn: 0 });
+  const calendarDays = eachDayOfInterval({ start: startDate, end: addDays(endDate, 6) });
+  
+  const getJobsForDay = (date: Date) => {
+    return jobs.filter(job => {
+      if (!job.scheduledStartAt) return false;
+      const jobStart = startOfDay(parseISO(job.scheduledStartAt));
+      const jobEnd = job.scheduledEndAt ? startOfDay(parseISO(job.scheduledEndAt)) : jobStart;
+      const dayStart = startOfDay(date);
+      const dayEnd = endOfDay(date);
+      return jobStart <= dayEnd && jobEnd >= dayStart;
+    });
+  };
+  
+  return (
+    <div className="grid grid-cols-7 gap-1">
+      {/* Day headers */}
+      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+        <div key={day} className="p-2 text-center text-sm font-semibold text-muted-foreground dark:text-gray-400">
+          {day}
+        </div>
+      ))}
+      
+      {/* Calendar days */}
+      {calendarDays.map(day => {
+        const dayJobs = getJobsForDay(day);
+        const isToday = isSameDay(day, new Date());
+        const isCurrentMonth = isSameMonth(day, currentDate);
+        
+        return (
+          <div
+            key={day.toString()}
+            onClick={() => onDayClick(day)}
+            className={cn(
+              "min-h-[100px] p-2 border rounded-lg cursor-pointer transition-colors",
+              "hover:bg-accent/50 dark:hover:bg-gray-700/50",
+              isCurrentMonth ? "bg-card dark:bg-gray-800" : "bg-muted/30 dark:bg-gray-900/30",
+              isToday && "border-primary dark:border-blue-500 border-2"
+            )}
+            data-testid={`month-day-${format(day, 'yyyy-MM-dd')}`}
+          >
+            <div className={cn(
+              "text-sm font-medium mb-1",
+              isToday && "text-primary dark:text-blue-400",
+              !isCurrentMonth && "text-muted-foreground dark:text-gray-600"
+            )}>
+              {format(day, 'd')}
+            </div>
+            
+            {/* Job indicators */}
+            <div className="space-y-1">
+              {dayJobs.slice(0, 3).map(job => {
+                const team = teams.find(t => t.id === job.teamId);
+                return (
+                  <div
+                    key={job.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onJobClick(job);
+                    }}
+                    className="text-xs px-1.5 py-0.5 rounded truncate text-white font-medium"
+                    style={{ backgroundColor: team?.color || '#3b82f6' }}
+                    title={job.title}
+                  >
+                    {job.title}
+                  </div>
+                );
+              })}
+              {dayJobs.length > 3 && (
+                <div className="text-xs text-muted-foreground dark:text-gray-500 px-1.5">
+                  +{dayJobs.length - 3} more
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, onDoubleClick, organization, onTeamChange, reminders = [], onReminderClick }: {
+  dayIndex: number;
+  date: Date;
+  jobs: ScheduledJob[];
+  teams: Team[];
+  weekDays: Date[];
+  calculateJobSpan: (job: ScheduledJob, currentDay: Date, weekDays: Date[]) => {
+    shouldRender: boolean;
+    spanDays: number;
+    isFirstDay: boolean;
+    extendsBeyondWeek: boolean;
+  };
+  isToday: boolean;
+  activeId: string | null;
+  hourHeight?: number;
+  onClick?: (job: ScheduledJob) => void;
+  onDoubleClick?: (job: ScheduledJob) => void;
+  organization?: any;
+  onTeamChange?: (jobId: string, teamId: string) => void;
+  reminders?: any[];
+  onReminderClick?: (reminder: any) => void;
+}) {
+  // Generate hours from 6 AM to 8 PM (for visual hourly grid)
+  const hours = Array.from({ length: 15 }, (_, i) => i + 6);
+  
+  // Debug: log the hours array once per column
+  if (dayIndex === 0) {
+    console.log('📊 DayColumn hours array:', hours);
+  }
+
+  return (
+    <div
+      className={cn(
+        "border-r border-border dark:border-gray-700 relative",
+        "bg-card dark:bg-gray-800",
+        isToday && "ring-2 ring-primary dark:ring-blue-500"
+      )}
+      data-testid={`day-column-${dayIndex}`}
+    >
+      {/* Header - Fixed height to match time labels column spacer */}
+      <div className="sticky top-0 z-20 bg-card dark:bg-gray-800 px-2 flex flex-col justify-center" style={{ height: '60px' }}>
+        <p className={cn(
+          "text-sm font-medium",
+          isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
+        )}>
+          {format(date, 'EEE')}
+        </p>
+        <p className={cn(
+          "text-lg font-bold",
+          isToday ? "text-primary dark:text-blue-400" : "text-foreground dark:text-white"
+        )}>
+          {format(date, 'd')}
+        </p>
+      </div>
+      
+      {/* Hourly slots with 30-minute drop zones */}
+      <div className="relative border-t border-border dark:border-gray-700">
+        {hours.map((hour, hourIndex) => {
+          const slot00Id = `day-${dayIndex}-time-${hour}-0`;
+          const slot15Id = `day-${dayIndex}-time-${hour}-15`;
+          const slot30Id = `day-${dayIndex}-time-${hour}-30`;
+          const slot45Id = `day-${dayIndex}-time-${hour}-45`;
+          const { setNodeRef: setRef00, isOver: isOver00 } = useDroppable({ id: slot00Id });
+          const { setNodeRef: setRef15, isOver: isOver15 } = useDroppable({ id: slot15Id });
+          const { setNodeRef: setRef30, isOver: isOver30 } = useDroppable({ id: slot30Id });
+          const { setNodeRef: setRef45, isOver: isOver45 } = useDroppable({ id: slot45Id });
+          
+          const period = hour >= 12 ? 'PM' : 'AM';
+          const hour12 = hour % 12 || 12;
+          
+          // Debug: log drop zone creation and positioning for first column
+          if (dayIndex === 0 && hourIndex < 3) {
+            const expectedTopPx = hourIndex * hourHeight;
+            console.log(`🎯 Creating drop zone for hour ${hour} (index ${hourIndex}): ${slot00Id} at top=${expectedTopPx}px (displays as "${hour12} ${period}")`);
+          }
+          
+          return (
+            <div
+              key={hour}
+              className="border-b border-border/30 dark:border-gray-700/30 relative"
+              style={{ height: `${hourHeight}px` }}
+            >
+              {/* :00 drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver00} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef00}
+                      className={cn(
+                        "absolute left-0 right-0 transition-colors",
+                        isOver00 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                      style={{ top: 0, height: `${hourHeight / 4}px` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12}:00 ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* :15 drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver15} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef15}
+                      className={cn(
+                        "absolute left-0 right-0 transition-colors",
+                        isOver15 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                      style={{ top: `${hourHeight / 4}px`, height: `${hourHeight / 4}px` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12}:15 ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* :30 drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver30} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef30}
+                      className={cn(
+                        "absolute left-0 right-0 transition-colors",
+                        isOver30 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                      style={{ top: `${hourHeight / 2}px`, height: `${hourHeight / 4}px` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12}:30 ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              {/* :45 drop zone */}
+              <TooltipProvider>
+                <Tooltip open={isOver45} delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <div
+                      ref={setRef45}
+                      className={cn(
+                        "absolute left-0 right-0 transition-colors",
+                        isOver45 && "bg-primary/20 dark:bg-blue-500/20"
+                      )}
+                      style={{ top: `${(hourHeight / 4) * 3}px`, height: `${hourHeight / 4}px` }}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="text-sm font-medium">
+                    {format(date, 'EEE MMM d')} at {`${hour12}:45 ${period}`}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          );
+        })}
+        
+        {/* Current time indicator */}
+        {(() => {
+          const now = new Date();
+          const orgTimezone = organization?.timezone || 'America/New_York';
+          const nowInOrgTz = toZonedTime(now, orgTimezone);
+          const nowHours = nowInOrgTz.getHours();
+          const nowMinutes = nowInOrgTz.getMinutes();
+          
+          // Only show if current time is within display range (6 AM to 8 PM) and on this day
+          if (isToday && nowHours >= 6 && nowHours <= 20) {
+            const topPosition = ((nowHours - 6) * hourHeight) + (nowMinutes * hourHeight / 60);
+            return (
+              <div 
+                className="absolute left-0 right-0 border-t border-dashed border-red-500/40 z-30 pointer-events-none"
+                style={{ top: `${topPosition}px` }}
+              />
+            );
+          }
+          return null;
+        })()}
+        
+        {/* Jobs overlay - positioned absolutely */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="relative h-full pointer-events-auto">
+            {(() => {
+              // Calculate overlapping jobs and their horizontal positions
+              const jobsWithPosition = jobs.map(job => {
+                const spanInfo = calculateJobSpan(job, date, weekDays);
+                if (!spanInfo.shouldRender) {
+                  return null;
+                }
+                
+                // Find all jobs that overlap with this one in time ON THIS SPECIFIC DAY
+                const overlappingJobs = jobs.filter(otherJob => {
+                  if (otherJob.id === job.id) return false;
+                  if (!job.scheduledStartAt || !job.scheduledEndAt) return false;
+                  if (!otherJob.scheduledStartAt || !otherJob.scheduledEndAt) return false;
+                  
+                  // Check if other job should also render on this day
+                  const otherSpanInfo = calculateJobSpan(otherJob, date, weekDays);
+                  if (!otherSpanInfo.shouldRender) return false;
+                  
+                  const orgTimezone = organization?.timezone || 'America/New_York';
+                  
+                  // Build day boundaries in organization timezone using explicit wall-time strings
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  
+                  // Create 00:00:00 and 23:59:59.999 for this day in org timezone
+                  const dayStartStr = `${year}-${month}-${day} 00:00:00`;
+                  const dayEndStr = `${year}-${month}-${day} 23:59:59.999`;
+                  
+                  // Convert to UTC for comparison with job times
+                  const dayStartUTC = fromZonedTime(dayStartStr, orgTimezone);
+                  const dayEndUTC = fromZonedTime(dayEndStr, orgTimezone);
+                  
+                  const jobStartUTC = parseISO(job.scheduledStartAt);
+                  const jobEndUTC = parseISO(job.scheduledEndAt);
+                  const otherStartUTC = parseISO(otherJob.scheduledStartAt);
+                  const otherEndUTC = parseISO(otherJob.scheduledEndAt);
+                  
+                  // Clamp job times to the current day's boundaries (in UTC)
+                  const jobStartOnDay = jobStartUTC < dayStartUTC ? dayStartUTC : jobStartUTC;
+                  const jobEndOnDay = jobEndUTC > dayEndUTC ? dayEndUTC : jobEndUTC;
+                  const otherStartOnDay = otherStartUTC < dayStartUTC ? dayStartUTC : otherStartUTC;
+                  const otherEndOnDay = otherEndUTC > dayEndUTC ? dayEndUTC : otherEndUTC;
+                  
+                  // Convert to org timezone for accurate hour comparison
+                  const jobStartTime = toZonedTime(jobStartOnDay, orgTimezone);
+                  const jobEndTime = toZonedTime(jobEndOnDay, orgTimezone);
+                  const otherStartTime = toZonedTime(otherStartOnDay, orgTimezone);
+                  const otherEndTime = toZonedTime(otherEndOnDay, orgTimezone);
+                  
+                  // Get hours and minutes for precise comparison
+                  const jobStartMinutes = jobStartTime.getHours() * 60 + jobStartTime.getMinutes();
+                  const jobEndMinutes = jobEndTime.getHours() * 60 + jobEndTime.getMinutes();
+                  const otherStartMinutes = otherStartTime.getHours() * 60 + otherStartTime.getMinutes();
+                  const otherEndMinutes = otherEndTime.getHours() * 60 + otherEndTime.getMinutes();
+                  
+                  // Check if they overlap in time on this day: start1 < end2 AND start2 < end1
+                  return jobStartMinutes < otherEndMinutes && otherStartMinutes < jobEndMinutes;
+                });
+                
+                // Calculate horizontal position
+                let columnIndex = 0;
+                let totalColumns = 1;
+                
+                if (overlappingJobs.length > 0) {
+                  // Sort all overlapping jobs (including this one) by start time, then by ID for consistency
+                  const allJobsInGroup = [job, ...overlappingJobs].sort((a, b) => {
+                    if (!a.scheduledStartAt || !b.scheduledStartAt) return 0;
+                    const timeCompare = parseISO(a.scheduledStartAt).getTime() - parseISO(b.scheduledStartAt).getTime();
+                    if (timeCompare !== 0) return timeCompare;
+                    return a.id.localeCompare(b.id);
+                  });
+                  
+                  columnIndex = allJobsInGroup.findIndex(j => j.id === job.id);
+                  totalColumns = allJobsInGroup.length;
+                }
+                
+                return { job, spanInfo, columnIndex, totalColumns };
+              }).filter(item => item !== null);
+              
+              return jobsWithPosition.map(({ job, spanInfo, columnIndex, totalColumns }) => {
+                const team = teams.find(t => t.id === job.teamId);
+                
+                // Calculate vertical position based on job time
+                let topPosition = 0;
+                let heightPx = hourHeight; // default height (1 hour)
+                
+                if (job.scheduledStartAt) {
+                  const orgTimezone = organization?.timezone || 'America/New_York';
+                  
+                  // For all-day jobs, always display at 8am-5pm regardless of stored times
+                  if (job.isAllDay) {
+                    topPosition = ((8 - 6) * hourHeight); // 8am position (2 hours from 6am start)
+                    heightPx = (9 * hourHeight); // 9 hours (8am to 5pm)
+                  } else {
+                    const startTimeUTC = parseISO(job.scheduledStartAt);
+                    const endTimeUTC = job.scheduledEndAt ? parseISO(job.scheduledEndAt) : startTimeUTC;
+                    
+                    // For multi-day jobs, clamp start/end to the current day's boundaries
+                    let effectiveStartTime = startTimeUTC;
+                    let effectiveEndTime = endTimeUTC;
+                    
+                    if (spanInfo.spanDays > 1 || !spanInfo.isFirstDay) {
+                      // Build day boundaries in organization timezone
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(2, '0');
+                      const day = String(date.getDate()).padStart(2, '0');
+                      const dayStartStr = `${year}-${month}-${day} 06:00:00`; // Start at 6am (start of visible schedule)
+                      const dayEndStr = `${year}-${month}-${day} 20:00:00`; // End at 8pm (end of visible schedule)
+                      const dayStartUTC = fromZonedTime(dayStartStr, orgTimezone);
+                      const dayEndUTC = fromZonedTime(dayEndStr, orgTimezone);
+                      
+                      // Clamp to day boundaries
+                      effectiveStartTime = startTimeUTC > dayStartUTC ? startTimeUTC : dayStartUTC;
+                      effectiveEndTime = endTimeUTC < dayEndUTC ? endTimeUTC : dayEndUTC;
+                    }
+                    
+                    const startTime = toZonedTime(effectiveStartTime, orgTimezone);
+                    const hours = startTime.getHours();
+                    const minutes = startTime.getMinutes();
+                    topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
+                    
+                    const durationMs = effectiveEndTime.getTime() - effectiveStartTime.getTime();
+                    const durationMinutes = durationMs / (1000 * 60);
+                    heightPx = Math.max(hourHeight / 3, (durationMinutes * hourHeight) / 60);
+                  }
+                }
+                
+                // Calculate horizontal position for overlapping jobs
+                const widthPercent = 100 / totalColumns;
+                const leftPercent = widthPercent * columnIndex;
+                
+                // Add visual separator for overlapping jobs (except the last column)
+                const hasRightBorder = totalColumns > 1 && columnIndex < totalColumns - 1;
+                
+                return (
+                  <div
+                    key={job.id}
+                    style={{ 
+                      position: 'absolute',
+                      top: `${topPosition}px`,
+                      left: `${leftPercent}%`,
+                      width: `${widthPercent}%`,
+                      height: job.scheduledStartAt ? `${heightPx}px` : 'auto',
+                      visibility: activeId === job.id ? 'hidden' : 'visible',
+                      paddingRight: totalColumns > 1 ? '2px' : '0',
+                      borderRight: hasRightBorder ? '1px solid rgba(255, 255, 255, 0.3)' : 'none',
+                    }}
+                  >
+                    <JobCard
+                      job={job}
+                      team={team}
+                      spanDays={spanInfo.spanDays}
+                      isFirstDay={spanInfo.isFirstDay}
+                      extendsBeyondWeek={spanInfo.extendsBeyondWeek}
+                      onClick={() => onClick?.(job)}
+                      onDoubleClick={() => onDoubleClick?.(job)}
+                      overlapCount={totalColumns > 1 ? totalColumns : undefined}
+                      teams={teams}
+                      onTeamChange={(teamId) => onTeamChange?.(job.id, teamId)}
+                    />
+                  </div>
+              );
+            });
+            })()}
+            
+            {/* Reminder bars overlay */}
+            {(() => {
+              // Debug logging
+              if (dayIndex === 0) {
+                console.log('🔔 Reminders passed to DayColumn:', reminders.length);
+                console.log('🔔 Reminders array:', reminders);
+              }
+              
+              // Filter reminders for this day
+              const dayReminders = reminders.filter(reminder => {
+                if (!reminder.dueAt) return false;
+                const reminderDate = startOfDay(parseISO(reminder.dueAt));
+                const currentDayStart = startOfDay(date);
+                const match = isSameDay(reminderDate, currentDayStart);
+                if (dayIndex === 0 && match) {
+                  console.log('🔔 Matched reminder for day:', format(date, 'yyyy-MM-dd'), reminder.title);
+                }
+                return match;
+              });
+              
+              return dayReminders.map(reminder => {
+                // Calculate vertical position based on reminder time
+                let topPosition = 0;
+                const heightPx = (hourHeight / 3) * 2; // 66% of hourHeight (doubled from 33%)
+                let isAllDay = false;
+                
+                if (reminder.dueAt) {
+                  const orgTimezone = organization?.timezone || 'America/New_York';
+                  const reminderTime = toZonedTime(parseISO(reminder.dueAt), orgTimezone);
+                  const hours = reminderTime.getHours();
+                  const minutes = reminderTime.getMinutes();
+                  
+                  // Check if this is an all-day reminder (midnight = 00:00)
+                  if (hours === 0 && minutes === 0) {
+                    isAllDay = true;
+                    topPosition = -30; // Position above the time grid, below the day header
+                  }
+                  // Position reminder at its time if within visible hours
+                  else if (hours >= 6 && hours <= 20) {
+                    topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
+                  } else {
+                    // Early morning (before 6am) or late night (after 8pm) - position at top
+                    topPosition = 0;
+                  }
+                }
+                
+                const isDragging = activeId === `reminder-${reminder.id}`;
+                
+                return (
+                  <div
+                    key={`reminder-${reminder.id}`}
+                    style={{ 
+                      position: 'absolute',
+                      top: `${topPosition}px`,
+                      left: '0',
+                      width: '100%',
+                      height: `${heightPx}px`,
+                      zIndex: 15, // Below jobs but above grid
+                      visibility: isDragging ? 'hidden' : 'visible',
+                    }}
+                  >
+                    <DraggableReminderBar
+                      reminder={reminder}
+                      onClick={() => onReminderClick?.(reminder)}
+                      isAllDay={isAllDay}
+                      isDragging={isDragging}
+                    />
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamLegend({ teams, jobs, isCollapsed, onToggle }: { 
+  teams: Team[]; 
+  jobs: ScheduledJob[]; 
+  isCollapsed: boolean;
+  onToggle: () => void;
+}) {
+  const getActiveJobsCount = (teamId: string) => {
+    return jobs.filter(j => j.teamId === teamId && j.status !== 'Completed' && j.status !== 'Cancelled').length;
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
+          data-testid="button-toggle-legend"
+        >
+          <CardTitle className="text-base">Teams & Legend</CardTitle>
+          <ChevronDown className={cn(
+            "h-5 w-5 transition-transform text-muted-foreground",
+            !isCollapsed && "rotate-180"
+          )} />
+        </button>
+      </CardHeader>
+      {!isCollapsed && (
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Teams</p>
+              <div className="flex flex-wrap gap-2">
+                {teams.length === 0 ? (
+                  <p className="text-sm text-muted-foreground dark:text-gray-400">
+                    No teams yet. Create one to get started.
+                  </p>
+                ) : (
+                  teams.map(team => (
+                    <TooltipProvider key={team.id}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border dark:border-gray-700 bg-card dark:bg-gray-800 cursor-help"
+                            data-testid={`team-legend-${team.id}`}
+                          >
+                            <div
+                              className="w-4 h-4 rounded"
+                              style={{ backgroundColor: team.color }}
+                            />
+                            <span className="text-sm font-medium text-foreground dark:text-white">
+                              {team.name}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="text-sm">
+                            <p className="font-semibold">{team.name}</p>
+                            <p className="text-xs text-muted-foreground">Specialty: {team.specialty}</p>
+                            <p className="text-xs text-muted-foreground">Active Jobs: {getActiveJobsCount(team.id)}</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Job Status</p>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2" data-testid="status-legend-alternate">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-rose-100 dark:bg-rose-200 text-rose-900 dark:text-rose-950 border border-rose-300 dark:border-rose-400 font-bold">
+                    Alternate Time
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Tenant proposed alternate time (top priority)</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="status-legend-pending">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-purple-100 dark:bg-purple-200 text-purple-900 dark:text-purple-950 border border-purple-300 dark:border-purple-400 font-bold">
+                    Pending
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Awaiting tenant approval</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="status-legend-new">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-sky-100 dark:bg-sky-200 text-sky-900 dark:text-sky-950 border border-sky-300 dark:border-sky-400 font-bold">
+                    NEW
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">New case</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="status-legend-done">
+                  <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-emerald-100 dark:bg-emerald-200 text-emerald-900 dark:text-emerald-950 border border-emerald-300 dark:border-emerald-400 font-bold flex items-center gap-0.5">
+                    <Check className="h-2.5 w-2.5" />
+                    Done
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Completed (shows in footer)</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="status-legend-reminder">
+                  <div className="h-4 px-2 py-0.5 bg-amber-100 dark:bg-amber-900 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                    <Clock className="h-2.5 w-2.5 text-amber-900 dark:text-amber-100" />
+                  </div>
+                  <span className="text-sm text-foreground dark:text-white">Reminder (thin amber bar)</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Urgency Levels</p>
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2" data-testid="urgency-legend-low">
+                  <Circle className="h-3 w-3 text-slate-500 dark:text-slate-400" />
+                  <span className="text-sm text-foreground dark:text-white">Low</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="urgency-legend-high">
+                  <AlertTriangle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-500" />
+                  <span className="text-sm text-foreground dark:text-white">High</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="urgency-legend-emergent">
+                  <Zap className="h-4 w-4 text-red-600 dark:text-red-500" />
+                  <span className="text-sm text-foreground dark:text-white">Emergent</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Multi-Team Overlap</p>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2" data-testid="overlap-legend-info">
+                  <Badge 
+                    variant="secondary" 
+                    className="h-4 px-1 text-[9px] bg-white/30 text-gray-900 dark:text-white border border-white/40 font-semibold"
+                  >
+                    3 teams
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Overlap count badge (top-left)</span>
+                </div>
+                <p className="text-xs text-muted-foreground dark:text-gray-400 pl-0">
+                  When multiple teams have jobs at the same time, jobs are displayed side-by-side with a separator line between them.
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function UnscheduledJobsPanel({ 
+  jobs, 
+  teams, 
+  activeId, 
+  onJobClick,
+  onDoubleClick,
+  onTeamChange
+}: { 
+  jobs: ScheduledJob[]; 
+  teams: Team[]; 
+  activeId: string | null;
+  onJobClick: (job: ScheduledJob) => void;
+  onDoubleClick?: (job: ScheduledJob) => void;
+  onTeamChange?: (jobId: string, teamId: string) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'unscheduled',
+  });
+
+  return (
+    <div ref={setNodeRef}>
+      <Card className={cn(
+        "transition-all",
+        isOver && "ring-2 ring-primary dark:ring-blue-500 bg-primary/5 dark:bg-blue-900/20"
+      )}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center justify-between">
+            Unscheduled Jobs
+            {isOver && (
+              <Badge variant="secondary" className="text-xs">
+                Drop to unschedule
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          {jobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground dark:text-gray-400">
+              {isOver ? "Drop here to unschedule" : "No unscheduled jobs"}
+            </p>
+          ) : (
+            jobs.map(job => {
+              const team = teams.find(t => t.id === job.teamId);
+              // Hide the job if it's being dragged
+              if (activeId === job.id) {
+                return <div key={job.id} style={{ visibility: 'hidden', height: 0 }} />;
+              }
+              return (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  team={team}
+                  onClick={() => onJobClick(job)}
+                  onDoubleClick={() => onDoubleClick?.(job)}
+                  teams={teams}
+                  onTeamChange={(teamId) => handleTeamChange(job.id, teamId)}
+                />
+              );
+            })
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
