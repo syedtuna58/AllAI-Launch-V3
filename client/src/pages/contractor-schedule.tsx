@@ -2161,11 +2161,17 @@ function JobCard({
           className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
         />
         
-        {/* Counter-Proposal Banner - shown at top if needs review */}
+        {/* Counter-Proposal Banner - shown at top-right if needs review */}
         {needsReview && !isCompleted && (
-          <div className="absolute top-0 left-0 right-0 bg-orange-600/95 backdrop-blur-sm px-2 py-0.5 flex items-center gap-1 z-10 rounded-t-sm">
-            <AlertTriangle className="h-3 w-3 text-white flex-shrink-0" />
-            <span className="text-[10px] font-bold text-white truncate">Alternate Time Proposed</span>
+          <div className="absolute top-0.5 right-0.5 z-10">
+            <Badge 
+              variant="secondary" 
+              className="h-4 px-1 text-[9px] bg-orange-600/95 text-white border-orange-500/40 backdrop-blur-sm font-bold"
+              data-testid={`badge-alternate-time-${job.id}`}
+              title="Tenant proposed alternate time"
+            >
+              Alternate Time
+            </Badge>
           </div>
         )}
         
@@ -2185,11 +2191,11 @@ function JobCard({
           <Edit2 className="h-3 w-3 text-white" />
         </button>
         
-        <div className="absolute top-1 right-1 z-10 flex items-center gap-1">
+        <div className="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5">
           {isPendingApproval && !isCompleted && !needsReview && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-yellow-500/90 text-white border-yellow-400/40 backdrop-blur-sm font-bold"
+              className="h-4 px-1 text-[9px] bg-yellow-500/90 text-white border-yellow-400/40 backdrop-blur-sm font-bold"
               data-testid={`badge-pending-approval-${job.id}`}
               title="Pending tenant approval"
             >
@@ -2199,18 +2205,18 @@ function JobCard({
           {isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-green-500/90 text-white border-green-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5"
+              className="h-4 px-1 text-[9px] bg-green-500/90 text-white border-green-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5"
               data-testid={`badge-completed-${job.id}`}
               title="Completed"
             >
-              <Check className="h-3 w-3" />
+              <Check className="h-2.5 w-2.5" />
               Done
             </Badge>
           )}
           {job.caseStatus === 'New' && !isCompleted && !isPendingApproval && !needsReview && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-blue-500/90 text-white border-blue-400/40 backdrop-blur-sm font-bold"
+              className="h-4 px-1 text-[9px] bg-blue-500/90 text-white border-blue-400/40 backdrop-blur-sm font-bold"
               data-testid={`badge-new-${job.id}`}
               title="New case"
             >
@@ -2220,7 +2226,7 @@ function JobCard({
           {overlapCount && overlapCount > 1 && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-white/30 text-white border-white/40 backdrop-blur-sm font-semibold"
+              className="h-4 px-1 text-[9px] bg-white/30 text-white border-white/40 backdrop-blur-sm font-semibold"
               data-testid={`badge-overlap-${job.id}`}
               title={`${overlapCount} teams at this time`}
             >
@@ -2230,7 +2236,7 @@ function JobCard({
           {isMultiDay && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-white/20 text-white border-white/30 backdrop-blur-sm"
+              className="h-4 px-1 text-[9px] bg-white/20 text-white border-white/30 backdrop-blur-sm"
               data-testid={`badge-duration-${job.id}`}
             >
               {job.durationDays} {job.durationDays === 1 ? 'day' : 'days'}
@@ -2848,13 +2854,13 @@ function TeamLegend({ teams, jobs, isCollapsed, onToggle }: {
               <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Job Status</p>
               <div className="flex flex-wrap gap-3">
                 <div className="flex items-center gap-2" data-testid="status-legend-pending">
-                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-yellow-500/90 text-white border-yellow-400/40 font-bold">
+                  <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-yellow-500/90 text-white border-yellow-400/40 font-bold">
                     Pending
                   </Badge>
                   <span className="text-sm text-foreground dark:text-white">Awaiting tenant approval</span>
                 </div>
                 <div className="flex items-center gap-2" data-testid="status-legend-alternate">
-                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-orange-600/95 text-white border-orange-500/40 font-bold">
+                  <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-orange-600/95 text-white border-orange-500/40 font-bold">
                     Alternate Time
                   </Badge>
                   <span className="text-sm text-foreground dark:text-white">Tenant proposed new time</span>
