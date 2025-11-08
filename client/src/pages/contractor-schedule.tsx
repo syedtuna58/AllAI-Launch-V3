@@ -269,6 +269,16 @@ export default function ContractorSchedulePage() {
     retry: false,
   });
 
+  // Initialize calendar to today in organization's timezone
+  useEffect(() => {
+    if (organization?.timezone) {
+      const nowUTC = new Date();
+      const nowInOrgTz = toZonedTime(nowUTC, organization.timezone);
+      setCurrentDate(nowInOrgTz);
+      setCurrentWeekStart(startOfWeek(nowInOrgTz, { weekStartsOn: 1 }));
+    }
+  }, [organization?.timezone]);
+
   const getFavoriteSpecialties = (): string[] => {
     try {
       const stored = localStorage.getItem('contractor-favorite-specialties');
@@ -2126,7 +2136,9 @@ export default function ContractorSchedulePage() {
                         <Button
                           variant="outline"
                           onClick={() => {
-                            const today = new Date();
+                            const nowUTC = new Date();
+                            const orgTimezone = organization?.timezone || 'America/New_York';
+                            const today = toZonedTime(nowUTC, orgTimezone);
                             setCurrentDate(today);
                             if (viewMode === 'week') {
                               setCurrentWeekStart(startOfWeek(today, { weekStartsOn: 1 }));
