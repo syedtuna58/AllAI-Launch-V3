@@ -277,9 +277,9 @@ export default function ContractorCalendarMatch({
     const hasTenantAvail = isTenantAvailable(day, time);
     const hasJob = hasExistingJob(day, time);
 
-    // Initial proposal - shown in pastel red on calendar
+    // Initial proposal - shown with grey background (will have orange tag overlay)
     if (isInitial) {
-      return "bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 relative";
+      return "bg-gray-300 dark:bg-gray-700 border-gray-400 dark:border-gray-600 relative";
     }
     
     // Perfect match - green
@@ -292,14 +292,9 @@ export default function ContractorCalendarMatch({
       return "bg-green-50 dark:bg-green-950 border-green-300 dark:border-green-700 hover:bg-green-100 dark:hover:bg-green-900 relative opacity-60";
     }
     
-    // Booked job with tenant available - pastel purple border (thinner) with orange fill
-    if (hasJob && (hasTenantAvail || isInitial)) {
-      return "bg-orange-100 dark:bg-orange-900 border-2 border-purple-300 dark:border-purple-400 relative";
-    }
-    
-    // Booked job with tenant NOT available - pastel purple fill
+    // All booked jobs - grey background (tags will be added as overlays)
     if (hasJob) {
-      return "bg-purple-200 dark:bg-purple-800 border-purple-300 dark:border-purple-700 relative";
+      return "bg-gray-300 dark:bg-gray-700 border-gray-400 dark:border-gray-600 relative";
     }
     
     return "bg-white dark:bg-gray-900 border-gray-200 relative";
@@ -464,20 +459,24 @@ export default function ContractorCalendarMatch({
           <span>Partial Match</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded"></div>
+          <div className="w-4 h-4 bg-gray-300 dark:bg-gray-700 border border-gray-400 rounded relative">
+            <div className="absolute top-0 left-0 bg-orange-300 text-[6px] px-0.5 rounded text-white">ID</div>
+          </div>
           <span>Initial Proposal (Declined)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-200 dark:bg-blue-900 border-2 border-blue-500 rounded"></div>
+          <div className="w-4 h-4 bg-blue-200 dark:bg-blue-900 rounded"></div>
           <span>Your New Selection</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-purple-200 dark:bg-purple-800 border border-purple-300 dark:border-purple-700 rounded"></div>
-          <span>Booked (Tenant Not Available)</span>
+          <div className="w-4 h-4 bg-gray-300 dark:bg-gray-700 border border-gray-400 rounded"></div>
+          <span>Booked</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-900 border-2 border-purple-300 dark:border-purple-400 rounded"></div>
-          <span>Booked (Tenant Available)</span>
+          <div className="w-4 h-4 bg-gray-300 dark:bg-gray-700 border border-gray-400 rounded relative">
+            <div className="absolute top-0 left-0 bg-purple-300 text-[6px] px-0.5 rounded text-white">TA</div>
+          </div>
+          <span>Tenant Available</span>
         </div>
       </div>
 
@@ -598,6 +597,8 @@ export default function ContractorCalendarMatch({
                 const isSelected = isSelectedCell(day, time);
                 const isDraggingOver = isDraggingOverCell(day, time);
                 const isInitial = isInitialProposal(day, time);
+                const hasTenantAvail = isTenantAvailable(day, time);
+                const hasJob = hasExistingJob(day, time);
                 
                 return (
                   <div
@@ -605,17 +606,22 @@ export default function ContractorCalendarMatch({
                     className={cn(
                       "p-1 border-r last:border-r-0 min-h-[50px] flex items-center justify-center text-xs transition-colors",
                       getCellStyle(day, time),
-                      isSelected && "!bg-blue-200 dark:!bg-blue-900 !border-blue-600 ring-2 ring-blue-500 ring-inset z-10",
-                      isDraggingOver && isMatch && "!bg-blue-100 dark:!bg-blue-800 ring-2 ring-blue-400 ring-inset"
+                      isSelected && "!bg-blue-200 dark:!bg-blue-900",
+                      isDraggingOver && isMatch && "!bg-blue-100 dark:!bg-blue-800"
                     )}
                     onMouseDown={() => handleMouseDown(day, time)}
                     onMouseEnter={() => handleMouseEnter(day, time)}
                     data-testid={`cell-${dayIdx}-${timeIdx}`}
                   >
                     {isInitial && (
-                      <div 
-                        className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center"
-                      />
+                      <div className="absolute top-0.5 left-0.5 bg-orange-300 dark:bg-orange-600 text-[9px] px-1 py-0.5 rounded text-white pointer-events-none z-10">
+                        Initial Declined
+                      </div>
+                    )}
+                    {hasJob && hasTenantAvail && !isInitial && (
+                      <div className="absolute top-0.5 left-0.5 bg-purple-300 dark:bg-purple-600 text-[9px] px-1 py-0.5 rounded text-white pointer-events-none z-10">
+                        Tenant Available
+                      </div>
                     )}
                   </div>
                 );
