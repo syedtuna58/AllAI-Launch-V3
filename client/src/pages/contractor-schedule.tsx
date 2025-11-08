@@ -2229,7 +2229,7 @@ function JobCard({
           </div>
         )}
         
-        <div className="pb-6 pt-1">
+        <div className="pb-6 pt-5">
           {/* Team name - small label at top */}
           {team && (
             <p className="text-[10px] text-white/80 font-medium truncate">
