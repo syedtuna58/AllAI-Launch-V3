@@ -277,9 +277,9 @@ export default function ContractorCalendarMatch({
     const hasTenantAvail = isTenantAvailable(day, time);
     const hasJob = hasExistingJob(day, time);
 
-    // Initial proposal - shown with light orange background (no banner)
+    // Initial proposal - shown with light orange-red background (no banner)
     if (isInitial) {
-      return "bg-orange-200 dark:bg-orange-800 border-orange-300 dark:border-orange-700 relative";
+      return "bg-orange-100 dark:bg-orange-700 border-orange-200 dark:border-orange-600 relative";
     }
     
     // Perfect match - green
@@ -416,14 +416,18 @@ export default function ContractorCalendarMatch({
 
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Calendar Match View</h3>
-          <p className="text-sm text-muted-foreground">
-            Find the best time that works for both you and the tenant
-          </p>
+    <div className="space-y-3">
+      {/* Compact Header with Job Duration */}
+      <div className="flex items-center justify-between gap-4 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 rounded-lg">
+        <div className="flex items-center gap-4">
+          <div className="text-sm">
+            <span className="font-medium">Job Duration:</span>{' '}
+            {jobDurationMinutes >= 60 && `${Math.floor(jobDurationMinutes / 60)}h `}
+            {jobDurationMinutes % 60 > 0 && `${jobDurationMinutes % 60}min`}
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            Select from green "Perfect Match" areas
+          </Badge>
         </div>
         <Button
           variant="outline"
@@ -437,23 +441,6 @@ export default function ContractorCalendarMatch({
         </Button>
       </div>
 
-
-      {/* Job Duration Info */}
-      <Card className="bg-slate-50 dark:bg-slate-950 border-slate-200">
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <span className="font-medium">Job Duration:</span>{' '}
-              {jobDurationMinutes >= 60 && `${Math.floor(jobDurationMinutes / 60)}h `}
-              {jobDurationMinutes % 60 > 0 && `${jobDurationMinutes % 60}min`}
-            </div>
-            <Badge variant="secondary" className="text-xs">
-              Select from green "Perfect Match" areas
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Legend */}
       <div className="flex flex-wrap gap-4 text-sm">
         <div className="flex items-center gap-2">
@@ -465,7 +452,7 @@ export default function ContractorCalendarMatch({
           <span>Partial Match</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-orange-200 dark:bg-orange-800 border border-orange-300 rounded"></div>
+          <div className="w-4 h-4 bg-orange-100 dark:bg-orange-700 border border-orange-200 rounded"></div>
           <span>Initial Proposal (Declined)</span>
         </div>
         <div className="flex items-center gap-2">
