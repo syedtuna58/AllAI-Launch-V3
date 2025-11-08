@@ -277,9 +277,9 @@ export default function ContractorCalendarMatch({
     const hasTenantAvail = isTenantAvailable(day, time);
     const hasJob = hasExistingJob(day, time);
 
-    // Initial proposal - shown with grey background (will have orange tag overlay)
+    // Initial proposal - shown with light orange background (no banner)
     if (isInitial) {
-      return "bg-gray-300 dark:bg-gray-700 border-gray-400 dark:border-gray-600 relative";
+      return "bg-orange-200 dark:bg-orange-800 border-orange-300 dark:border-orange-700 relative";
     }
     
     // Perfect match - green
@@ -341,6 +341,12 @@ export default function ContractorCalendarMatch({
   const handleMouseDown = (day: Date, time: Date) => {
     // Only allow selection in perfect match areas
     if (!isPerfectMatch(day, time)) return;
+    
+    // Check if clicking on an already selected cell - if so, unselect it
+    if (isSelectedCell(day, time)) {
+      setSelectedSlot(null);
+      return;
+    }
     
     // Find the actual valid window that contains this clicked cell
     const validWindow = findValidWindowForCell(day, time, jobDurationMinutes);
@@ -459,9 +465,7 @@ export default function ContractorCalendarMatch({
           <span>Partial Match</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-gray-300 dark:bg-gray-700 border border-gray-400 rounded relative">
-            <div className="absolute top-0 left-0 bg-orange-300 text-[6px] px-0.5 rounded text-white">ID</div>
-          </div>
+          <div className="w-4 h-4 bg-orange-200 dark:bg-orange-800 border border-orange-300 rounded"></div>
           <span>Initial Proposal (Declined)</span>
         </div>
         <div className="flex items-center gap-2">
@@ -476,7 +480,7 @@ export default function ContractorCalendarMatch({
           <div className="w-4 h-4 bg-gray-300 dark:bg-gray-700 border border-gray-400 rounded relative">
             <div className="absolute top-0 left-0 bg-purple-300 text-[6px] px-0.5 rounded text-white">TA</div>
           </div>
-          <span>Tenant Available</span>
+          <span>Booked (Tenant Available)</span>
         </div>
       </div>
 
@@ -579,7 +583,7 @@ export default function ContractorCalendarMatch({
           ))}
         </div>
         <div 
-          className="max-h-[600px] overflow-y-auto select-none"
+          className="select-none"
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
@@ -613,11 +617,6 @@ export default function ContractorCalendarMatch({
                     onMouseEnter={() => handleMouseEnter(day, time)}
                     data-testid={`cell-${dayIdx}-${timeIdx}`}
                   >
-                    {isInitial && (
-                      <div className="absolute top-0.5 left-0.5 bg-orange-300 dark:bg-orange-600 text-[9px] px-1 py-0.5 rounded text-white pointer-events-none z-10">
-                        Initial Declined
-                      </div>
-                    )}
                     {hasJob && hasTenantAvail && !isInitial && (
                       <div className="absolute top-0.5 left-0.5 bg-purple-300 dark:bg-purple-600 text-[9px] px-1 py-0.5 rounded text-white pointer-events-none z-10">
                         Tenant Available
