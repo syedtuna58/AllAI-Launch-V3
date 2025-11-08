@@ -2161,20 +2161,7 @@ function JobCard({
           className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
         />
         
-        {/* Counter-Proposal Banner - shown at top-right if needs review */}
-        {needsReview && !isCompleted && (
-          <div className="absolute top-0.5 right-0.5 z-10">
-            <Badge 
-              variant="secondary" 
-              className="h-4 px-1 text-[9px] bg-orange-600/95 text-white border-orange-500/40 backdrop-blur-sm font-bold"
-              data-testid={`badge-alternate-time-${job.id}`}
-              title="Tenant proposed alternate time"
-            >
-              Alternate Time
-            </Badge>
-          </div>
-        )}
-        
+        {/* Edit button - top left, visible on hover */}
         <button
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -2191,39 +2178,43 @@ function JobCard({
           <Edit2 className="h-3 w-3 text-white" />
         </button>
         
-        <div className="absolute top-0.5 right-0.5 z-10 flex items-center gap-0.5">
-          {isPendingApproval && !isCompleted && !needsReview && (
+        {/* Primary Status Badge - Top Left (Priority: Alternate Time > Pending > NEW) */}
+        <div className="absolute top-0.5 left-0.5 z-10">
+          {needsReview && !isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-4 px-1 text-[9px] bg-yellow-500/90 text-white border-yellow-400/40 backdrop-blur-sm font-bold"
+              className="h-5 px-1.5 text-[10px] bg-rose-100 dark:bg-rose-200 text-rose-900 dark:text-rose-950 border border-rose-300 dark:border-rose-400 font-bold shadow-sm"
+              data-testid={`badge-alternate-time-${job.id}`}
+              title="Tenant proposed alternate time - needs review"
+            >
+              Alternate Time
+            </Badge>
+          )}
+          {!needsReview && isPendingApproval && !isCompleted && (
+            <Badge 
+              variant="secondary" 
+              className="h-5 px-1.5 text-[10px] bg-amber-100 dark:bg-amber-200 text-amber-900 dark:text-amber-950 border border-amber-300 dark:border-amber-400 font-bold shadow-sm"
               data-testid={`badge-pending-approval-${job.id}`}
               title="Pending tenant approval"
             >
               Pending
             </Badge>
           )}
-          {isCompleted && (
+          {!needsReview && !isPendingApproval && job.caseStatus === 'New' && !isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-4 px-1 text-[9px] bg-green-500/90 text-white border-green-400/40 backdrop-blur-sm font-bold flex items-center gap-0.5"
-              data-testid={`badge-completed-${job.id}`}
-              title="Completed"
-            >
-              <Check className="h-2.5 w-2.5" />
-              Done
-            </Badge>
-          )}
-          {job.caseStatus === 'New' && !isCompleted && !isPendingApproval && !needsReview && (
-            <Badge 
-              variant="secondary" 
-              className="h-4 px-1 text-[9px] bg-blue-500/90 text-white border-blue-400/40 backdrop-blur-sm font-bold"
+              className="h-5 px-1.5 text-[10px] bg-sky-100 dark:bg-sky-200 text-sky-900 dark:text-sky-950 border border-sky-300 dark:border-sky-400 font-bold shadow-sm"
               data-testid={`badge-new-${job.id}`}
               title="New case"
             >
               NEW
             </Badge>
           )}
-          {overlapCount && overlapCount > 1 && (
+        </div>
+        
+        {/* Overlap count badge - top right if needed */}
+        {overlapCount && overlapCount > 1 && (
+          <div className="absolute top-0.5 right-0.5 z-10">
             <Badge 
               variant="secondary" 
               className="h-4 px-1 text-[9px] bg-white/30 text-white border-white/40 backdrop-blur-sm font-semibold"
@@ -2232,21 +2223,10 @@ function JobCard({
             >
               {overlapCount} teams
             </Badge>
-          )}
-          {isMultiDay && (
-            <Badge 
-              variant="secondary" 
-              className="h-4 px-1 text-[9px] bg-white/20 text-white border-white/30 backdrop-blur-sm"
-              data-testid={`badge-duration-${job.id}`}
-            >
-              {job.durationDays} {job.durationDays === 1 ? 'day' : 'days'}
-              {extendsBeyondWeek && ' →'}
-            </Badge>
-          )}
-          {!isCompleted && getUrgencyIcon(job.urgency)}
-        </div>
+          </div>
+        )}
         
-        <div className={cn("pr-6", needsReview && !isCompleted && "pt-5")}>
+        <div className="pr-6">
           <p className="font-medium text-sm text-white truncate drop-shadow-sm">
             {job.title}
           </p>
@@ -2291,6 +2271,32 @@ function JobCard({
           )}
         </div>
         
+        {/* Footer Bar - Secondary Info (Done, Duration, Urgency) */}
+        <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm px-1.5 py-0.5 flex items-center justify-between gap-1 rounded-b-sm">
+          <div className="flex items-center gap-1">
+            {isCompleted && (
+              <Badge 
+                variant="secondary" 
+                className="h-4 px-1 text-[9px] bg-emerald-100 dark:bg-emerald-200 text-emerald-900 dark:text-emerald-950 border border-emerald-300 dark:border-emerald-400 font-bold flex items-center gap-0.5"
+                data-testid={`badge-completed-${job.id}`}
+                title="Completed"
+              >
+                <Check className="h-2.5 w-2.5" />
+                Done
+              </Badge>
+            )}
+            {isMultiDay && (
+              <span className="text-[10px] text-white/90 font-medium px-1">
+                {job.durationDays} {job.durationDays === 1 ? 'day' : 'days'}
+                {extendsBeyondWeek && ' →'}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            {!isCompleted && getUrgencyIcon(job.urgency)}
+          </div>
+        </div>
+        
         {/* Quick Team Changer - Bottom Right Circular Color Chip */}
         {teams.length > 0 && onTeamChange && !isDragging && (
           <DropdownMenu>
@@ -2303,7 +2309,7 @@ function JobCard({
                   e.stopPropagation();
                   e.preventDefault();
                 }}
-                className="absolute bottom-1 right-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity rounded-full w-5 h-5 border-2 border-white shadow-lg hover:scale-110 pointer-events-auto"
+                className="absolute bottom-7 right-1 z-20 opacity-0 group-hover:opacity-100 transition-opacity rounded-full w-5 h-5 border-2 border-white shadow-lg hover:scale-110 pointer-events-auto"
                 style={{ backgroundColor: team?.color || '#6b7280' }}
                 title="Change team"
                 data-testid={`button-change-team-${job.id}`}
@@ -2853,17 +2859,30 @@ function TeamLegend({ teams, jobs, isCollapsed, onToggle }: {
             <div>
               <p className="text-xs font-medium text-muted-foreground dark:text-gray-400 mb-2">Job Status</p>
               <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2" data-testid="status-legend-alternate">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-rose-100 dark:bg-rose-200 text-rose-900 dark:text-rose-950 border border-rose-300 dark:border-rose-400 font-bold">
+                    Alternate Time
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Tenant proposed alternate time (top priority)</span>
+                </div>
                 <div className="flex items-center gap-2" data-testid="status-legend-pending">
-                  <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-yellow-500/90 text-white border-yellow-400/40 font-bold">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-amber-100 dark:bg-amber-200 text-amber-900 dark:text-amber-950 border border-amber-300 dark:border-amber-400 font-bold">
                     Pending
                   </Badge>
                   <span className="text-sm text-foreground dark:text-white">Awaiting tenant approval</span>
                 </div>
-                <div className="flex items-center gap-2" data-testid="status-legend-alternate">
-                  <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-orange-600/95 text-white border-orange-500/40 font-bold">
-                    Alternate Time
+                <div className="flex items-center gap-2" data-testid="status-legend-new">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-sky-100 dark:bg-sky-200 text-sky-900 dark:text-sky-950 border border-sky-300 dark:border-sky-400 font-bold">
+                    NEW
                   </Badge>
-                  <span className="text-sm text-foreground dark:text-white">Tenant proposed new time</span>
+                  <span className="text-sm text-foreground dark:text-white">New case</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="status-legend-done">
+                  <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-emerald-100 dark:bg-emerald-200 text-emerald-900 dark:text-emerald-950 border border-emerald-300 dark:border-emerald-400 font-bold flex items-center gap-0.5">
+                    <Check className="h-2.5 w-2.5" />
+                    Done
+                  </Badge>
+                  <span className="text-sm text-foreground dark:text-white">Completed (shows in footer)</span>
                 </div>
               </div>
             </div>
