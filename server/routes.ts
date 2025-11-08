@@ -3263,7 +3263,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/reminders/:id', isAuthenticated, async (req: any, res) => {
+  // Handle both PATCH and PUT for reminder updates
+  const updateReminderHandler = async (req: any, res: any) => {
     try {
       const userId = req.user.claims.sub;
       const org = await storage.getUserOrganization(userId);
@@ -3324,7 +3325,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error updating reminder:", error);
       res.status(500).json({ message: "Failed to update reminder" });
     }
-  });
+  };
+  
+  app.patch('/api/reminders/:id', isAuthenticated, updateReminderHandler);
+  app.put('/api/reminders/:id', isAuthenticated, updateReminderHandler);
 
   app.delete('/api/reminders/:id', isAuthenticated, async (req: any, res) => {
     try {
