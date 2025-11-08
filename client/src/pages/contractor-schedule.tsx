@@ -431,6 +431,23 @@ export default function ContractorSchedulePage() {
     mutationFn: async (data: { id: string; updates: any }) => {
       return apiRequest('PUT', `/api/reminders/${data.id}`, data.updates);
     },
+    onMutate: async ({ id, updates }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/reminders'] });
+      
+      // Snapshot the previous value
+      const previousReminders = queryClient.getQueryData(['/api/reminders']);
+      
+      // Optimistically update the cache to avoid visual glitch
+      if (previousReminders) {
+        const optimisticReminders = (previousReminders as any[]).map((reminder: any) => 
+          reminder.id === id ? { ...reminder, ...updates } : reminder
+        );
+        queryClient.setQueryData(['/api/reminders'], optimisticReminders);
+      }
+      
+      return { previousReminders };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
       toast({ 
@@ -439,14 +456,20 @@ export default function ContractorSchedulePage() {
       });
       setShowReminderDialog(false);
       setEditingReminder(null);
+      dragMutationInProgress.current = false;
     },
-    onError: (error: any) => {
+    onError: (error: any, variables, context: any) => {
+      // Rollback on error
+      if (context?.previousReminders) {
+        queryClient.setQueryData(['/api/reminders'], context.previousReminders);
+      }
       toast({
         title: "Failed to update reminder",
         description: error.message,
         variant: "destructive",
         duration: 4000
       });
+      dragMutationInProgress.current = false;
     },
   });
 
