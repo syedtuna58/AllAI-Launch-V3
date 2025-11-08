@@ -2552,10 +2552,12 @@ function JobCard({
 
 function ReminderBar({ 
   reminder,
-  onClick
+  onClick,
+  isAllDay = false
 }: { 
   reminder: any;
   onClick?: () => void;
+  isAllDay?: boolean;
 }) {
   return (
     <TooltipProvider>
@@ -2576,7 +2578,7 @@ function ReminderBar({
                 </p>
                 {reminder.dueAt && (
                   <p className="text-[10px] text-amber-700 dark:text-amber-300 truncate">
-                    {format(parseISO(reminder.dueAt), 'h:mm a')}
+                    {isAllDay ? 'All day' : format(parseISO(reminder.dueAt), 'h:mm a')}
                   </p>
                 )}
               </div>
@@ -3078,7 +3080,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
               return dayReminders.map(reminder => {
                 // Calculate vertical position based on reminder time
                 let topPosition = 0;
-                const heightPx = hourHeight / 3; // 33% of hourHeight
+                const heightPx = (hourHeight / 3) * 2; // 66% of hourHeight (doubled from 33%)
+                let isAllDay = false;
                 
                 if (reminder.dueAt) {
                   const orgTimezone = organization?.timezone || 'America/New_York';
@@ -3086,11 +3089,17 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                   const hours = reminderTime.getHours();
                   const minutes = reminderTime.getMinutes();
                   
-                  // Position reminder at its time (or at top if outside 6am-8pm range)
-                  if (hours >= 6 && hours <= 20) {
+                  // Check if this is an all-day reminder (midnight = 00:00)
+                  if (hours === 0 && minutes === 0) {
+                    isAllDay = true;
+                    topPosition = -30; // Position above the time grid, below the day header
+                  }
+                  // Position reminder at its time if within visible hours
+                  else if (hours >= 6 && hours <= 20) {
                     topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
                   } else {
-                    topPosition = 0; // Top of day if outside visible range
+                    // Early morning (before 6am) or late night (after 8pm) - position at top
+                    topPosition = 0;
                   }
                 }
                 
@@ -3109,6 +3118,7 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                     <ReminderBar
                       reminder={reminder}
                       onClick={() => onReminderClick?.(reminder)}
+                      isAllDay={isAllDay}
                     />
                   </div>
                 );
