@@ -708,7 +708,71 @@ export default function ContractorSchedulePage() {
       return;
     }
 
-    const jobId = active.id as string;
+    const activeIdStr = active.id as string;
+    
+    // Check if dragging a reminder
+    if (activeIdStr.startsWith('reminder-')) {
+      const reminderId = activeIdStr.replace('reminder-', '');
+      const reminder = reminders.find(r => r.id === reminderId);
+      
+      if (!reminder) {
+        setActiveId(null);
+        return;
+      }
+      
+      // Only allow dropping on time slots
+      if (over.id.toString().startsWith('day-') && over.id.toString().includes('-time-')) {
+        const parts = over.id.toString().split('-');
+        const dayIndex = parseInt(parts[1]);
+        const targetHour = parseInt(parts[3]);
+        const targetMinute = parseInt(parts[4]);
+        const targetDate = viewMode === 'day' ? currentDate : weekDays[dayIndex];
+        
+        // Get organization timezone
+        if (!organization?.timezone) {
+          toast({
+            title: "Update unavailable",
+            description: "Please wait for the page to finish loading.",
+            variant: "destructive",
+            duration: 4000
+          });
+          setActiveId(null);
+          return;
+        }
+        const orgTimezone = organization.timezone;
+        
+        // Calculate new dueAt time
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const hour = String(targetHour).padStart(2, '0');
+        const minute = String(targetMinute).padStart(2, '0');
+        const dateTimeString = `${year}-${month}-${day} ${hour}:${minute}:00`;
+        
+        const newDueAt = fromZonedTime(dateTimeString, orgTimezone);
+        
+        console.log('📅 REMINDER DRAG:', {
+          reminderId,
+          targetHour,
+          targetMinute,
+          orgTimezone,
+          dateTimeString,
+          newDueAt: newDueAt.toISOString(),
+        });
+        
+        dragMutationInProgress.current = true;
+        updateReminderMutation.mutate({
+          id: reminderId,
+          updates: { dueAt: newDueAt.toISOString() }
+        });
+      }
+      
+      setActiveId(null);
+      return;
+    }
+
+    // Handle job dragging
+    const jobId = activeIdStr;
     const job = jobs.find(j => j.id === jobId);
     
     if (!job) {
@@ -1080,6 +1144,9 @@ export default function ContractorSchedulePage() {
   };
 
   const activeJob = activeId ? jobs.find(j => j.id === activeId) : null;
+  const activeReminder = activeId && activeId.startsWith('reminder-') 
+    ? reminders.find(r => r.id === activeId.replace('reminder-', ''))
+    : null;
 
   if (!user) {
     return (
@@ -2171,6 +2238,12 @@ export default function ContractorSchedulePage() {
                     onTeamChange={(teamId) => handleTeamChange(activeJob.id, teamId)}
                   />
                 </div>
+              ) : activeReminder ? (
+                <div className="cursor-grabbing" style={{ width: '150px', height: '26px' }}>
+                  <ReminderBar
+                    reminder={activeReminder}
+                  />
+                </div>
               ) : null}
             </DragOverlay>
           </DndContext>
@@ -2324,7 +2397,7 @@ function JobCard({
           {!needsReview && isPendingApproval && !isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-4 px-1 text-[9px] bg-amber-100 dark:bg-amber-200 text-amber-900 dark:text-amber-950 border-l border-b border-amber-300 dark:border-amber-400 font-bold shadow-sm"
+              className="h-4 px-1 text-[9px] bg-purple-100 dark:bg-purple-200 text-purple-900 dark:text-purple-950 border-l border-b border-purple-300 dark:border-purple-400 font-bold shadow-sm"
               data-testid={`badge-pending-approval-${job.id}`}
               title="Pending tenant approval"
             >
@@ -2616,6 +2689,46 @@ function ReminderBar({
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+function DraggableReminderBar({ 
+  reminder,
+  onClick,
+  isAllDay = false,
+  isDragging = false
+}: { 
+  reminder: any;
+  onClick?: () => void;
+  isAllDay?: boolean;
+  isDragging?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: `reminder-${reminder.id}`,
+  });
+
+  const style = (transform && !isDragging) ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn("h-full transition-all", isDragging && "opacity-50")}
+    >
+      <div
+        {...listeners}
+        {...attributes}
+        className="h-full cursor-grab active:cursor-grabbing"
+      >
+        <ReminderBar
+          reminder={reminder}
+          onClick={onClick}
+          isAllDay={isAllDay}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -3103,6 +3216,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                   }
                 }
                 
+                const isDragging = activeId === `reminder-${reminder.id}`;
+                
                 return (
                   <div
                     key={`reminder-${reminder.id}`}
@@ -3113,12 +3228,14 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
                       width: '100%',
                       height: `${heightPx}px`,
                       zIndex: 15, // Below jobs but above grid
+                      visibility: isDragging ? 'hidden' : 'visible',
                     }}
                   >
-                    <ReminderBar
+                    <DraggableReminderBar
                       reminder={reminder}
                       onClick={() => onReminderClick?.(reminder)}
                       isAllDay={isAllDay}
+                      isDragging={isDragging}
                     />
                   </div>
                 );
@@ -3208,7 +3325,7 @@ function TeamLegend({ teams, jobs, isCollapsed, onToggle }: {
                   <span className="text-sm text-foreground dark:text-white">Tenant proposed alternate time (top priority)</span>
                 </div>
                 <div className="flex items-center gap-2" data-testid="status-legend-pending">
-                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-amber-100 dark:bg-amber-200 text-amber-900 dark:text-amber-950 border border-amber-300 dark:border-amber-400 font-bold">
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-purple-100 dark:bg-purple-200 text-purple-900 dark:text-purple-950 border border-purple-300 dark:border-purple-400 font-bold">
                     Pending
                   </Badge>
                   <span className="text-sm text-foreground dark:text-white">Awaiting tenant approval</span>
