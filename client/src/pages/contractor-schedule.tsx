@@ -449,13 +449,17 @@ export default function ContractorSchedulePage() {
       return { previousReminders };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
-      toast({ 
-        title: "Reminder updated successfully",
-        duration: 2000
-      });
-      setShowReminderDialog(false);
-      setEditingReminder(null);
+      // Don't refetch for drag operations - rely on optimistic update
+      // Only refetch when editing through dialog
+      if (!dragMutationInProgress.current) {
+        queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+        toast({ 
+          title: "Reminder updated successfully",
+          duration: 2000
+        });
+        setShowReminderDialog(false);
+        setEditingReminder(null);
+      }
       dragMutationInProgress.current = false;
     },
     onError: (error: any, variables, context: any) => {
