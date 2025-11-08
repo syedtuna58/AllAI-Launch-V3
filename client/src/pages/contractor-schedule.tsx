@@ -2130,33 +2130,36 @@ function JobCard({
   } : style;
   
   return (
-    <div
-      ref={setNodeRef}
-      style={wrapperStyle}
-      className={cn(
-        "transition-all overflow-hidden group h-full",
-        isDragging && "opacity-50",
-        isMultiDay ? "mb-1.5" : "mb-0"
-      )}
-      data-testid={`job-card-${job.id}`}
-    >
-      <div 
-        {...listeners} 
-        {...attributes}
-        onDoubleClick={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          onDoubleClick?.();
-        }}
-        className={cn(
-          "cursor-grab active:cursor-grabbing px-1.5 py-1.5 relative h-full",
-          isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
-        )}
-        style={{ 
-          backgroundColor: `${backgroundColor}${opacity}`,
-          backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}${opacity}, ${backgroundColor}${isScheduled ? 'bb' : '55'})` : undefined
-        }}
-      >
+    <TooltipProvider>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <div
+            ref={setNodeRef}
+            style={wrapperStyle}
+            className={cn(
+              "transition-all overflow-hidden group h-full",
+              isDragging && "opacity-50",
+              isMultiDay ? "mb-1.5" : "mb-0"
+            )}
+            data-testid={`job-card-${job.id}`}
+          >
+            <div 
+              {...listeners} 
+              {...attributes}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onDoubleClick?.();
+              }}
+              className={cn(
+                "cursor-grab active:cursor-grabbing px-1.5 py-1.5 relative h-full",
+                isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
+              )}
+              style={{ 
+                backgroundColor: `${backgroundColor}${opacity}`,
+                backgroundImage: isMultiDay ? `linear-gradient(to right, ${backgroundColor}${opacity}, ${backgroundColor}${isScheduled ? 'bb' : '55'})` : undefined
+              }}
+            >
         <div 
           className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
         />
@@ -2226,7 +2229,7 @@ function JobCard({
           </div>
         )}
         
-        <div className="pb-6">
+        <div className="pb-6 pt-1">
           {/* Team name - small label at top */}
           {team && (
             <p className="text-[10px] text-white/80 font-medium truncate">
@@ -2354,8 +2357,68 @@ function JobCard({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </div>
-    </div>
+            </div>
+          </div>
+        </TooltipTrigger>
+        
+        <TooltipContent side="right" className="max-w-xs bg-card dark:bg-gray-800 border border-border dark:border-gray-700 p-3">
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="font-bold text-foreground dark:text-white">{job.title}</p>
+              {team && (
+                <p className="text-xs text-muted-foreground dark:text-gray-400">Team: {team.name} ({team.specialty})</p>
+              )}
+            </div>
+            
+            {job.scheduledStartAt && job.scheduledEndAt && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Time:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">
+                  {job.isAllDay ? '8:00 AM - 5:00 PM (All Day)' : `${format(parseISO(job.scheduledStartAt), 'h:mm a')} - ${format(parseISO(job.scheduledEndAt), 'h:mm a')}`}
+                </p>
+                {job.durationDays > 1 && (
+                  <p className="text-xs text-muted-foreground dark:text-gray-400">
+                    Duration: {job.durationDays} days
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {job.description && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Description:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">{job.description}</p>
+              </div>
+            )}
+            
+            {job.address && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Location:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">{job.address}</p>
+              </div>
+            )}
+            
+            <div>
+              <p className="text-xs font-semibold text-foreground dark:text-white">Status:</p>
+              <p className="text-xs text-muted-foreground dark:text-gray-400">
+                {needsReview ? 'Needs Review (Tenant Proposed Alternate Time)' : 
+                 isPendingApproval ? 'Pending Tenant Approval' :
+                 isCompleted ? 'Completed' :
+                 job.caseStatus === 'New' ? 'New Case' : 
+                 job.status || 'Scheduled'}
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-1">
+                {getUrgencyIcon(job.urgency)}
+                <span className="text-xs text-muted-foreground dark:text-gray-400">{job.urgency} Urgency</span>
+              </div>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
