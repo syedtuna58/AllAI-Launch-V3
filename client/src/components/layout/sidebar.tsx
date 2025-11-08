@@ -36,7 +36,7 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/contractor-dashboard", icon: Home },
     { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "My Jobs", href: "/maintenance", icon: Wrench },
-    { name: "Schedule", href: "/contractor-schedule", icon: Calendar },
+    { name: "Calendar", href: "/contractor-schedule", icon: Calendar },
     { name: "Reminders", href: "/reminders", icon: Clock },
   ];
 

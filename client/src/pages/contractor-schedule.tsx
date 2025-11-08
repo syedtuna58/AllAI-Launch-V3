@@ -5,10 +5,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2, CalendarClock } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Plus, Users, Check, Circle, AlertTriangle, AlertOctagon, Zap, Info, ChevronDown, Edit2, Star, Trash2, CalendarClock, Clock } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import ContractorCalendarMatch from "@/components/ContractorCalendarMatch";
+import ReminderForm from "@/components/forms/reminder-form";
 import {
   DndContext,
   DragOverlay,
@@ -205,6 +206,7 @@ export default function ContractorSchedulePage() {
     allDay: false,
   });
   const [hideWeekends, setHideWeekends] = useState(true);
+  const [showReminders, setShowReminders] = useState(true);
   const [legendCollapsed, setLegendCollapsed] = useState(true);
   const [addressExpanded, setAddressExpanded] = useState(false);
   const [teamFormData, setTeamFormData] = useState({
@@ -216,6 +218,8 @@ export default function ContractorSchedulePage() {
   });
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [creatingNewTeam, setCreatingNewTeam] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<any | null>(null);
   const dragMutationInProgress = useRef(false);
 
   const sensors = useSensors(
@@ -242,6 +246,18 @@ export default function ContractorSchedulePage() {
 
   const { data: smartCases = [] } = useQuery<any[]>({
     queryKey: ['/api/contractor/cases'],
+  });
+
+  const { data: properties = [] } = useQuery<any[]>({
+    queryKey: ['/api/properties'],
+  });
+
+  const { data: entities = [] } = useQuery<any[]>({
+    queryKey: ['/api/entities'],
+  });
+
+  const { data: reminders = [] } = useQuery<any[]>({
+    queryKey: ['/api/reminders'],
   });
 
   // Fetch counter-proposals for the job being reviewed
@@ -379,6 +395,52 @@ export default function ContractorSchedulePage() {
     onError: (error: any) => {
       toast({
         title: "Failed to create job",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const createReminderMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', '/api/reminders', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+      toast({ 
+        title: "Reminder created successfully",
+        duration: 2000
+      });
+      setShowReminderDialog(false);
+      setEditingReminder(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to create reminder",
+        description: error.message,
+        variant: "destructive",
+        duration: 4000
+      });
+    },
+  });
+
+  const updateReminderMutation = useMutation({
+    mutationFn: async (data: { id: string; updates: any }) => {
+      return apiRequest('PUT', `/api/reminders/${data.id}`, data.updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+      toast({ 
+        title: "Reminder updated successfully",
+        duration: 2000
+      });
+      setShowReminderDialog(false);
+      setEditingReminder(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to update reminder",
         description: error.message,
         variant: "destructive",
         duration: 4000
@@ -573,6 +635,11 @@ export default function ContractorSchedulePage() {
     } else {
       setViewingJob(job);
     }
+  };
+
+  const handleReminderClick = (reminder: any) => {
+    setEditingReminder(reminder);
+    setShowReminderDialog(true);
   };
 
   const acceptCounterProposalMutation = useMutation({
@@ -1019,9 +1086,9 @@ export default function ContractorSchedulePage() {
       <div className="flex h-screen bg-background text-foreground dark:bg-gray-900">
         <Sidebar />
         <div className="flex-1 flex flex-col">
-          <Header title="Contractor Schedule" />
+          <Header title="Calendar" />
           <main className="flex-1 p-6">
-            <p className="text-muted-foreground dark:text-gray-400">Please log in to view contractor schedules.</p>
+            <p className="text-muted-foreground dark:text-gray-400">Please log in to view calendar.</p>
           </main>
         </div>
       </div>
@@ -1032,15 +1099,15 @@ export default function ContractorSchedulePage() {
     <div className="flex h-screen bg-background text-foreground dark:bg-gray-900">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Contractor Schedule" />
+        <Header title="Calendar" />
         <main className="flex-1 p-6 overflow-auto">
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground dark:text-white mb-2" data-testid="text-page-title">
-                Contractor Schedule
+                Calendar
               </h1>
               <p className="text-muted-foreground dark:text-gray-400">
-                Manage team schedules and job assignments
+                Manage team schedules, jobs, and reminders
               </p>
             </div>
             <div className="flex gap-2">
@@ -1561,6 +1628,45 @@ export default function ContractorSchedulePage() {
                   </div>
                 </DialogContent>
               </Dialog>
+
+              <Dialog open={showReminderDialog} onOpenChange={(open) => {
+                setShowReminderDialog(open);
+                if (!open) {
+                  setEditingReminder(null);
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-100 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900" data-testid="button-add-reminder">
+                    <Clock className="mr-2 h-4 w-4" />
+                    Add Reminder
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</DialogTitle>
+                    <DialogDescription>
+                      {editingReminder ? 'Update reminder details' : 'Set up a reminder for important dates and tasks'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <ReminderForm
+                    properties={properties}
+                    entities={entities}
+                    reminder={editingReminder}
+                    onSubmit={(data) => {
+                      if (editingReminder) {
+                        updateReminderMutation.mutate({ id: editingReminder.id, updates: data });
+                      } else {
+                        createReminderMutation.mutate(data);
+                      }
+                    }}
+                    isLoading={createReminderMutation.isPending || updateReminderMutation.isPending}
+                    onCancel={() => {
+                      setShowReminderDialog(false);
+                      setEditingReminder(null);
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
 
@@ -1820,17 +1926,30 @@ export default function ContractorSchedulePage() {
                           </Button>
                         </div>
                         {viewMode === 'week' && (
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="hide-weekends"
-                              checked={hideWeekends}
-                              onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
-                              data-testid="checkbox-hide-weekends"
-                            />
-                            <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
-                              Hide Weekends
-                            </Label>
-                          </div>
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="hide-weekends"
+                                checked={hideWeekends}
+                                onCheckedChange={(checked) => setHideWeekends(checked as boolean)}
+                                data-testid="checkbox-hide-weekends"
+                              />
+                              <Label htmlFor="hide-weekends" className="text-sm cursor-pointer">
+                                Hide Weekends
+                              </Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id="show-reminders"
+                                checked={showReminders}
+                                onCheckedChange={(checked) => setShowReminders(checked as boolean)}
+                                data-testid="checkbox-show-reminders"
+                              />
+                              <Label htmlFor="show-reminders" className="text-sm cursor-pointer">
+                                Show Reminders
+                              </Label>
+                            </div>
+                          </>
                         )}
                         <Button
                           variant="outline"
@@ -1884,6 +2003,8 @@ export default function ContractorSchedulePage() {
                                 organization={organization}
                                 onDoubleClick={handleJobDoubleClick}
                                 onTeamChange={handleTeamChange}
+                                reminders={showReminders ? reminders : []}
+                                onReminderClick={handleReminderClick}
                                 onClick={(job) => {
                                   setEditingJob(job);
                                   setJobFormData({
@@ -1939,6 +2060,8 @@ export default function ContractorSchedulePage() {
                             hourHeight={60}
                             organization={organization}
                             onDoubleClick={handleJobDoubleClick}
+                            reminders={showReminders ? reminders : []}
+                            onReminderClick={handleReminderClick}
                             onClick={(job) => {
                               setEditingJob(job);
                               setJobFormData({
@@ -2422,6 +2545,73 @@ function JobCard({
   );
 }
 
+function ReminderBar({ 
+  reminder,
+  onClick
+}: { 
+  reminder: any;
+  onClick?: () => void;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <div
+            onClick={onClick}
+            className="h-full cursor-pointer group"
+            data-testid={`reminder-bar-${reminder.id}`}
+          >
+            <div 
+              className="px-2 py-1 h-full bg-amber-100 dark:bg-amber-900 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors flex items-center gap-1.5"
+            >
+              <Clock className="h-3 w-3 text-amber-900 dark:text-amber-100 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-amber-900 dark:text-amber-100 truncate">
+                  {reminder.title}
+                </p>
+                {reminder.dueAt && (
+                  <p className="text-[10px] text-amber-700 dark:text-amber-300 truncate">
+                    {format(parseISO(reminder.dueAt), 'h:mm a')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </TooltipTrigger>
+        
+        <TooltipContent side="right" className="max-w-xs bg-card dark:bg-gray-800 border border-border dark:border-gray-700 p-3">
+          <div className="space-y-2 text-sm">
+            <div>
+              <p className="font-bold text-foreground dark:text-white flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                {reminder.title}
+              </p>
+            </div>
+            
+            {reminder.dueAt && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Due:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400">
+                  {format(parseISO(reminder.dueAt), 'h:mm a')}
+                </p>
+              </div>
+            )}
+            
+            {reminder.type && (
+              <div>
+                <p className="text-xs font-semibold text-foreground dark:text-white">Type:</p>
+                <p className="text-xs text-muted-foreground dark:text-gray-400 capitalize">{reminder.type}</p>
+              </div>
+            )}
+            
+            <p className="text-xs text-amber-600 dark:text-amber-400 italic">Click to view/edit reminder</p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
   currentDate: Date;
   jobs: ScheduledJob[];
@@ -2513,7 +2703,7 @@ function MonthView({ currentDate, jobs, teams, onDayClick, onJobClick }: {
   );
 }
 
-function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, onDoubleClick, organization, onTeamChange }: {
+function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, isToday, activeId, hourHeight = 40, onClick, onDoubleClick, organization, onTeamChange, reminders = [], onReminderClick }: {
   dayIndex: number;
   date: Date;
   jobs: ScheduledJob[];
@@ -2532,6 +2722,8 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
   onDoubleClick?: (job: ScheduledJob) => void;
   organization?: any;
   onTeamChange?: (jobId: string, teamId: string) => void;
+  reminders?: any[];
+  onReminderClick?: (reminder: any) => void;
 }) {
   // Generate hours from 6 AM to 8 PM (for visual hourly grid)
   const hours = Array.from({ length: 15 }, (_, i) => i + 6);
@@ -2857,6 +3049,56 @@ function DayColumn({ dayIndex, date, jobs, teams, weekDays, calculateJobSpan, is
               );
             });
             })()}
+            
+            {/* Reminder bars overlay */}
+            {(() => {
+              // Filter reminders for this day
+              const dayReminders = reminders.filter(reminder => {
+                if (!reminder.dueAt) return false;
+                const reminderDate = startOfDay(parseISO(reminder.dueAt));
+                const currentDayStart = startOfDay(date);
+                return isSameDay(reminderDate, currentDayStart);
+              });
+              
+              return dayReminders.map(reminder => {
+                // Calculate vertical position based on reminder time
+                let topPosition = 0;
+                const heightPx = hourHeight / 3; // 33% of hourHeight
+                
+                if (reminder.dueAt) {
+                  const orgTimezone = organization?.timezone || 'America/New_York';
+                  const reminderTime = toZonedTime(parseISO(reminder.dueAt), orgTimezone);
+                  const hours = reminderTime.getHours();
+                  const minutes = reminderTime.getMinutes();
+                  
+                  // Position reminder at its time (or at top if outside 6am-8pm range)
+                  if (hours >= 6 && hours <= 20) {
+                    topPosition = ((hours - 6) * hourHeight) + (minutes * hourHeight / 60);
+                  } else {
+                    topPosition = 0; // Top of day if outside visible range
+                  }
+                }
+                
+                return (
+                  <div
+                    key={`reminder-${reminder.id}`}
+                    style={{ 
+                      position: 'absolute',
+                      top: `${topPosition}px`,
+                      left: '0',
+                      width: '100%',
+                      height: `${heightPx}px`,
+                      zIndex: 15, // Below jobs but above grid
+                    }}
+                  >
+                    <ReminderBar
+                      reminder={reminder}
+                      onClick={() => onReminderClick?.(reminder)}
+                    />
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       </div>
@@ -2958,6 +3200,12 @@ function TeamLegend({ teams, jobs, isCollapsed, onToggle }: {
                     Done
                   </Badge>
                   <span className="text-sm text-foreground dark:text-white">Completed (shows in footer)</span>
+                </div>
+                <div className="flex items-center gap-2" data-testid="status-legend-reminder">
+                  <div className="h-4 px-2 py-0.5 bg-amber-100 dark:bg-amber-900 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                    <Clock className="h-2.5 w-2.5 text-amber-900 dark:text-amber-100" />
+                  </div>
+                  <span className="text-sm text-foreground dark:text-white">Reminder (thin amber bar)</span>
                 </div>
               </div>
             </div>
