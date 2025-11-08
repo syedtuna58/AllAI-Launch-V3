@@ -2149,7 +2149,7 @@ function JobCard({
           onDoubleClick?.();
         }}
         className={cn(
-          "cursor-grab active:cursor-grabbing px-0.5 py-1.5 relative h-full rounded-sm",
+          "cursor-grab active:cursor-grabbing px-1.5 py-1.5 relative h-full",
           isMultiDay && "bg-gradient-to-r from-current via-current to-current/90"
         )}
         style={{ 
@@ -2161,7 +2161,7 @@ function JobCard({
           className="absolute inset-0 bg-white/0 group-hover:bg-white/10 transition-colors pointer-events-none"
         />
         
-        {/* Edit button - top left, visible on hover */}
+        {/* Edit button - top left corner, visible on hover */}
         <button
           onPointerDown={(e) => {
             e.stopPropagation();
@@ -2171,19 +2171,19 @@ function JobCard({
             e.preventDefault();
             onClick?.();
           }}
-          className="absolute top-0.5 left-0.5 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded p-1 pointer-events-auto"
+          className="absolute top-0 left-0 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 hover:bg-white/30 backdrop-blur-sm p-1 pointer-events-auto"
           data-testid={`button-edit-job-${job.id}`}
           title="Edit job"
         >
           <Edit2 className="h-3 w-3 text-white" />
         </button>
         
-        {/* Primary Status Badge - Top Left (Priority: Alternate Time > Pending > NEW) */}
-        <div className="absolute top-0.5 left-0.5 z-10">
+        {/* Primary Status Badge - Top Right Corner (Priority: Alternate Time > Pending > NEW) */}
+        <div className="absolute top-0 right-0 z-10">
           {needsReview && !isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-rose-100 dark:bg-rose-200 text-rose-900 dark:text-rose-950 border border-rose-300 dark:border-rose-400 font-bold shadow-sm"
+              className="h-4 px-1 text-[9px] bg-rose-100 dark:bg-rose-200 text-rose-900 dark:text-rose-950 border-l border-b border-rose-300 dark:border-rose-400 font-bold shadow-sm"
               data-testid={`badge-alternate-time-${job.id}`}
               title="Tenant proposed alternate time - needs review"
             >
@@ -2193,7 +2193,7 @@ function JobCard({
           {!needsReview && isPendingApproval && !isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-amber-100 dark:bg-amber-200 text-amber-900 dark:text-amber-950 border border-amber-300 dark:border-amber-400 font-bold shadow-sm"
+              className="h-4 px-1 text-[9px] bg-amber-100 dark:bg-amber-200 text-amber-900 dark:text-amber-950 border-l border-b border-amber-300 dark:border-amber-400 font-bold shadow-sm"
               data-testid={`badge-pending-approval-${job.id}`}
               title="Pending tenant approval"
             >
@@ -2203,7 +2203,7 @@ function JobCard({
           {!needsReview && !isPendingApproval && job.caseStatus === 'New' && !isCompleted && (
             <Badge 
               variant="secondary" 
-              className="h-5 px-1.5 text-[10px] bg-sky-100 dark:bg-sky-200 text-sky-900 dark:text-sky-950 border border-sky-300 dark:border-sky-400 font-bold shadow-sm"
+              className="h-4 px-1 text-[9px] bg-sky-100 dark:bg-sky-200 text-sky-900 dark:text-sky-950 border-l border-b border-sky-300 dark:border-sky-400 font-bold shadow-sm"
               data-testid={`badge-new-${job.id}`}
               title="New case"
             >
@@ -2212,12 +2212,12 @@ function JobCard({
           )}
         </div>
         
-        {/* Overlap count badge - top right if needed */}
+        {/* Overlap count badge - top left if needed */}
         {overlapCount && overlapCount > 1 && (
-          <div className="absolute top-0.5 right-0.5 z-10">
+          <div className="absolute top-0 left-0 z-10">
             <Badge 
               variant="secondary" 
-              className="h-4 px-1 text-[9px] bg-white/30 text-white border-white/40 backdrop-blur-sm font-semibold"
+              className="h-4 px-1 text-[9px] bg-white/30 text-white border-r border-b border-white/40 backdrop-blur-sm font-semibold"
               data-testid={`badge-overlap-${job.id}`}
               title={`${overlapCount} teams at this time`}
             >
@@ -2226,17 +2226,27 @@ function JobCard({
           </div>
         )}
         
-        <div className="pr-6">
+        <div className="pb-6">
+          {/* Team name - small label at top */}
+          {team && (
+            <p className="text-[10px] text-white/80 font-medium truncate">
+              {team.name}
+            </p>
+          )}
+          
+          {/* Job title */}
           <p className="font-medium text-sm text-white truncate drop-shadow-sm">
             {job.title}
           </p>
+          
+          {/* Time */}
           {job.isAllDay && job.scheduledStartAt && (
-            <p className="text-xs text-white/90 font-medium mt-0.5 drop-shadow-sm">
+            <p className="text-xs text-white/90 font-medium drop-shadow-sm">
               8:00 AM - 5:00 PM
             </p>
           )}
           {!job.isAllDay && job.scheduledStartAt && job.scheduledEndAt && (
-            <p className="text-xs text-white/90 font-medium mt-0.5 drop-shadow-sm">
+            <p className="text-xs text-white/90 font-medium drop-shadow-sm">
               {format(parseISO(job.scheduledStartAt), 'h:mm a')} - {format(parseISO(job.scheduledEndAt), 'h:mm a')}
             </p>
           )}
@@ -2256,23 +2266,25 @@ function JobCard({
                   return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
                 };
                 return (
-                  <p className="text-xs text-white/90 font-medium mt-0.5 drop-shadow-sm">
-                    {formatTime(hours, mins)} - {formatTime(endHours, endMins)} ({duration}min)
+                  <p className="text-xs text-white/90 font-medium drop-shadow-sm">
+                    {formatTime(hours, mins)} - {formatTime(endHours, endMins)}
                   </p>
                 );
               }
             } catch (e) {}
             return null;
           })()}
-          {isMultiDay && job.address && (
-            <p className="text-xs text-white/80 truncate mt-0.5">
+          
+          {/* Customer name and address */}
+          {job.address && (
+            <p className="text-[11px] text-white/80 truncate">
               {job.address}
             </p>
           )}
         </div>
         
         {/* Footer Bar - Secondary Info (Done, Duration, Urgency) */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-sm px-1.5 py-0.5 flex items-center justify-between gap-1 rounded-b-sm">
+        <div className="absolute bottom-0 left-0 right-0 bg-white/15 backdrop-blur-sm px-1.5 py-0.5 flex items-center justify-between gap-1">
           <div className="flex items-center gap-1">
             {isCompleted && (
               <Badge 
