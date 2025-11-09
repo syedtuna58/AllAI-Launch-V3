@@ -1,0 +1,62 @@
+✅ Completed Work
+1. LiveNotification Fix (Task 1)
+Moved notification overlay from top-4 right-4 to bottom-4 right-4 to prevent overlap with page content
+2. Comprehensive Reminder Auto-Generation System (Tasks 3-4) ✨
+Architect Approved - The system is production-ready with:
+
+Schema Enhancements:
+
+Added new reminder types: mortgage, insurance, property_tax, hoa, permit
+Added compliance tracking fields to properties: insuranceExpiryDate, insuranceCarrier, propertyTaxDueMonth, propertyTaxDueDay, hoaFeeAmount, hoaFeeDueDay
+Added entity tracking fields: licenseRenewalDate, permitExpiryDate
+Auto-Generation Features:
+
+Mortgage payments: Monthly reminders (5 days before due on 1st)
+Insurance renewals: Multi-stage reminders (90, 60, 30 days before expiry)
+Property taxes: Multi-stage reminders (60, 30, 7 days before due)
+HOA fees: Monthly reminders (5 days before due)
+License/Permit renewals: Multi-stage reminders (90, 60, 30 days before expiry)
+Technical Implementation:
+
+Idempotent deduplication by (orgId, property/entity, type, title, leadDays)
+Unique titles for multi-stage reminders: "Insurance Renewal Due (90 days) - PropertyName"
+Daily cron job runs at 8 AM
+Proper type categorization for filtering and analytics
+3. Admin Calendar Page (Tasks 5, 10-11)
+Created and Accessible:
+
+New page at /admin-calendar with route and navigation
+Based on contractor calendar structure with week/day/month views
+Fetches reminders and maintenance cases
+Timezone-aware initialization
+Cache invalidation working across all pages
+4. Cache Synchronization (Task 10)
+All reminder mutations properly invalidate /api/reminders query key
+Admin calendar, contractor calendar, and reminder pages stay synced
+⚠️ Remaining Work
+Admin Calendar Refinements (Tasks 6-9)
+The admin calendar page exists but still needs adaptation from its contractor schedule template:
+
+Task 6: Implement drag-and-drop for reminders and maintenance cases
+Task 7: Add status-based color coding:
+
+Reminders: overdue (red), due-soon (orange), upcoming (blue), completed (green)
+Maintenance cases: by status
+Task 8: Build multi-filter system:
+
+Reminder type filter (mortgage, insurance, tax, etc.)
+Maintenance status filter
+Property filter
+Entity filter
+Task 9: Add legend and filter toggles:
+
+Show color meanings
+Toggle between All/Reminders Only/Maintenance Only
+Task 12: End-to-end testing
+
+📝 Current State
+✅ Core reminder auto-generation: COMPLETE & PRODUCTION-READY
+⚠️ Admin calendar UI: FUNCTIONAL BUT NEEDS REFINEMENT
+✅ All changes applied and app running successfully
+✅ No errors in logs
+The
