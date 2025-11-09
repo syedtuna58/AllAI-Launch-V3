@@ -438,6 +438,7 @@ export default function Reminders() {
       case "Overdue": return <Badge className="bg-red-100 text-red-800">Overdue</Badge>;
       case "Completed": return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
       case "Cancelled": return <Badge className="bg-gray-100 text-gray-800">Cancelled</Badge>;
+      case "Sent": return <Badge className="bg-blue-100 text-blue-800">Sent</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
     }
   };
@@ -502,25 +503,37 @@ export default function Reminders() {
             </div>
             
             <div className="flex items-center space-x-3">
-              {/* Entity Filter */}
-              <Select value={entityFilter} onValueChange={(value) => {
-                setEntityFilter(value);
-                if (value !== "all") {
-                  setPropertyFilter("all");
-                }
-              }}>
-                <SelectTrigger className="w-44" data-testid="select-entity-filter">
-                  <SelectValue placeholder="All Entities" />
+              {/* Status Filter - First */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40" data-testid="select-status-filter">
+                  <SelectValue placeholder="Due Reminders" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Entities</SelectItem>
-                  {entities.map((entity) => (
-                    <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
-                  ))}
+                  <SelectItem value="due">Due</SelectItem>
+                  <SelectItem value="due-soon">Due Soon (30 days)</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="Overdue">Overdue</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  <SelectItem value="Sent">Sent</SelectItem>
                 </SelectContent>
               </Select>
 
-              {/* Property Filter */}
+              {/* Date Filter - Second */}
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-48" data-testid="select-date-filter">
+                  <SelectValue placeholder="All Dates" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Dates</SelectItem>
+                  <SelectItem value="next-30-days">Next 30 Days</SelectItem>
+                  <SelectItem value="this-month">This Month</SelectItem>
+                  <SelectItem value="next-month">Next Month</SelectItem>
+                  <SelectItem value="year-end">Before Year End</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Property Filter - Third */}
               <Select value={propertyFilter} onValueChange={(value) => {
                 setPropertyFilter(value);
                 setUnitFilter([]); // Reset unit filter when property changes
@@ -586,7 +599,7 @@ export default function Reminders() {
                 );
               })()}
 
-              {/* Type Filter */}
+              {/* Type Filter - Fourth */}
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-44" data-testid="select-type-filter">
                   <SelectValue placeholder="All Types" />
@@ -599,32 +612,21 @@ export default function Reminders() {
                 </SelectContent>
               </Select>
 
-              {/* Date Filter */}
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-48" data-testid="select-date-filter">
-                  <SelectValue placeholder="All Dates" />
+              {/* Entity Filter - Fifth */}
+              <Select value={entityFilter} onValueChange={(value) => {
+                setEntityFilter(value);
+                if (value !== "all") {
+                  setPropertyFilter("all");
+                }
+              }}>
+                <SelectTrigger className="w-44" data-testid="select-entity-filter">
+                  <SelectValue placeholder="All Entities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Dates</SelectItem>
-                  <SelectItem value="next-30-days">Next 30 Days</SelectItem>
-                  <SelectItem value="this-month">This Month</SelectItem>
-                  <SelectItem value="next-month">Next Month</SelectItem>
-                  <SelectItem value="year-end">Before Year End</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40" data-testid="select-status-filter">
-                  <SelectValue placeholder="Due Reminders" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="due">Due</SelectItem>
-                  <SelectItem value="due-soon">Due Soon (30 days)</SelectItem>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Overdue">Overdue</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  <SelectItem value="all">All Entities</SelectItem>
+                  {entities.map((entity) => (
+                    <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
