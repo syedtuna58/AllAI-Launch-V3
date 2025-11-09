@@ -443,14 +443,31 @@ export default function Reminders() {
   };
 
   const getTypeBadge = (type: string | null) => {
-    switch (type) {
-      case "rent": return <Badge className="bg-green-100 text-green-800">Rent</Badge>;
-      case "lease": return <Badge className="bg-blue-100 text-blue-800">Lease</Badge>;
-      case "maintenance": return <Badge className="bg-yellow-100 text-yellow-800">Maintenance</Badge>;
-      case "regulatory": return <Badge className="bg-purple-100 text-purple-800">Regulatory</Badge>;
-      case "custom": return <Badge className="bg-gray-100 text-gray-800">Custom</Badge>;
-      default: return <Badge variant="secondary">{type || "Unknown"}</Badge>;
-    }
+    if (!type) return null;
+    
+    const typeColors: Record<string, string> = {
+      rent: "text-green-700 dark:text-green-400",
+      lease: "text-blue-700 dark:text-blue-400",
+      maintenance: "text-orange-700 dark:text-orange-400",
+      regulatory: "text-purple-700 dark:text-purple-400",
+      custom: "text-gray-700 dark:text-gray-400",
+      mortgage: "text-red-700 dark:text-red-400",
+      insurance: "text-cyan-700 dark:text-cyan-400",
+      property_tax: "text-indigo-700 dark:text-indigo-400",
+      hoa: "text-pink-700 dark:text-pink-400",
+      permit: "text-teal-700 dark:text-teal-400",
+    };
+    
+    const colorClass = typeColors[type] || "text-gray-700 dark:text-gray-400";
+    const displayName = type.replace(/_/g, ' ').split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+    
+    return (
+      <Badge variant="secondary" className={`bg-muted/30 border-0 text-xs ${colorClass}`}>
+        {displayName}
+      </Badge>
+    );
   };
 
   const isOverdue = (dueAt: Date | string) => {
@@ -926,19 +943,12 @@ export default function Reminders() {
           ) : filteredReminders.length > 0 ? (
             <div className="space-y-4">
               {filteredReminders.map((reminder, index) => {
-                const reminderStatus = getReminderStatus(
-                  reminder.dueAt || null, 
-                  reminder.completedAt || null
-                );
-                const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
-                const statusBorder = STATUS_COLORS[reminderStatus].border;
-                
                 return (
-                <Card key={reminder.id} className={`group hover:shadow-md transition-shadow ${statusBorder} border-2`} data-testid={`card-reminder-${index}`}>
+                <Card key={reminder.id} className="group hover:shadow-md transition-shadow bg-yellow-50 dark:bg-yellow-950/20" data-testid={`card-reminder-${index}`}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className={`w-12 h-12 ${typeColor} rounded-lg flex items-center justify-center`}>
+                        <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
                           {getTypeIcon(reminder.type)}
                         </div>
                         <div>
@@ -992,7 +1002,6 @@ export default function Reminders() {
                             <span data-testid={`text-reminder-due-${index}`}>
                               Due {new Date(reminder.dueAt).toLocaleDateString()}
                             </span>
-                            {getTypeBadge(reminder.type)}
                             {reminder.isRecurring && (
                               <Badge variant="outline" className="text-blue-600 border-blue-600" data-testid={`badge-recurring-${index}`}>
                                 <Repeat className="h-3 w-3 mr-1" />
@@ -1004,15 +1013,16 @@ export default function Reminders() {
                                 Auto-generated
                               </Badge>
                             )}
-                            {isOverdue(reminder.dueAt) && reminder.status === "Pending" && (
-                              <Badge className="bg-red-100 text-red-800">Overdue</Badge>
-                            )}
+                          </div>
+                          {/* Type badge - faded at bottom with colored text */}
+                          <div className="mt-2">
+                            {getTypeBadge(reminder.type)}
                           </div>
                         </div>
                       </div>
                       
                       <div className="flex items-center space-x-3">
-                        {getStatusBadge(reminder.status || "Pending")}
+                        {getStatusBadge(reminder.status)}
                         
                         {/* Edit/Delete Icons - subtle and only visible on hover */}
                         <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1044,7 +1054,7 @@ export default function Reminders() {
                           </Button>
                         </div>
                         
-                        {(reminder.status === "Pending" || reminder.status === "Overdue") && (
+                        {(!reminder.status || reminder.status === "Overdue") && (
                           <Button 
                             variant="outline" 
                             size="sm"
