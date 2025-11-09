@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { TimeColumn } from "@/components/calendar/TimeColumn";
 import { HourlyGrid } from "@/components/calendar/HourlyGrid";
@@ -70,6 +72,7 @@ export default function AdminCalendarPage() {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [filterMode, setFilterMode] = useState<'all' | 'reminders' | 'cases'>('all');
   const [reminderTypeFilter, setReminderTypeFilter] = useState<string>('all');
+  const [hideWeekends, setHideWeekends] = useState(false);
 
   // Fetch reminders
   const { data: reminders = [], isLoading: remindersLoading } = useQuery<Reminder[]>({
@@ -230,6 +233,20 @@ export default function AdminCalendarPage() {
                         </SelectContent>
                       </Select>
                     )}
+
+                    {view === 'week' && (
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="hide-weekends"
+                          checked={hideWeekends}
+                          onCheckedChange={setHideWeekends}
+                          data-testid="toggle-hide-weekends"
+                        />
+                        <Label htmlFor="hide-weekends" className="text-sm font-medium cursor-pointer">
+                          Hide Weekends
+                        </Label>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -239,7 +256,7 @@ export default function AdminCalendarPage() {
                   <div className="py-12 text-center text-gray-500">Loading...</div>
                 ) : (
                   <>
-                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} />}
+                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} />}
                     {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} />}
                   </>
                 )}
@@ -301,12 +318,22 @@ export default function AdminCalendarPage() {
   );
 }
 
-function WeekView({ currentDate, getItemsForDate }: {
+function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
+  hideWeekends?: boolean;
 }) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  
+  // Filter out weekends if hideWeekends is true (0 = Sunday, 6 = Saturday)
+  const weekDays = hideWeekends 
+    ? allWeekDays.filter(day => {
+        const dayOfWeek = day.getDay();
+        return dayOfWeek !== 0 && dayOfWeek !== 6;
+      })
+    : allWeekDays;
+  
   const today = new Date();
   
   const START_HOUR = 6;  // 6 AM
@@ -319,7 +346,7 @@ function WeekView({ currentDate, getItemsForDate }: {
       <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
       
       {/* Week grid */}
-      <div className="grid grid-cols-7">
+      <div className={cn("grid", weekDays.length === 5 ? "grid-cols-5" : "grid-cols-7")}>
         {weekDays.map((day, idx) => {
           const { reminders, cases } = getItemsForDate(day);
           const isToday = isSameDay(day, today);
@@ -333,7 +360,7 @@ function WeekView({ currentDate, getItemsForDate }: {
               startHour={START_HOUR}
               endHour={END_HOUR}
               hourHeight={HOUR_HEIGHT}
-              className={idx < 6 ? "border-r border-border dark:border-gray-700" : ""}
+              className={idx < weekDays.length - 1 ? "border-r border-border dark:border-gray-700" : ""}
             >
               {(() => {
                 // Separate all-day and timed items
