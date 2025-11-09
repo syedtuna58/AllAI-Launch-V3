@@ -5,8 +5,16 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2 } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X } from "lucide-react";
 import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ReminderForm } from "@/components/forms/reminder-form";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { format, addDays, startOfWeek, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths } from "date-fns";
@@ -92,6 +100,8 @@ export default function AdminCalendarPage() {
   const [reminderTypeFilter, setReminderTypeFilter] = useState<string>('all');
   const [hideWeekends, setHideWeekends] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [showReminderForm, setShowReminderForm] = useState(false);
 
   // Fetch reminders
   const { data: reminders = [], isLoading: remindersLoading } = useQuery<Reminder[]>({
@@ -140,6 +150,70 @@ export default function AdminCalendarPage() {
       toast({ title: "Failed to update maintenance case", variant: "destructive" });
     },
   });
+
+  // Mutation to complete reminder
+  const completeReminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/reminders/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Completed' }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+      toast({ title: "Reminder marked as completed" });
+    },
+    onError: () => {
+      toast({ title: "Failed to complete reminder", variant: "destructive" });
+    },
+  });
+
+  // Mutation to cancel reminder
+  const cancelReminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/reminders/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'Cancelled' }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+      toast({ title: "Reminder cancelled" });
+    },
+    onError: () => {
+      toast({ title: "Failed to cancel reminder", variant: "destructive" });
+    },
+  });
+
+  // Supporting queries for ReminderForm (loaded when dialog opens)
+  const { data: entities = [] } = useQuery({
+    queryKey: ['/api/entities'],
+    enabled: showReminderForm && !!user,
+  });
+
+  const { data: properties = [] } = useQuery({
+    queryKey: ['/api/properties'],
+    enabled: showReminderForm && !!user,
+  });
+
+  const { data: units = [] } = useQuery({
+    queryKey: ['/api/units'],
+    enabled: showReminderForm && !!user,
+  });
+
+  // Handler functions for reminder actions
+  const handleEditReminder = (reminder: Reminder) => {
+    setEditingReminder(reminder);
+    setShowReminderForm(true);
+  };
+
+  const handleCompleteReminder = (id: string) => {
+    completeReminderMutation.mutate(id);
+  };
+
+  const handleCancelReminder = (id: string) => {
+    cancelReminderMutation.mutate(id);
+  };
 
   // Filter reminders by type
   const filteredReminders = reminderTypeFilter === 'all' 
@@ -362,7 +436,7 @@ export default function AdminCalendarPage() {
                     <div className="py-12 text-center text-gray-500">Loading...</div>
                   ) : (
                     <>
-                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} />}
+                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
                       {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} />}
                     </>
                   )}
@@ -413,7 +487,27 @@ export default function AdminCalendarPage() {
                               <div className="flex items-center justify-between gap-2 mb-2">
                                 <div className="font-semibold truncate flex-1">{reminder.title}</div>
                                 <div className="flex items-center gap-1">
-                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`menu-reminder-${reminder.id}`}>
+                                        <Edit2 className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditReminder(reminder); }} data-testid={`edit-reminder-${reminder.id}`}>
+                                        <Edit2 className="h-3 w-3 mr-2" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCompleteReminder(reminder.id); }} data-testid={`complete-reminder-${reminder.id}`}>
+                                        <Check className="h-3 w-3 mr-2" />
+                                        Complete
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCancelReminder(reminder.id); }} data-testid={`cancel-reminder-${reminder.id}`}>
+                                        <X className="h-3 w-3 mr-2" />
+                                        Cancel
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                   {effectiveStatus && (
                                     <Badge className={cn("text-[10px] px-1 py-0", 
                                       effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
@@ -538,13 +632,44 @@ export default function AdminCalendarPage() {
         </main>
       </div>
     </div>
+
+    {/* Reminder Edit Dialog */}
+    <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</DialogTitle>
+          <DialogDescription>
+            {editingReminder ? 'Update reminder details below.' : 'Create a new reminder for your properties.'}
+          </DialogDescription>
+        </DialogHeader>
+        <ReminderForm
+          reminder={editingReminder || undefined}
+          entities={entities}
+          properties={properties}
+          units={units}
+          onSuccess={() => {
+            setShowReminderForm(false);
+            setEditingReminder(null);
+            queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+            toast({ title: editingReminder ? 'Reminder updated' : 'Reminder created' });
+          }}
+          onCancel={() => {
+            setShowReminderForm(false);
+            setEditingReminder(null);
+          }}
+        />
+      </DialogContent>
+    </Dialog>
   );
 }
 
-function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
+function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditReminder, onCompleteReminder, onCancelReminder }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
   hideWeekends?: boolean;
+  onEditReminder: (reminder: Reminder) => void;
+  onCompleteReminder: (id: string) => void;
+  onCancelReminder: (id: string) => void;
 }) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -638,7 +763,27 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                               <div className="flex items-center justify-between gap-1">
                                 <div className="font-semibold truncate flex-1">{reminder.title}</div>
                                 <div className="flex items-center gap-1">
-                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`menu-reminder-${reminder.id}`}>
+                                        <Edit2 className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditReminder(reminder); }} data-testid={`edit-reminder-${reminder.id}`}>
+                                        <Edit2 className="h-3 w-3 mr-2" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCompleteReminder(reminder.id); }} data-testid={`complete-reminder-${reminder.id}`}>
+                                        <Check className="h-3 w-3 mr-2" />
+                                        Complete
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancelReminder(reminder.id); }} data-testid={`cancel-reminder-${reminder.id}`}>
+                                        <X className="h-3 w-3 mr-2" />
+                                        Cancel
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                   {effectiveStatus && (
                                     <Badge className={cn("text-[10px] px-1 py-0", 
                                       effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
@@ -715,7 +860,27 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                               <div className="flex items-center justify-between gap-1 mb-1">
                                 <div className="font-semibold truncate flex-1">{reminder.title}</div>
                                 <div className="flex items-center gap-1">
-                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`menu-reminder-${reminder.id}`}>
+                                        <Edit2 className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditReminder(reminder); }} data-testid={`edit-reminder-${reminder.id}`}>
+                                        <Edit2 className="h-3 w-3 mr-2" />
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCompleteReminder(reminder.id); }} data-testid={`complete-reminder-${reminder.id}`}>
+                                        <Check className="h-3 w-3 mr-2" />
+                                        Complete
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onCancelReminder(reminder.id); }} data-testid={`cancel-reminder-${reminder.id}`}>
+                                        <X className="h-3 w-3 mr-2" />
+                                        Cancel
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                   {effectiveStatus && (
                                     <Badge className={cn("text-[10px] px-1 py-0", 
                                       effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
