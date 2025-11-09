@@ -290,7 +290,7 @@ export default function AdminCalendarPage() {
                             key={reminder.id}
                             className={cn(
                               "p-3 rounded border-l-4 border-gray-400 text-xs cursor-pointer hover:shadow-md transition-shadow group",
-                              REMINDER_TYPE_COLORS[reminder.type as ReminderType]
+                              REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom
                             )}
                             data-testid={`unscheduled-reminder-${reminder.id}`}
                           >
@@ -316,8 +316,8 @@ export default function AdminCalendarPage() {
                           key={caseItem.id}
                           className={cn(
                             "p-3 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow group",
-                            CASE_STATUS_COLORS[caseItem.status].bg,
-                            CASE_STATUS_COLORS[caseItem.status].border
+                            (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open).bg,
+                            (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open).border
                           )}
                           data-testid={`unscheduled-case-${caseItem.id}`}
                         >
@@ -508,13 +508,15 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                       if (type === 'reminder') {
                         const reminder = item as Reminder;
                         const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
+                        const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
+                        const statusBorder = STATUS_COLORS[status]?.border || STATUS_COLORS.upcoming.border;
                         return (
                           <div
                             key={`allday-reminder-${reminder.id}`}
                             className={cn(
                               "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
-                              REMINDER_TYPE_COLORS[reminder.type as ReminderType],
-                              STATUS_COLORS[status].border
+                              typeColor,
+                              statusBorder
                             )}
                             style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
                             data-testid={`reminder-${reminder.id}`}
@@ -532,13 +534,14 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
+                        const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
                         return (
                           <div
                             key={`allday-case-${caseItem.id}`}
                             className={cn(
                               "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
-                              CASE_STATUS_COLORS[caseItem.status].bg,
-                              CASE_STATUS_COLORS[caseItem.status].border
+                              caseColors.bg,
+                              caseColors.border
                             )}
                             style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
                             data-testid={`case-${caseItem.id}`}
@@ -573,13 +576,15 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                       if (type === 'reminder') {
                         const reminder = item as Reminder;
                         const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
+                        const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
+                        const statusBorder = STATUS_COLORS[status]?.border || STATUS_COLORS.upcoming.border;
                         return (
                           <div
                             key={`timed-reminder-${reminder.id}`}
                             className={cn(
                               "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
-                              REMINDER_TYPE_COLORS[reminder.type as ReminderType],
-                              STATUS_COLORS[status].border
+                              typeColor,
+                              statusBorder
                             )}
                             style={{ top: `${topPosition}px`, minHeight: '50px' }}
                             data-testid={`reminder-${reminder.id}`}
@@ -599,13 +604,14 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
+                        const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
                         return (
                           <div
                             key={`timed-case-${caseItem.id}`}
                             className={cn(
                               "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
-                              CASE_STATUS_COLORS[caseItem.status].bg,
-                              CASE_STATUS_COLORS[caseItem.status].border
+                              caseColors.bg,
+                              caseColors.border
                             )}
                             style={{ top: `${topPosition}px`, minHeight: '50px' }}
                             data-testid={`case-${caseItem.id}`}
