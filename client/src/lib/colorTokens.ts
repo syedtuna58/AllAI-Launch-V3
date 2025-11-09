@@ -139,7 +139,7 @@ export function getStatusBadgeText(status: ReminderStatus): string {
 /**
  * Helper to determine status based on due date
  */
-export function getReminderStatus(dueAt: string | null, completedAt: string | null): ReminderStatus {
+export function getReminderStatus(dueAt: string | Date | null, completedAt: string | Date | null): ReminderStatus {
   if (completedAt) return 'completed';
   if (!dueAt) return 'upcoming';
   

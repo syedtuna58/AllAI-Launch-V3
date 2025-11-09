@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Bell, Plus, Clock, CheckCircle, Calendar, AlertTriangle, DollarSign, FileText, Wrench, Shield, Edit, Trash2, CalendarDays, Repeat, List } from "lucide-react";
 import type { Reminder, Property, OwnershipEntity, Lease, Unit, TenantGroup } from "@shared/schema";
+import { REMINDER_TYPE_COLORS, STATUS_COLORS, getReminderStatus, getStatusBadgeText, type ReminderType, type ReminderStatus } from "@/lib/colorTokens";
 
 export default function Reminders() {
   const { toast } = useToast();
@@ -899,12 +900,20 @@ export default function Reminders() {
             </div>
           ) : filteredReminders.length > 0 ? (
             <div className="space-y-4">
-              {filteredReminders.map((reminder, index) => (
-                <Card key={reminder.id} className="group hover:shadow-md transition-shadow" data-testid={`card-reminder-${index}`}>
+              {filteredReminders.map((reminder, index) => {
+                const reminderStatus = getReminderStatus(
+                  reminder.dueAt || null, 
+                  reminder.completedAt || null
+                );
+                const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
+                const statusBorder = STATUS_COLORS[reminderStatus].border;
+                
+                return (
+                <Card key={reminder.id} className={`group hover:shadow-md transition-shadow ${statusBorder} border-2`} data-testid={`card-reminder-${index}`}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <div className={`w-12 h-12 ${typeColor} rounded-lg flex items-center justify-center`}>
                           {getTypeIcon(reminder.type)}
                         </div>
                         <div>
@@ -1041,7 +1050,8 @@ export default function Reminders() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <Card>
