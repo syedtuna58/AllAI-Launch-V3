@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -122,7 +123,7 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
           ) : (
             <div className="space-y-1 p-2">
               {sortedReminders.map((reminder) => (
-                <div
+                <DropdownMenuItem
                   key={reminder.id}
                   className={`
                     relative p-3 rounded-lg border transition-colors cursor-pointer
@@ -131,13 +132,12 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
                       : 'bg-background hover:bg-muted/50'
                     }
                   `}
-                  onClick={() => {
-                    setOpen(false);
+                  onSelect={() => {
                     setLocation('/reminders');
                   }}
                   data-testid={`reminder-${reminder.id}`}
                 >
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 w-full">
                     <div className="flex-shrink-0 mt-1">
                       <Clock className={`h-4 w-4 ${isOverdue(reminder) ? 'text-destructive' : 'text-muted-foreground'}`} />
                     </div>
@@ -164,7 +164,7 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
                       )}
                     </div>
                   </div>
-                </div>
+                </DropdownMenuItem>
               ))}
             </div>
           )}
