@@ -844,7 +844,7 @@ export default function Reminders() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setLocation("/calendar")}
+              onClick={() => setLocation("/admin-calendar")}
               className="gap-2"
               data-testid="button-calendar-view"
             >

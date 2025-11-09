@@ -120,10 +120,7 @@ export default function AdminCalendarPage() {
   // Mutation to update reminder date
   const updateReminderMutation = useMutation({
     mutationFn: async ({ id, dueAt }: { id: string; dueAt: string }) => {
-      return await apiRequest(`/api/reminders/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ dueAt }),
-      });
+      return await apiRequest('PATCH', `/api/reminders/${id}`, { dueAt });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
@@ -137,10 +134,7 @@ export default function AdminCalendarPage() {
   // Mutation to update case date
   const updateCaseMutation = useMutation({
     mutationFn: async ({ id, scheduledDate }: { id: string; scheduledDate: string }) => {
-      return await apiRequest(`/api/cases/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ scheduledDate }),
-      });
+      return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledDate });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
@@ -154,10 +148,7 @@ export default function AdminCalendarPage() {
   // Mutation to complete reminder
   const completeReminderMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/reminders/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'Completed' }),
-      });
+      return await apiRequest('PATCH', `/api/reminders/${id}`, { status: 'Completed' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
@@ -171,10 +162,7 @@ export default function AdminCalendarPage() {
   // Mutation to cancel reminder
   const cancelReminderMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/reminders/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'Cancelled' }),
-      });
+      return await apiRequest('PATCH', `/api/reminders/${id}`, { status: 'Cancelled' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
@@ -186,17 +174,17 @@ export default function AdminCalendarPage() {
   });
 
   // Supporting queries for ReminderForm (loaded when dialog opens)
-  const { data: entities = [] } = useQuery({
+  const { data: entities = [] } = useQuery<any[]>({
     queryKey: ['/api/entities'],
     enabled: showReminderForm && !!user,
   });
 
-  const { data: properties = [] } = useQuery({
+  const { data: properties = [] } = useQuery<any[]>({
     queryKey: ['/api/properties'],
     enabled: showReminderForm && !!user,
   });
 
-  const { data: units = [] } = useQuery({
+  const { data: units = [] } = useQuery<any[]>({
     queryKey: ['/api/units'],
     enabled: showReminderForm && !!user,
   });
