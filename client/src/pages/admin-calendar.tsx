@@ -172,8 +172,10 @@ export default function AdminCalendarPage() {
               </div>
             </div>
 
-            {/* Calendar Controls */}
-            <Card>
+            {/* Main Grid: Calendar + Unscheduled Sidebar */}
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+              {/* Calendar Card */}
+              <Card>
               <CardHeader className="pb-3">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                   {/* Navigation */}
@@ -263,7 +265,7 @@ export default function AdminCalendarPage() {
               </CardContent>
             </Card>
 
-            {/* Unscheduled Items */}
+            {/* Unscheduled Items Sidebar */}
             {(() => {
               const unscheduledReminders = filterMode !== 'cases' 
                 ? filteredReminders.filter(r => !r.dueAt) 
@@ -277,13 +279,13 @@ export default function AdminCalendarPage() {
               }
               
               return (
-                <Card>
+                <Card className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
                   <CardHeader>
                     <CardTitle className="text-sm">Unscheduled Items</CardTitle>
                     <p className="text-xs text-muted-foreground">Items without assigned dates</p>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <div className="space-y-3">
                       {unscheduledReminders.map(reminder => {
                         return (
                           <div
@@ -343,6 +345,7 @@ export default function AdminCalendarPage() {
                 </Card>
               );
             })()}
+            </div>
 
             {/* Legend */}
             <Card>
