@@ -333,16 +333,16 @@ export default function Reminders() {
   const filteredReminders = reminders?.filter(reminder => {
     const typeMatch = typeFilter === "all" || reminder.type === typeFilter;
     
-    // Handle status filtering
+    // Handle status filtering (null status = active/upcoming reminder)
     let statusMatch = false;
     if (statusFilter === "all") {
       statusMatch = true;
     } else if (statusFilter === "due") {
-      // Due means pending or overdue (exclude Completed and Cancelled)
-      statusMatch = reminder.status !== "Completed" && reminder.status !== "Cancelled";
+      // Due means active reminders only (null status, not overdue/completed/cancelled)
+      statusMatch = !reminder.status;
     } else if (statusFilter === "due-soon") {
-      // Due soon means pending/overdue AND due within 30 days (exclude Completed and Cancelled)
-      statusMatch = (reminder.status !== "Completed" && reminder.status !== "Cancelled") && isDueWithinDays(reminder.dueAt, 30);
+      // Due soon means active (null status) AND due within 30 days
+      statusMatch = !reminder.status && isDueWithinDays(reminder.dueAt, 30);
     } else {
       statusMatch = reminder.status === statusFilter;
     }
@@ -432,14 +432,13 @@ export default function Reminders() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string | null) => {
+    if (!status) return null;
     switch (status) {
-      case "Pending": return <Badge className="bg-yellow-100 text-yellow-800">Due</Badge>;
       case "Overdue": return <Badge className="bg-red-100 text-red-800">Overdue</Badge>;
       case "Completed": return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
       case "Cancelled": return <Badge className="bg-gray-100 text-gray-800">Cancelled</Badge>;
-      case "Sent": return <Badge className="bg-blue-100 text-blue-800">Sent</Badge>;
-      default: return <Badge variant="secondary">{status}</Badge>;
+      default: return null;
     }
   };
 
@@ -459,21 +458,20 @@ export default function Reminders() {
   };
 
   // Calculate summary card counts based on all reminders (not filtered)
-  // Exclude Completed and Cancelled from all counts
+  // Active reminders have null status (not Overdue/Completed/Cancelled)
   const allReminders = reminders || [];
   const overdueReminders = allReminders.filter(r => 
     r.status === "Overdue"
   ).length;
-  const dueSoonReminders = allReminders.filter(r => 
-    r.status !== "Completed" && r.status !== "Cancelled" && isDueWithinDays(r.dueAt, 30)
-  ).length;
+  const dueSoonReminders = allReminders.filter(r => {
+    return !r.status && isDueWithinDays(r.dueAt, 30);
+  }).length;
   const thisMonthReminders = allReminders.filter(r => {
     const reminderDue = new Date(r.dueAt);
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return reminderDue >= startOfMonth && reminderDue <= endOfMonth && 
-           r.status !== "Completed" && r.status !== "Cancelled";
+    return !r.status && reminderDue >= startOfMonth && reminderDue <= endOfMonth;
   }).length;
 
   return (
@@ -515,7 +513,6 @@ export default function Reminders() {
                   <SelectItem value="Overdue">Overdue</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  <SelectItem value="Sent">Sent</SelectItem>
                 </SelectContent>
               </Select>
 

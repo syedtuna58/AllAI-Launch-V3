@@ -27,9 +27,8 @@ export function startCronJobs() {
           }
         }
         
-        // Mark reminder as sent
+        // Track notification sent time (status remains null for active reminders)
         await storage.updateReminder(reminder.id, {
-          status: "Sent",
           sentAt: new Date(),
         });
         
