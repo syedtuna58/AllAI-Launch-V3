@@ -40,8 +40,8 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
   };
 
   return (
-    <Card data-testid="widget-reminders">
-      <CardHeader className="pb-3">
+    <Card data-testid="widget-reminders" className="flex flex-col h-full">
+      <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div 
             className="flex items-center gap-2 cursor-pointer hover:opacity-70 transition-opacity"
@@ -69,8 +69,8 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
           )}
         </div>
       </CardHeader>
-      <CardContent className="pb-3">
-        <ScrollArea className="h-[280px] pr-4">
+      <CardContent className="pb-3 flex-1 min-h-0 flex flex-col">
+        <ScrollArea className="flex-1 pr-4">
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (

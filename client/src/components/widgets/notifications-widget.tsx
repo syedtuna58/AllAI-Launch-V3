@@ -47,8 +47,8 @@ export default function NotificationsWidget() {
   };
 
   return (
-    <Card data-testid="widget-notifications">
-      <CardHeader className="pb-3">
+    <Card data-testid="widget-notifications" className="flex flex-col h-full">
+      <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-orange-600" />
@@ -73,8 +73,8 @@ export default function NotificationsWidget() {
           )}
         </div>
       </CardHeader>
-      <CardContent className="pb-3">
-        <ScrollArea className="h-[280px] pr-4">
+      <CardContent className="pb-3 flex-1 min-h-0 flex flex-col">
+        <ScrollArea className="flex-1 pr-4">
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
