@@ -42,7 +42,15 @@ export default function Reminders() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const filter = params.get('filter');
-    if (filter && ['due', 'due-soon', 'all', 'Overdue', 'Completed', 'Cancelled'].includes(filter)) {
+    
+    // Remap legacy 'due-soon' to 'due' for backward compatibility
+    if (filter === 'due-soon') {
+      setStatusFilter('due');
+      // Normalize URL to remove stale parameter
+      params.set('filter', 'due');
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+    } else if (filter && ['due', 'all', 'Overdue', 'Completed', 'Cancelled'].includes(filter)) {
       setStatusFilter(filter);
     }
   }, []);
@@ -319,6 +327,20 @@ export default function Reminders() {
 
   const filteredProperties = properties || [];
   
+  // Helper function to check if reminder is overdue
+  const isOverdue = (dueAt: Date | string) => {
+    return new Date(dueAt) < new Date();
+  };
+
+  // Get effective status - if status is null, calculate based on due date
+  const getEffectiveStatus = (reminder: any): string | null => {
+    if (reminder.status) {
+      return reminder.status; // Use stored status if present
+    }
+    // For null status, calculate based on due date
+    return isOverdue(reminder.dueAt) ? "Overdue" : null;
+  };
+  
   // Helper function to check if reminder is due within specified days window
   // Includes items up to 'days' overdue and up to 'days' in the future
   const isDueWithinDays = (dueAt: Date | string, days: number) => {
@@ -333,17 +355,21 @@ export default function Reminders() {
   const filteredReminders = reminders?.filter(reminder => {
     const typeMatch = typeFilter === "all" || reminder.type === typeFilter;
     
-    // Handle status filtering (null status = active/upcoming reminder)
+    // Get effective status for this reminder
+    const effectiveStatus = getEffectiveStatus(reminder);
+    
+    // Handle status filtering
     let statusMatch = false;
     if (statusFilter === "all") {
       statusMatch = true;
     } else if (statusFilter === "due") {
       // Due means active reminders only (null status, not overdue/completed/cancelled)
-      statusMatch = !reminder.status;
-    } else if (statusFilter === "due-soon") {
-      // Due soon means active (null status) AND due within 30 days
-      statusMatch = !reminder.status && isDueWithinDays(reminder.dueAt, 30);
+      statusMatch = !reminder.status && !isOverdue(reminder.dueAt);
+    } else if (statusFilter === "Overdue") {
+      // Overdue uses effective status (calculated or stored)
+      statusMatch = effectiveStatus === "Overdue";
     } else {
+      // Completed, Cancelled use stored status
       statusMatch = reminder.status === statusFilter;
     }
     
@@ -470,19 +496,11 @@ export default function Reminders() {
     );
   };
 
-  const isOverdue = (dueAt: Date | string) => {
-    return new Date(dueAt) < new Date();
-  };
-
   // Calculate summary card counts based on all reminders (not filtered)
-  // Active reminders have null status (not Overdue/Completed/Cancelled)
   const allReminders = reminders || [];
   const overdueReminders = allReminders.filter(r => 
-    r.status === "Overdue"
+    getEffectiveStatus(r) === "Overdue"
   ).length;
-  const dueSoonReminders = allReminders.filter(r => {
-    return !r.status && isDueWithinDays(r.dueAt, 30);
-  }).length;
   const thisMonthReminders = allReminders.filter(r => {
     const reminderDue = new Date(r.dueAt);
     const now = new Date();
@@ -525,7 +543,6 @@ export default function Reminders() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="due">Due</SelectItem>
-                  <SelectItem value="due-soon">Due Soon (30 days)</SelectItem>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="Overdue">Overdue</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
@@ -839,17 +856,19 @@ export default function Reminders() {
           </div>
 
           {/* Summary Cards - Clickable Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Card 
               data-testid="card-overdue-reminders"
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => {
-                setStatusFilter("Overdue");
-                setDateFilter("all");
-              }}
+              className="hover:shadow-lg transition-shadow"
             >
               <CardContent className="p-6">
-                <div className="flex items-center">
+                <div 
+                  className="flex items-center cursor-pointer"
+                  onClick={() => {
+                    setStatusFilter("Overdue");
+                    setDateFilter("all");
+                  }}
+                >
                   <div className="flex-1">
                     <p className="text-sm font-medium text-muted-foreground">Overdue</p>
                     <p className="text-2xl font-bold text-foreground" data-testid="text-overdue-count">
@@ -860,29 +879,32 @@ export default function Reminders() {
                     <AlertTriangle className="text-red-600" />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <Card 
-              data-testid="card-due-reminders"
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => {
-                setStatusFilter("due-soon");
-                setDateFilter("all");
-              }}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-muted-foreground">Due Soon (30 days)</p>
-                    <p className="text-2xl font-bold text-foreground" data-testid="text-due-count">
-                      {dueSoonReminders}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <Clock className="text-yellow-600" />
-                  </div>
-                </div>
+                {overdueReminders > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-4 text-green-600 hover:text-green-700 hover:bg-green-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const overdueIds = allReminders
+                        .filter(r => getEffectiveStatus(r) === "Overdue")
+                        .map(r => r.id);
+                      Promise.all(overdueIds.map(id => 
+                        completeReminderMutation.mutateAsync(id)
+                      )).then(() => {
+                        toast({
+                          title: "Success",
+                          description: `Cleared ${overdueIds.length} overdue reminder${overdueIds.length > 1 ? 's' : ''}`,
+                        });
+                      });
+                    }}
+                    disabled={completeReminderMutation.isPending}
+                    data-testid="button-clear-all-overdue"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Clear All Overdue
+                  </Button>
+                )}
               </CardContent>
             </Card>
             
