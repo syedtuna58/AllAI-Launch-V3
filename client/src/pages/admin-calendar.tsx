@@ -326,6 +326,7 @@ export default function AdminCalendarPage() {
   }
 
   return (
+    <>
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -647,7 +648,9 @@ export default function AdminCalendarPage() {
           entities={entities}
           properties={properties}
           units={units}
-          onSuccess={() => {
+          isLoading={false}
+          onSubmit={async (data) => {
+            // The form handles the API call, we just need to handle success
             setShowReminderForm(false);
             setEditingReminder(null);
             queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
@@ -660,6 +663,7 @@ export default function AdminCalendarPage() {
         />
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 
