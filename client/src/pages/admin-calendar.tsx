@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2 } from "lucide-react";
+import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter } from '@dnd-kit/core';
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { format, addDays, startOfWeek, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths } from "date-fns";
-import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import { fromZonedTime, toZonedTime, formatInTimeZone } from "date-fns-tz";
 import {
   Select,
   SelectContent,
@@ -65,6 +66,43 @@ type MaintenanceCase = {
 
 const ORG_TIMEZONE = 'America/New_York';
 
+// DraggableCalendarItem component - wraps calendar items to make them draggable
+function DraggableCalendarItem({ 
+  id, 
+  children, 
+  className,
+  style 
+}: { 
+  id: string; 
+  children: React.ReactNode; 
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id,
+  });
+
+  const dragStyle = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: isDragging ? 50 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+      }
+    : {};
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn("cursor-grab active:cursor-grabbing", className)}
+      style={{ ...style, ...dragStyle }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function AdminCalendarPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -73,6 +111,7 @@ export default function AdminCalendarPage() {
   const [filterMode, setFilterMode] = useState<'all' | 'reminders' | 'cases'>('all');
   const [reminderTypeFilter, setReminderTypeFilter] = useState<string>('all');
   const [hideWeekends, setHideWeekends] = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   // Fetch reminders
   const { data: reminders = [], isLoading: remindersLoading } = useQuery<Reminder[]>({
@@ -87,6 +126,40 @@ export default function AdminCalendarPage() {
   });
 
   const isLoading = remindersLoading || casesLoading;
+
+  // Mutation to update reminder date
+  const updateReminderMutation = useMutation({
+    mutationFn: async ({ id, dueAt }: { id: string; dueAt: string }) => {
+      return await apiRequest(`/api/reminders/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ dueAt }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
+      toast({ title: "Reminder updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update reminder", variant: "destructive" });
+    },
+  });
+
+  // Mutation to update case date
+  const updateCaseMutation = useMutation({
+    mutationFn: async ({ id, scheduledDate }: { id: string; scheduledDate: string }) => {
+      return await apiRequest(`/api/cases/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ scheduledDate }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      toast({ title: "Maintenance case updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update maintenance case", variant: "destructive" });
+    },
+  });
 
   // Filter reminders by type
   const filteredReminders = reminderTypeFilter === 'all' 
@@ -114,6 +187,52 @@ export default function AdminCalendarPage() {
       return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
     } else {
       return format(currentDate, 'MMMM yyyy');
+    }
+  };
+
+  // Drag handlers
+  const handleDragStart = (event: any) => {
+    setActiveId(event.active.id);
+  };
+
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    // Parse the dragged item ID (format: "reminder:id" or "case:id")
+    const [itemType, itemId] = active.id.split(':');
+    
+    // Parse the drop target ID (format: "day:timestamp" or "hour:timestamp:hour")
+    const dropData = over.id.split(':');
+    const targetTimestamp = parseInt(dropData[1]);
+    
+    // Get date string in org timezone (YYYY-MM-DD)
+    const dateStr = formatInTimeZone(new Date(targetTimestamp), ORG_TIMEZONE, 'yyyy-MM-dd');
+    
+    // Determine the hour (either from drop target or midnight)
+    const hour = (dropData[0] === 'hour' && dropData[2]) ? parseInt(dropData[2]) : 0;
+    const hourStr = hour.toString().padStart(2, '0');
+    
+    // Build ISO string in org timezone (e.g., "2025-11-09T14:00:00")
+    const dateTimeStr = `${dateStr}T${hourStr}:00:00`;
+    
+    // Convert from org timezone to UTC
+    const utcDate = fromZonedTime(dateTimeStr, ORG_TIMEZONE);
+
+    if (itemType === 'reminder') {
+      // Find the reminder
+      const reminder = reminders.find(r => r.id === itemId);
+      if (!reminder) return;
+
+      updateReminderMutation.mutate({ id: itemId, dueAt: utcDate.toISOString() });
+    } else if (itemType === 'case') {
+      // Find the case
+      const caseItem = cases.find(c => c.id === itemId);
+      if (!caseItem) return;
+
+      updateCaseMutation.mutate({ id: itemId, scheduledDate: utcDate.toISOString() });
     }
   };
 
@@ -254,14 +373,27 @@ export default function AdminCalendarPage() {
               </CardHeader>
 
               <CardContent>
-                {isLoading ? (
-                  <div className="py-12 text-center text-gray-500">Loading...</div>
-                ) : (
-                  <>
-                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} />}
-                    {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} />}
-                  </>
-                )}
+                <DndContext
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  collisionDetection={closestCenter}
+                >
+                  {isLoading ? (
+                    <div className="py-12 text-center text-gray-500">Loading...</div>
+                  ) : (
+                    <>
+                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} />}
+                      {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} />}
+                    </>
+                  )}
+                  <DragOverlay>
+                    {activeId ? (
+                      <div className="p-2 bg-white dark:bg-gray-800 rounded shadow-lg border-2 border-blue-500 opacity-90 cursor-grabbing">
+                        <div className="text-xs font-semibold">Moving item...</div>
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
               </CardContent>
             </Card>
 
@@ -288,57 +420,61 @@ export default function AdminCalendarPage() {
                     <div className="space-y-3">
                       {unscheduledReminders.map(reminder => {
                         return (
-                          <div
+                          <DraggableCalendarItem
                             key={reminder.id}
+                            id={`reminder:${reminder.id}`}
                             className={cn(
-                              "p-3 rounded border-l-4 border-gray-400 text-xs cursor-pointer hover:shadow-md transition-shadow group",
+                              "p-3 rounded border-l-4 border-gray-400 text-xs hover:shadow-md transition-shadow group",
                               REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom
                             )}
-                            data-testid={`unscheduled-reminder-${reminder.id}`}
                           >
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <div className="font-semibold truncate flex-1">{reminder.title}</div>
-                              <div className="flex items-center gap-1">
-                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                  Unscheduled
-                                </Badge>
+                            <div data-testid={`unscheduled-reminder-${reminder.id}`}>
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <div className="font-semibold truncate flex-1">{reminder.title}</div>
+                                <div className="flex items-center gap-1">
+                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                    Unscheduled
+                                  </Badge>
+                                </div>
                               </div>
+                              <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
+                              {reminder.description && (
+                                <div className="text-xs opacity-60 mt-1 line-clamp-2">{reminder.description}</div>
+                              )}
                             </div>
-                            <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
-                            {reminder.description && (
-                              <div className="text-xs opacity-60 mt-1 line-clamp-2">{reminder.description}</div>
-                            )}
-                          </div>
+                          </DraggableCalendarItem>
                         );
                       })}
                       
                       {unscheduledCases.map(caseItem => (
-                        <div
+                        <DraggableCalendarItem
                           key={caseItem.id}
+                          id={`case:${caseItem.id}`}
                           className={cn(
-                            "p-3 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow group",
+                            "p-3 rounded border-l-4 text-xs hover:shadow-md transition-shadow group",
                             (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open).bg,
                             (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open).border
                           )}
-                          data-testid={`unscheduled-case-${caseItem.id}`}
                         >
-                          <div className="flex items-center justify-between gap-2 mb-2">
-                            <div className="font-semibold truncate flex-1">{caseItem.title}</div>
-                            <div className="flex items-center gap-1">
-                              <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
-                                <Badge variant="destructive" className="text-[10px] px-1 py-0">
-                                  {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
-                                </Badge>
-                              )}
+                          <div data-testid={`unscheduled-case-${caseItem.id}`}>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="font-semibold truncate flex-1">{caseItem.title}</div>
+                              <div className="flex items-center gap-1">
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                  <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                                    {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
+                            <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
+                            {caseItem.description && (
+                              <div className="text-xs opacity-60 mt-1 line-clamp-2">{caseItem.description}</div>
+                            )}
                           </div>
-                          <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
-                          {caseItem.description && (
-                            <div className="text-xs opacity-60 mt-1 line-clamp-2">{caseItem.description}</div>
-                          )}
-                        </div>
+                        </DraggableCalendarItem>
                       ))}
                     </div>
                   </CardContent>
@@ -514,53 +650,57 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                         const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
                         const statusBorder = STATUS_COLORS[status]?.border || STATUS_COLORS.upcoming.border;
                         return (
-                          <div
+                          <DraggableCalendarItem
                             key={`allday-reminder-${reminder.id}`}
+                            id={`reminder:${reminder.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
+                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
                               typeColor,
                               statusBorder
                             )}
                             style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
-                            data-testid={`reminder-${reminder.id}`}
                           >
-                            <div className="flex items-center justify-between gap-1">
-                              <div className="font-semibold truncate flex-1">{reminder.title}</div>
-                              <div className="flex items-center gap-1">
-                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
-                                <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
-                                  {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
-                                </Badge>
+                            <div data-testid={`reminder-${reminder.id}`}>
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="font-semibold truncate flex-1">{reminder.title}</div>
+                                <div className="flex items-center gap-1">
+                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
+                                  <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
+                                    {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </DraggableCalendarItem>
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
                         const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
                         return (
-                          <div
+                          <DraggableCalendarItem
                             key={`allday-case-${caseItem.id}`}
+                            id={`case:${caseItem.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
+                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
                               caseColors.bg,
                               caseColors.border
                             )}
                             style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
-                            data-testid={`case-${caseItem.id}`}
                           >
-                            <div className="flex items-center justify-between gap-1">
-                              <div className="font-semibold truncate flex-1">{caseItem.title}</div>
-                              <div className="flex items-center gap-1">
-                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
-                                {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
-                                  <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
-                                    {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
-                                  </Badge>
-                                )}
+                            <div data-testid={`case-${caseItem.id}`}>
+                              <div className="flex items-center justify-between gap-1">
+                                <div className="font-semibold truncate flex-1">{caseItem.title}</div>
+                                <div className="flex items-center gap-1">
+                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                  {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                    <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
+                                      {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          </DraggableCalendarItem>
                         );
                       }
                     })}
@@ -582,57 +722,61 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                         const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
                         const statusBorder = STATUS_COLORS[status]?.border || STATUS_COLORS.upcoming.border;
                         return (
-                          <div
+                          <DraggableCalendarItem
                             key={`timed-reminder-${reminder.id}`}
+                            id={`reminder:${reminder.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
+                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
                               typeColor,
                               statusBorder
                             )}
                             style={{ top: `${topPosition}px`, minHeight: '50px' }}
-                            data-testid={`reminder-${reminder.id}`}
                           >
-                            <div className="flex items-center justify-between gap-1 mb-1">
-                              <div className="font-semibold truncate flex-1">{reminder.title}</div>
-                              <div className="flex items-center gap-1">
-                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
-                                <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
-                                  {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
-                                </Badge>
+                            <div data-testid={`reminder-${reminder.id}`}>
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <div className="font-semibold truncate flex-1">{reminder.title}</div>
+                                <div className="flex items-center gap-1">
+                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
+                                  <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
+                                    {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
+                                  </Badge>
+                                </div>
                               </div>
+                              <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
+                              <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
                             </div>
-                            <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
-                            <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
-                          </div>
+                          </DraggableCalendarItem>
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
                         const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
                         return (
-                          <div
+                          <DraggableCalendarItem
                             key={`timed-case-${caseItem.id}`}
+                            id={`case:${caseItem.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
+                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
                               caseColors.bg,
                               caseColors.border
                             )}
                             style={{ top: `${topPosition}px`, minHeight: '50px' }}
-                            data-testid={`case-${caseItem.id}`}
                           >
-                            <div className="flex items-center justify-between gap-1 mb-1">
-                              <div className="font-semibold truncate flex-1">{caseItem.title}</div>
-                              <div className="flex items-center gap-1">
-                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
-                                {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
-                                  <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
-                                    {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
-                                  </Badge>
-                                )}
+                            <div data-testid={`case-${caseItem.id}`}>
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <div className="font-semibold truncate flex-1">{caseItem.title}</div>
+                                <div className="flex items-center gap-1">
+                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                  {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                    <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
+                                      {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
+                              <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
+                              <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
                             </div>
-                            <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
-                            <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
-                          </div>
+                          </DraggableCalendarItem>
                         );
                       }
                     })}

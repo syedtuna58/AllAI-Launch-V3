@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { format } from "date-fns";
 import { generateHourSlots } from "@/lib/calendarUtils";
 import { cn } from "@/lib/utils";
+import { useDroppable } from "@dnd-kit/core";
 
 interface HourlyGridProps {
   day: Date;
@@ -12,6 +13,34 @@ interface HourlyGridProps {
   hourHeight?: number;
   children?: ReactNode;
   className?: string;
+}
+
+interface HourSlotProps {
+  day: Date;
+  hour: number;
+  hourHeight: number;
+}
+
+/**
+ * Individual hour slot that is droppable
+ */
+function HourSlot({ day, hour, hourHeight }: HourSlotProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `hour:${day.getTime()}:${hour}`,
+    data: { date: day, hour },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "border-b border-border/50 dark:border-gray-700/50 relative transition-colors",
+        isOver && "bg-blue-100 dark:bg-blue-800/20"
+      )}
+      style={{ height: `${hourHeight}px` }}
+      data-hour={hour}
+    />
+  );
 }
 
 /**
@@ -29,13 +58,20 @@ export function HourlyGrid({
   className,
 }: HourlyGridProps) {
   const hours = generateHourSlots(startHour, endHour);
+  
+  // Make the entire day column droppable
+  const { setNodeRef: setDayRef, isOver: isDayOver } = useDroppable({
+    id: `day:${day.getTime()}`,
+    data: { date: day },
+  });
 
   return (
-    <div className={cn("relative flex-1", className)}>
+    <div ref={setDayRef} className={cn("relative flex-1", className)}>
       {/* Day header */}
       <div className={cn(
         "sticky top-0 z-20 bg-white dark:bg-gray-800 border-b border-border h-[60px] flex flex-col items-center justify-center",
-        isToday && "bg-blue-50 dark:bg-blue-900/20"
+        isToday && "bg-blue-50 dark:bg-blue-900/20",
+        isDayOver && "bg-blue-100 dark:bg-blue-800/30"
       )}>
         <div className="text-xs text-muted-foreground dark:text-gray-400 uppercase">
           {format(day, 'EEE')}
@@ -51,13 +87,12 @@ export function HourlyGrid({
       {/* Hourly grid slots */}
       <div className="relative">
         {hours.map((hour) => (
-          <div
+          <HourSlot
             key={hour}
-            className="border-b border-border/50 dark:border-gray-700/50 relative"
-            style={{ height: `${hourHeight}px` }}
-            data-hour={hour}
-          >
-          </div>
+            day={day}
+            hour={hour}
+            hourHeight={hourHeight}
+          />
         ))}
 
         {/* Current time indicator (red line) */}
