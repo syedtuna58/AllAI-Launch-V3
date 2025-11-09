@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X } from "lucide-react";
 import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ReminderForm } from "@/components/forms/reminder-form";
+import ReminderForm from "@/components/forms/reminder-form";
 import {
   DropdownMenu,
   DropdownMenuContent,
