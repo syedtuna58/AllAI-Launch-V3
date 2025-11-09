@@ -319,13 +319,15 @@ export default function Reminders() {
 
   const filteredProperties = properties || [];
   
-  // Helper function to check if reminder is due within specified days
+  // Helper function to check if reminder is due within specified days window
+  // Includes items up to 'days' overdue and up to 'days' in the future
   const isDueWithinDays = (dueAt: Date | string, days: number) => {
     const now = new Date();
     const due = new Date(dueAt);
     const timeDiff = due.getTime() - now.getTime();
-    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    return daysDiff >= 0 && daysDiff <= days;
+    const daysDiff = timeDiff / (1000 * 3600 * 24);
+    // Explicit directional bounds: -days to +days
+    return daysDiff >= -days && daysDiff <= days;
   };
 
   const filteredReminders = reminders?.filter(reminder => {
@@ -336,11 +338,11 @@ export default function Reminders() {
     if (statusFilter === "all") {
       statusMatch = true;
     } else if (statusFilter === "due") {
-      // Due means pending or overdue (active reminders that need attention)
-      statusMatch = reminder.status === "Pending" || reminder.status === "Overdue";
+      // Due means pending or overdue (exclude Completed and Cancelled)
+      statusMatch = reminder.status !== "Completed" && reminder.status !== "Cancelled";
     } else if (statusFilter === "due-soon") {
-      // Due soon means pending/overdue AND due within 30 days
-      statusMatch = (reminder.status === "Pending" || reminder.status === "Overdue") && isDueWithinDays(reminder.dueAt, 30);
+      // Due soon means pending/overdue AND due within 30 days (exclude Completed and Cancelled)
+      statusMatch = (reminder.status !== "Completed" && reminder.status !== "Cancelled") && isDueWithinDays(reminder.dueAt, 30);
     } else {
       statusMatch = reminder.status === statusFilter;
     }
@@ -456,10 +458,13 @@ export default function Reminders() {
   };
 
   // Calculate summary card counts based on all reminders (not filtered)
+  // Exclude Completed and Cancelled from all counts
   const allReminders = reminders || [];
-  const overdueReminders = allReminders.filter(r => r.status === "Overdue").length;
+  const overdueReminders = allReminders.filter(r => 
+    r.status === "Overdue"
+  ).length;
   const dueSoonReminders = allReminders.filter(r => 
-    (r.status === "Pending" || r.status === "Overdue") && isDueWithinDays(r.dueAt, 30)
+    r.status !== "Completed" && r.status !== "Cancelled" && isDueWithinDays(r.dueAt, 30)
   ).length;
   const thisMonthReminders = allReminders.filter(r => {
     const reminderDue = new Date(r.dueAt);
@@ -467,7 +472,7 @@ export default function Reminders() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     return reminderDue >= startOfMonth && reminderDue <= endOfMonth && 
-           (r.status === "Pending" || r.status === "Overdue");
+           r.status !== "Completed" && r.status !== "Cancelled";
   }).length;
 
   return (
@@ -817,9 +822,16 @@ export default function Reminders() {
             </Button>
           </div>
 
-          {/* Summary Cards */}
+          {/* Summary Cards - Clickable Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card data-testid="card-overdue-reminders">
+            <Card 
+              data-testid="card-overdue-reminders"
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => {
+                setStatusFilter("Overdue");
+                setDateFilter("all");
+              }}
+            >
               <CardContent className="p-6">
                 <div className="flex items-center">
                   <div className="flex-1">
@@ -835,7 +847,14 @@ export default function Reminders() {
               </CardContent>
             </Card>
             
-            <Card data-testid="card-due-reminders">
+            <Card 
+              data-testid="card-due-reminders"
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => {
+                setStatusFilter("due-soon");
+                setDateFilter("all");
+              }}
+            >
               <CardContent className="p-6">
                 <div className="flex items-center">
                   <div className="flex-1">
@@ -851,7 +870,14 @@ export default function Reminders() {
               </CardContent>
             </Card>
             
-            <Card data-testid="card-total-reminders">
+            <Card 
+              data-testid="card-total-reminders"
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => {
+                setStatusFilter("due");
+                setDateFilter("this-month");
+              }}
+            >
               <CardContent className="p-6">
                 <div className="flex items-center">
                   <div className="flex-1">
