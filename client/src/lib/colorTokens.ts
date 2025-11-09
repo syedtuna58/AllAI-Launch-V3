@@ -121,6 +121,15 @@ export function getCaseClasses(status: CaseStatus): string {
 }
 
 /**
+ * Helper to get badge classes for a reminder status
+ * Combines background and text for visual consistency
+ */
+export function getStatusBadgeClasses(status: ReminderStatus): string {
+  const colors = STATUS_COLORS[status];
+  return `${colors.bg} ${colors.text} border-0`;
+}
+
+/**
  * Helper to get badge text for a reminder status
  */
 export function getStatusBadgeText(status: ReminderStatus): string {

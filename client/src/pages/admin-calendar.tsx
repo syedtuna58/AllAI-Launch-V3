@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2 } from "lucide-react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { format, addDays, startOfWeek, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths } from "date-fns";
@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { TimeColumn } from "@/components/calendar/TimeColumn";
 import { HourlyGrid } from "@/components/calendar/HourlyGrid";
 import { calculateTimePosition, isTimeInRange } from "@/lib/calendarUtils";
-import { REMINDER_TYPE_COLORS, STATUS_COLORS, CASE_STATUS_COLORS, getReminderStatus, type ReminderType, type CaseStatus } from "@/lib/colorTokens";
+import { REMINDER_TYPE_COLORS, STATUS_COLORS, CASE_STATUS_COLORS, getReminderStatus, getStatusBadgeClasses, type ReminderType, type CaseStatus } from "@/lib/colorTokens";
 
 type Reminder = {
   id: string;
@@ -72,7 +72,7 @@ export default function AdminCalendarPage() {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [filterMode, setFilterMode] = useState<'all' | 'reminders' | 'cases'>('all');
   const [reminderTypeFilter, setReminderTypeFilter] = useState<string>('all');
-  const [hideWeekends, setHideWeekends] = useState(false);
+  const [hideWeekends, setHideWeekends] = useState(true);
 
   // Fetch reminders
   const { data: reminders = [], isLoading: remindersLoading } = useQuery<Reminder[]>({
@@ -263,49 +263,158 @@ export default function AdminCalendarPage() {
               </CardContent>
             </Card>
 
+            {/* Unscheduled Items */}
+            {(() => {
+              const unscheduledReminders = filterMode !== 'cases' 
+                ? filteredReminders.filter(r => !r.dueAt) 
+                : [];
+              const unscheduledCases = filterMode !== 'reminders'
+                ? cases.filter(c => !c.scheduledDate)
+                : [];
+              
+              if (unscheduledReminders.length === 0 && unscheduledCases.length === 0) {
+                return null;
+              }
+              
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Unscheduled Items</CardTitle>
+                    <p className="text-xs text-muted-foreground">Items without assigned dates</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {unscheduledReminders.map(reminder => {
+                        return (
+                          <div
+                            key={reminder.id}
+                            className={cn(
+                              "p-3 rounded border-l-4 border-gray-400 text-xs cursor-pointer hover:shadow-md transition-shadow group",
+                              REMINDER_TYPE_COLORS[reminder.type as ReminderType]
+                            )}
+                            data-testid={`unscheduled-reminder-${reminder.id}`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <div className="font-semibold truncate flex-1">{reminder.title}</div>
+                              <div className="flex items-center gap-1">
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                  Unscheduled
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
+                            {reminder.description && (
+                              <div className="text-xs opacity-60 mt-1 line-clamp-2">{reminder.description}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      
+                      {unscheduledCases.map(caseItem => (
+                        <div
+                          key={caseItem.id}
+                          className={cn(
+                            "p-3 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow group",
+                            CASE_STATUS_COLORS[caseItem.status].bg,
+                            CASE_STATUS_COLORS[caseItem.status].border
+                          )}
+                          data-testid={`unscheduled-case-${caseItem.id}`}
+                        >
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="font-semibold truncate flex-1">{caseItem.title}</div>
+                            <div className="flex items-center gap-1">
+                              <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                <Badge variant="destructive" className="text-[10px] px-1 py-0">
+                                  {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
+                          {caseItem.description && (
+                            <div className="text-xs opacity-60 mt-1 line-clamp-2">{caseItem.description}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             {/* Legend */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Color Legend</CardTitle>
+                <CardTitle className="text-sm">Dual-Encoding Color System</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Background colors indicate reminder TYPE or case STATUS • Border colors indicate reminder STATUS or case PRIORITY
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold">Reminders:</p>
+                    <p className="text-sm font-semibold">Reminder Types (Background)</p>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-red-500 rounded"></div>
-                      <span className="text-sm">Overdue</span>
+                      <div className="w-4 h-4 bg-[hsl(var(--periwinkle))] rounded"></div>
+                      <span className="text-xs">Lease</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-orange-500 rounded"></div>
-                      <span className="text-sm">Due Soon (≤7 days)</span>
+                      <div className="w-4 h-4 bg-[hsl(var(--butter))] rounded"></div>
+                      <span className="text-xs">Maintenance</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                      <span className="text-sm">Upcoming</span>
+                      <div className="w-4 h-4 bg-[hsl(var(--petal))] rounded"></div>
+                      <span className="text-xs">Regulatory</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-green-500 rounded"></div>
-                      <span className="text-sm">Completed</span>
+                      <div className="w-4 h-4 bg-[hsl(var(--seafoam))] rounded"></div>
+                      <span className="text-xs">Rent</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-[hsl(var(--sage))] rounded"></div>
+                      <span className="text-xs">Mortgage / Insurance / Tax / HOA</span>
                     </div>
                   </div>
+                  
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold">Maintenance Cases:</p>
+                    <p className="text-sm font-semibold">Reminder Status (Border)</p>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-yellow-500 rounded"></div>
-                      <span className="text-sm">Open</span>
+                      <div className="w-4 h-4 border-4 border-red-500 rounded bg-white dark:bg-gray-800"></div>
+                      <span className="text-xs">Overdue</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                      <span className="text-sm">In Progress</span>
+                      <div className="w-4 h-4 border-4 border-orange-500 rounded bg-white dark:bg-gray-800"></div>
+                      <span className="text-xs">Due Soon (≤7 days)</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-gray-500 rounded"></div>
-                      <span className="text-sm">On Hold</span>
+                      <div className="w-4 h-4 border-4 border-blue-500 rounded bg-white dark:bg-gray-800"></div>
+                      <span className="text-xs">Upcoming</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-green-500 rounded"></div>
-                      <span className="text-sm">Resolved</span>
+                      <div className="w-4 h-4 border-4 border-green-500 rounded bg-white dark:bg-gray-800"></div>
+                      <span className="text-xs">Completed</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold">Case Status (Background)</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-yellow-100 border border-yellow-500 rounded"></div>
+                      <span className="text-xs">Open</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-blue-100 border border-blue-500 rounded"></div>
+                      <span className="text-xs">In Progress</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-gray-100 border border-gray-500 rounded"></div>
+                      <span className="text-xs">On Hold</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-100 border border-green-500 rounded"></div>
+                      <span className="text-xs">Resolved / Closed</span>
                     </div>
                   </div>
                 </div>
@@ -398,18 +507,27 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                     {allDayItems.slice(0, 3).map(({ type, item }, stackIndex) => {
                       if (type === 'reminder') {
                         const reminder = item as Reminder;
+                        const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
                         return (
                           <div
                             key={`allday-reminder-${reminder.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
                               REMINDER_TYPE_COLORS[reminder.type as ReminderType],
-                              STATUS_COLORS[getReminderStatus(reminder.dueAt, reminder.completedAt)].border
+                              STATUS_COLORS[status].border
                             )}
                             style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
                             data-testid={`reminder-${reminder.id}`}
                           >
-                            <div className="font-semibold truncate">{reminder.title}</div>
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="font-semibold truncate flex-1">{reminder.title}</div>
+                              <div className="flex items-center gap-1">
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
+                                <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
+                                  {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
+                                </Badge>
+                              </div>
+                            </div>
                           </div>
                         );
                       } else {
@@ -418,14 +536,24 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                           <div
                             key={`allday-case-${caseItem.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
                               CASE_STATUS_COLORS[caseItem.status].bg,
                               CASE_STATUS_COLORS[caseItem.status].border
                             )}
                             style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
                             data-testid={`case-${caseItem.id}`}
                           >
-                            <div className="font-semibold truncate">{caseItem.title}</div>
+                            <div className="flex items-center justify-between gap-1">
+                              <div className="font-semibold truncate flex-1">{caseItem.title}</div>
+                              <div className="flex items-center gap-1">
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                  <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
+                                    {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         );
                       }
@@ -444,18 +572,27 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                       
                       if (type === 'reminder') {
                         const reminder = item as Reminder;
+                        const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
                         return (
                           <div
                             key={`timed-reminder-${reminder.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
                               REMINDER_TYPE_COLORS[reminder.type as ReminderType],
-                              STATUS_COLORS[getReminderStatus(reminder.dueAt, reminder.completedAt)].border
+                              STATUS_COLORS[status].border
                             )}
                             style={{ top: `${topPosition}px`, minHeight: '50px' }}
                             data-testid={`reminder-${reminder.id}`}
                           >
-                            <div className="font-semibold truncate">{reminder.title}</div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <div className="font-semibold truncate flex-1">{reminder.title}</div>
+                              <div className="flex items-center gap-1">
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
+                                <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
+                                  {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
+                                </Badge>
+                              </div>
+                            </div>
                             <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
                             <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
                           </div>
@@ -466,14 +603,24 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                           <div
                             key={`timed-case-${caseItem.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10 group",
                               CASE_STATUS_COLORS[caseItem.status].bg,
                               CASE_STATUS_COLORS[caseItem.status].border
                             )}
                             style={{ top: `${topPosition}px`, minHeight: '50px' }}
                             data-testid={`case-${caseItem.id}`}
                           >
-                            <div className="font-semibold truncate">{caseItem.title}</div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <div className="font-semibold truncate flex-1">{caseItem.title}</div>
+                              <div className="flex items-center gap-1">
+                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                  <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
+                                    {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
                             <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
                             <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
                           </div>

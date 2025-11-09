@@ -57,10 +57,6 @@ export function HourlyGrid({
             style={{ height: `${hourHeight}px` }}
             data-hour={hour}
           >
-            {/* 15-minute slot markers (subtle) */}
-            <div className="absolute top-1/4 left-0 right-0 border-t border-border/20 dark:border-gray-700/20"></div>
-            <div className="absolute top-1/2 left-0 right-0 border-t border-border/30 dark:border-gray-700/30"></div>
-            <div className="absolute top-3/4 left-0 right-0 border-t border-border/20 dark:border-gray-700/20"></div>
           </div>
         ))}
 
