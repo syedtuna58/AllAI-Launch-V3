@@ -49,6 +49,44 @@
   --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* Reminder Type Colors (Background/Fill) - Pastel */
+  --reminder-lease: hsl(223 100% 92%);
+  --reminder-maintenance: hsl(44 100% 91%);
+  --reminder-regulatory: hsl(343 78% 90%);
+  --reminder-mortgage: hsl(152 57% 87%);
+  --reminder-insurance: hsl(258 68% 90%);
+  --reminder-property-tax: hsl(25 100% 88%);
+  --reminder-hoa: hsl(197 92% 89%);
+  --reminder-permit: hsl(36 100% 90%);
+  --reminder-custom: hsl(222 15% 89%);
+  --reminder-rent: hsl(213 77% 88%);
+
+  /* Status Colors (Borders/Badges) */
+  --status-overdue-bg: hsl(0 78% 86%);
+  --status-overdue-border: hsl(0 63% 60%);
+  --status-overdue-text: hsl(0 70% 35%);
+  --status-due-soon-bg: hsl(32 87% 87%);
+  --status-due-soon-border: hsl(28 74% 58%);
+  --status-due-soon-text: hsl(28 80% 30%);
+  --status-upcoming-bg: hsl(213 77% 88%);
+  --status-upcoming-border: hsl(213 64% 55%);
+  --status-upcoming-text: hsl(213 70% 30%);
+  --status-completed-bg: hsl(152 57% 87%);
+  --status-completed-border: hsl(152 49% 45%);
+  --status-completed-text: hsl(152 55% 25%);
+
+  /* Maintenance Case Status Colors */
+  --case-open: hsl(47 95% 88%);
+  --case-open-border: hsl(45 93% 58%);
+  --case-in-progress: hsl(211 75% 89%);
+  --case-in-progress-border: hsl(211 70% 58%);
+  --case-on-hold: hsl(240 8% 90%);
+  --case-on-hold-border: hsl(240 6% 60%);
+  --case-resolved: hsl(142 52% 88%);
+  --case-resolved-border: hsl(142 52% 50%);
+  --case-closed: hsl(210 14% 91%);
+  --case-closed-border: hsl(210 12% 65%);
 }
 
 .dark {
@@ -96,6 +134,44 @@
   --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+
+  /* Reminder Type Colors (Background/Fill) - Pastel Dark Mode */
+  --reminder-lease: hsl(223 75% 18%);
+  --reminder-maintenance: hsl(44 70% 18%);
+  --reminder-regulatory: hsl(343 60% 18%);
+  --reminder-mortgage: hsl(152 45% 18%);
+  --reminder-insurance: hsl(258 55% 18%);
+  --reminder-property-tax: hsl(25 70% 18%);
+  --reminder-hoa: hsl(197 70% 18%);
+  --reminder-permit: hsl(36 70% 18%);
+  --reminder-custom: hsl(222 12% 20%);
+  --reminder-rent: hsl(213 60% 18%);
+
+  /* Status Colors (Borders/Badges) - Dark Mode */
+  --status-overdue-bg: hsl(0 60% 20%);
+  --status-overdue-border: hsl(0 70% 50%);
+  --status-overdue-text: hsl(0 80% 70%);
+  --status-due-soon-bg: hsl(32 65% 20%);
+  --status-due-soon-border: hsl(28 75% 55%);
+  --status-due-soon-text: hsl(28 85% 70%);
+  --status-upcoming-bg: hsl(213 60% 20%);
+  --status-upcoming-border: hsl(213 65% 55%);
+  --status-upcoming-text: hsl(213 75% 70%);
+  --status-completed-bg: hsl(152 45% 20%);
+  --status-completed-border: hsl(152 50% 45%);
+  --status-completed-text: hsl(152 60% 70%);
+
+  /* Maintenance Case Status Colors - Dark Mode */
+  --case-open: hsl(47 70% 20%);
+  --case-open-border: hsl(45 80% 55%);
+  --case-in-progress: hsl(211 60% 20%);
+  --case-in-progress-border: hsl(211 70% 55%);
+  --case-on-hold: hsl(240 6% 22%);
+  --case-on-hold-border: hsl(240 8% 55%);
+  --case-resolved: hsl(142 45% 20%);
+  --case-resolved-border: hsl(142 50% 48%);
+  --case-closed: hsl(210 12% 22%);
+  --case-closed-border: hsl(210 14% 60%);
 }
 
 @layer base {
