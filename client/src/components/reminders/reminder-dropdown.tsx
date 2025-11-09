@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { useLocation } from "wouter";
 import type { Reminder } from "@shared/schema";
 
 interface ReminderDropdownProps {
@@ -24,6 +25,7 @@ interface ReminderDropdownProps {
 
 export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   const { data: reminders } = useQuery<Reminder[]>({
     queryKey: ["/api/reminders"],
@@ -70,7 +72,7 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
                   variant="destructive"
                   data-testid="badge-overdue-count"
                 >
-                  {overdueCount > 9 ? '9+' : overdueCount}
+                  {overdueCount > 99 ? '99+' : overdueCount}
                 </Badge>
               )}
             </Button>
@@ -129,6 +131,10 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
                       : 'bg-background hover:bg-muted/50'
                     }
                   `}
+                  onClick={() => {
+                    setOpen(false);
+                    setLocation('/reminders');
+                  }}
                   data-testid={`reminder-${reminder.id}`}
                 >
                   <div className="flex gap-3">
