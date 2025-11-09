@@ -19,6 +19,10 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { TimeColumn } from "@/components/calendar/TimeColumn";
+import { HourlyGrid } from "@/components/calendar/HourlyGrid";
+import { calculateTimePosition, isTimeInRange } from "@/lib/calendarUtils";
+import { REMINDER_TYPE_COLORS, STATUS_COLORS, CASE_STATUS_COLORS, getReminderStatus, type ReminderType, type CaseStatus } from "@/lib/colorTokens";
 
 type Reminder = {
   id: string;
@@ -58,34 +62,6 @@ type MaintenanceCase = {
 };
 
 const ORG_TIMEZONE = 'America/New_York';
-
-// Status-based color coding
-const REMINDER_STATUS_COLORS = {
-  overdue: 'bg-red-100 border-red-500 text-red-900 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300',
-  dueSoon: 'bg-orange-100 border-orange-500 text-orange-900 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-300',
-  upcoming: 'bg-blue-100 border-blue-500 text-blue-900 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300',
-  completed: 'bg-green-100 border-green-500 text-green-900 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300',
-};
-
-const CASE_STATUS_COLORS = {
-  open: 'bg-yellow-100 border-yellow-500 text-yellow-900 dark:bg-yellow-900/20 dark:border-yellow-700 dark:text-yellow-300',
-  in_progress: 'bg-blue-100 border-blue-500 text-blue-900 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300',
-  on_hold: 'bg-gray-100 border-gray-500 text-gray-900 dark:bg-gray-900/20 dark:border-gray-700 dark:text-gray-300',
-  resolved: 'bg-green-100 border-green-500 text-green-900 dark:bg-green-900/20 dark:border-green-700 dark:text-green-300',
-  closed: 'bg-slate-100 border-slate-500 text-slate-900 dark:bg-slate-900/20 dark:border-slate-700 dark:text-slate-300',
-};
-
-function getReminderStatus(reminder: Reminder): 'overdue' | 'dueSoon' | 'upcoming' | 'completed' {
-  if (reminder.completedAt) return 'completed';
-  
-  const now = new Date();
-  const dueDate = new Date(reminder.dueAt);
-  const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  
-  if (daysUntilDue < 0) return 'overdue';
-  if (daysUntilDue <= 7) return 'dueSoon';
-  return 'upcoming';
-}
 
 export default function AdminCalendarPage() {
   const { user } = useAuth();
@@ -332,59 +308,158 @@ function WeekView({ currentDate, getItemsForDate }: {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
+  
+  const START_HOUR = 6;  // 6 AM
+  const END_HOUR = 20;   // 8 PM
+  const HOUR_HEIGHT = 60; // pixels
 
   return (
-    <div className="grid grid-cols-7 gap-2">
-      {weekDays.map((day, idx) => {
-        const { reminders, cases } = getItemsForDate(day);
-        const isToday = isSameDay(day, today);
+    <div className="grid grid-cols-[80px_1fr] gap-0 border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+      {/* Time labels column */}
+      <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
+      
+      {/* Week grid */}
+      <div className="grid grid-cols-7">
+        {weekDays.map((day, idx) => {
+          const { reminders, cases } = getItemsForDate(day);
+          const isToday = isSameDay(day, today);
 
-        return (
-          <div key={idx} className="min-h-[200px]">
-            <div className={cn(
-              "text-center p-2 font-semibold mb-2 rounded",
-              isToday ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-800"
-            )}>
-              <div className="text-xs text-gray-600 dark:text-gray-400">
-                {format(day, 'EEE')}
-              </div>
-              <div className="text-lg">
-                {format(day, 'd')}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              {reminders.map(reminder => (
-                <div
-                  key={reminder.id}
-                  className={cn(
-                    "p-2 rounded border text-xs cursor-pointer hover:shadow-md transition-shadow",
-                    REMINDER_STATUS_COLORS[getReminderStatus(reminder)]
-                  )}
-                  data-testid={`reminder-${reminder.id}`}
-                >
-                  <div className="font-semibold truncate">{reminder.title}</div>
-                  <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
-                </div>
-              ))}
-
-              {cases.map(caseItem => (
-                <div
-                  key={caseItem.id}
-                  className={cn(
-                    "p-2 rounded border text-xs cursor-pointer hover:shadow-md transition-shadow",
-                    CASE_STATUS_COLORS[caseItem.status]
-                  )}
-                  data-testid={`case-${caseItem.id}`}
-                >
-                  <div className="font-semibold truncate">{caseItem.title}</div>
-                  <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+          return (
+            <HourlyGrid
+              key={idx}
+              day={day}
+              dayIndex={idx}
+              isToday={isToday}
+              startHour={START_HOUR}
+              endHour={END_HOUR}
+              hourHeight={HOUR_HEIGHT}
+              className={idx < 6 ? "border-r border-border dark:border-gray-700" : ""}
+            >
+              {(() => {
+                // Separate all-day and timed items
+                const allDayItems: Array<{type: 'reminder' | 'case', item: Reminder | MaintenanceCase}> = [];
+                const timedItems: Array<{type: 'reminder' | 'case', item: Reminder | MaintenanceCase, time: Date}> = [];
+                
+                reminders.forEach(reminder => {
+                  const dueDate = new Date(reminder.dueAt);
+                  const hours = dueDate.getHours();
+                  const minutes = dueDate.getMinutes();
+                  
+                  if (hours === 0 && minutes === 0) {
+                    allDayItems.push({ type: 'reminder', item: reminder });
+                  } else if (isTimeInRange(dueDate, START_HOUR, END_HOUR)) {
+                    timedItems.push({ type: 'reminder', item: reminder, time: dueDate });
+                  }
+                });
+                
+                cases.forEach(caseItem => {
+                  if (!caseItem.scheduledDate) return;
+                  const schedDate = new Date(caseItem.scheduledDate);
+                  const hours = schedDate.getHours();
+                  const minutes = schedDate.getMinutes();
+                  
+                  if (hours === 0 && minutes === 0) {
+                    allDayItems.push({ type: 'case', item: caseItem });
+                  } else if (isTimeInRange(schedDate, START_HOUR, END_HOUR)) {
+                    timedItems.push({ type: 'case', item: caseItem, time: schedDate });
+                  }
+                });
+                
+                return (
+                  <>
+                    {/* Render all-day items stacked at top */}
+                    {allDayItems.slice(0, 3).map(({ type, item }, stackIndex) => {
+                      if (type === 'reminder') {
+                        const reminder = item as Reminder;
+                        return (
+                          <div
+                            key={`allday-reminder-${reminder.id}`}
+                            className={cn(
+                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              REMINDER_TYPE_COLORS[reminder.type as ReminderType],
+                              STATUS_COLORS[getReminderStatus(reminder.dueAt, reminder.completedAt)].border
+                            )}
+                            style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
+                            data-testid={`reminder-${reminder.id}`}
+                          >
+                            <div className="font-semibold truncate">{reminder.title}</div>
+                          </div>
+                        );
+                      } else {
+                        const caseItem = item as MaintenanceCase;
+                        return (
+                          <div
+                            key={`allday-case-${caseItem.id}`}
+                            className={cn(
+                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              CASE_STATUS_COLORS[caseItem.status].bg,
+                              CASE_STATUS_COLORS[caseItem.status].border
+                            )}
+                            style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
+                            data-testid={`case-${caseItem.id}`}
+                          >
+                            <div className="font-semibold truncate">{caseItem.title}</div>
+                          </div>
+                        );
+                      }
+                    })}
+                    
+                    {/* Show overflow count for all-day items */}
+                    {allDayItems.length > 3 && (
+                      <div className="absolute top-[110px] left-1 right-1 text-xs text-muted-foreground text-center">
+                        +{allDayItems.length - 3} more
+                      </div>
+                    )}
+                    
+                    {/* Render timed items positioned by time */}
+                    {timedItems.map(({ type, item, time }) => {
+                      const topPosition = calculateTimePosition(time, START_HOUR, HOUR_HEIGHT);
+                      
+                      if (type === 'reminder') {
+                        const reminder = item as Reminder;
+                        return (
+                          <div
+                            key={`timed-reminder-${reminder.id}`}
+                            className={cn(
+                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              REMINDER_TYPE_COLORS[reminder.type as ReminderType],
+                              STATUS_COLORS[getReminderStatus(reminder.dueAt, reminder.completedAt)].border
+                            )}
+                            style={{ top: `${topPosition}px`, minHeight: '50px' }}
+                            data-testid={`reminder-${reminder.id}`}
+                          >
+                            <div className="font-semibold truncate">{reminder.title}</div>
+                            <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
+                            <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
+                          </div>
+                        );
+                      } else {
+                        const caseItem = item as MaintenanceCase;
+                        return (
+                          <div
+                            key={`timed-case-${caseItem.id}`}
+                            className={cn(
+                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs cursor-pointer hover:shadow-md transition-shadow z-10",
+                              CASE_STATUS_COLORS[caseItem.status].bg,
+                              CASE_STATUS_COLORS[caseItem.status].border
+                            )}
+                            style={{ top: `${topPosition}px`, minHeight: '50px' }}
+                            data-testid={`case-${caseItem.id}`}
+                          >
+                            <div className="font-semibold truncate">{caseItem.title}</div>
+                            <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
+                            <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
+                          </div>
+                        );
+                      }
+                    })}
+                  </>
+                );
+              })()}
+            </HourlyGrid>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -435,19 +510,22 @@ function MonthView({ currentDate, getItemsForDate }: {
               </div>
 
               <div className="space-y-1">
-                {reminders.slice(0, 2).map(reminder => (
+                {reminders.slice(0, 2).map(reminder => {
+                  const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
+                  return (
                   <div
                     key={reminder.id}
                     className={cn(
                       "w-full h-1 rounded",
-                      getReminderStatus(reminder) === 'overdue' && "bg-red-500",
-                      getReminderStatus(reminder) === 'dueSoon' && "bg-orange-500",
-                      getReminderStatus(reminder) === 'upcoming' && "bg-blue-500",
-                      getReminderStatus(reminder) === 'completed' && "bg-green-500"
+                      status === 'overdue' && "bg-red-500",
+                      status === 'due_soon' && "bg-orange-500",
+                      status === 'upcoming' && "bg-blue-500",
+                      status === 'completed' && "bg-green-500"
                     )}
                     title={reminder.title}
                   />
-                ))}
+                  );
+                })}
                 {cases.slice(0, 2).map(caseItem => (
                   <div
                     key={caseItem.id}
