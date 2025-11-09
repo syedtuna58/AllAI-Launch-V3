@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -8,7 +9,6 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import ReminderForm from "@/components/forms/reminder-form";
 import PropertyAssistant from "@/components/ai/property-assistant";
-import RemindersCalendar from "@/components/reminders/reminders-calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ import { REMINDER_TYPE_COLORS, STATUS_COLORS, getReminderStatus, getStatusBadgeT
 export default function Reminders() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [pendingEditReminder, setPendingEditReminder] = useState<Reminder | null>(null);
@@ -36,8 +37,6 @@ export default function Reminders() {
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [customDateFrom, setCustomDateFrom] = useState<Date | undefined>();
   const [customDateTo, setCustomDateTo] = useState<Date | undefined>();
-  const [view, setView] = useState<"list" | "calendar">("list");
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -836,8 +835,7 @@ export default function Reminders() {
           {/* View Toggle */}
           <div className="flex items-center gap-2 mb-6" data-testid="view-toggle">
             <Button
-              variant={view === "list" ? "default" : "outline"}
-              onClick={() => setView("list")}
+              variant="default"
               className="gap-2"
               data-testid="button-list-view"
             >
@@ -845,8 +843,8 @@ export default function Reminders() {
               List
             </Button>
             <Button
-              variant={view === "calendar" ? "default" : "outline"}
-              onClick={() => setView("calendar")}
+              variant="outline"
+              onClick={() => setLocation("/calendar")}
               className="gap-2"
               data-testid="button-calendar-view"
             >
@@ -932,23 +930,8 @@ export default function Reminders() {
             </Card>
           </div>
 
-          {/* Calendar or List View */}
-          {view === "calendar" ? (
-            <RemindersCalendar
-              reminders={filteredReminders}
-              onDateClick={(date) => {
-                setSelectedCalendarDate(date);
-                setView("list");
-                setDateFilter("custom");
-                const startOfDay = new Date(date);
-                startOfDay.setHours(0, 0, 0, 0);
-                const endOfDay = new Date(date);
-                endOfDay.setHours(23, 59, 59, 999);
-                setCustomDateFrom(startOfDay);
-                setCustomDateTo(endOfDay);
-              }}
-            />
-          ) : remindersLoading ? (
+          {/* List View */}
+          {remindersLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4].map((i) => (
                 <Card key={i} data-testid={`skeleton-reminder-${i}`}>
