@@ -26,27 +26,7 @@ import { TimeColumn } from "@/components/calendar/TimeColumn";
 import { HourlyGrid } from "@/components/calendar/HourlyGrid";
 import { calculateTimePosition, isTimeInRange } from "@/lib/calendarUtils";
 import { REMINDER_TYPE_COLORS, STATUS_COLORS, CASE_STATUS_COLORS, getReminderStatus, getStatusBadgeClasses, type ReminderType, type CaseStatus } from "@/lib/colorTokens";
-
-type Reminder = {
-  id: string;
-  orgId: string;
-  userId: string | null;
-  propertyId: string | null;
-  entityId: string | null;
-  unitId: string | null;
-  title: string;
-  description: string | null;
-  type: 'rent' | 'lease' | 'maintenance' | 'regulatory' | 'custom' | 'mortgage' | 'insurance' | 'property_tax' | 'hoa' | 'permit';
-  dueAt: string;
-  completedAt: string | null;
-  priority: 'low' | 'medium' | 'high';
-  recurring: boolean;
-  recurringInterval: 'daily' | 'weekly' | 'monthly' | 'yearly' | null;
-  amount: number | null;
-  metadata: any;
-  createdAt: string;
-  updatedAt: string;
-};
+import type { Reminder } from "@shared/schema";
 
 type MaintenanceCase = {
   id: string;
@@ -419,13 +399,14 @@ export default function AdminCalendarPage() {
                   <CardContent>
                     <div className="space-y-3">
                       {unscheduledReminders.map(reminder => {
+                        const effectiveStatus = reminder.status || (reminder.dueAt && new Date(reminder.dueAt) < new Date() ? 'Overdue' : null);
                         return (
                           <DraggableCalendarItem
                             key={reminder.id}
                             id={`reminder:${reminder.id}`}
                             className={cn(
-                              "p-3 rounded border-l-4 border-gray-400 text-xs hover:shadow-md transition-shadow group",
-                              REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom
+                              "p-3 rounded text-xs hover:shadow-md transition-shadow group",
+                              "bg-yellow-50 dark:bg-yellow-950/20"
                             )}
                           >
                             <div data-testid={`unscheduled-reminder-${reminder.id}`}>
@@ -433,15 +414,18 @@ export default function AdminCalendarPage() {
                                 <div className="font-semibold truncate flex-1">{reminder.title}</div>
                                 <div className="flex items-center gap-1">
                                   <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                    Unscheduled
-                                  </Badge>
+                                  {effectiveStatus && (
+                                    <Badge className={cn("text-[10px] px-1 py-0", 
+                                      effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
+                                      effectiveStatus === 'Completed' && "bg-green-100 text-green-800",
+                                      effectiveStatus === 'Cancelled' && "bg-gray-100 text-gray-800"
+                                    )} data-testid={`badge-${effectiveStatus}`}>
+                                      {effectiveStatus}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
-                              <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
-                              {reminder.description && (
-                                <div className="text-xs opacity-60 mt-1 line-clamp-2">{reminder.description}</div>
-                              )}
+                              <div className="text-xs opacity-75 capitalize">{reminder.type?.replace(/_/g, ' ')}</div>
                             </div>
                           </DraggableCalendarItem>
                         );
@@ -486,54 +470,45 @@ export default function AdminCalendarPage() {
             {/* Legend */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Dual-Encoding Color System</CardTitle>
+                <CardTitle className="text-sm">Calendar Visual System</CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Background colors indicate reminder TYPE or case STATUS • Border colors indicate reminder STATUS or case PRIORITY
+                  All reminders use yellow backgrounds • Status badges show Overdue/Completed/Cancelled
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <p className="text-sm font-semibold">Reminder Types (Background)</p>
+                    <p className="text-sm font-semibold">Reminder Status</p>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-[hsl(var(--periwinkle))] rounded"></div>
-                      <span className="text-xs">Lease</span>
+                      <div className="w-8 h-4 bg-yellow-100 dark:bg-yellow-900/30 rounded"></div>
+                      <span className="text-xs">Active (no badge)</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-[hsl(var(--butter))] rounded"></div>
-                      <span className="text-xs">Maintenance</span>
+                      <Badge className="bg-red-100 text-red-800 text-[10px]">Overdue</Badge>
+                      <span className="text-xs">Past due date</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-[hsl(var(--petal))] rounded"></div>
-                      <span className="text-xs">Regulatory</span>
+                      <Badge className="bg-green-100 text-green-800 text-[10px]">Completed</Badge>
+                      <span className="text-xs">Task completed</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-[hsl(var(--seafoam))] rounded"></div>
-                      <span className="text-xs">Rent</span>
+                      <Badge className="bg-gray-100 text-gray-800 text-[10px]">Cancelled</Badge>
+                      <span className="text-xs">Task cancelled</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-[hsl(var(--sage))] rounded"></div>
-                      <span className="text-xs">Mortgage / Insurance / Tax / HOA</span>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold">Reminder Status (Border)</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-4 border-red-500 rounded bg-white dark:bg-gray-800"></div>
-                      <span className="text-xs">Overdue</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-4 border-orange-500 rounded bg-white dark:bg-gray-800"></div>
-                      <span className="text-xs">Due Soon (≤7 days)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-4 border-blue-500 rounded bg-white dark:bg-gray-800"></div>
-                      <span className="text-xs">Upcoming</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 border-4 border-green-500 rounded bg-white dark:bg-gray-800"></div>
-                      <span className="text-xs">Completed</span>
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs font-semibold mb-2">Month View Indicators</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-1.5 bg-yellow-500 rounded"></div>
+                        <span className="text-xs">Active</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-1.5 bg-red-500 rounded"></div>
+                        <span className="text-xs">Overdue</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-1.5 bg-green-500 rounded"></div>
+                        <span className="text-xs">Completed</span>
+                      </div>
                     </div>
                   </div>
 
@@ -646,17 +621,16 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                     {allDayItems.slice(0, 3).map(({ type, item }, stackIndex) => {
                       if (type === 'reminder') {
                         const reminder = item as Reminder;
-                        const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
-                        const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
-                        const statusBorder = STATUS_COLORS[status]?.border || STATUS_COLORS.upcoming.border;
+                        // Get effective status (null for active, Overdue/Completed/Cancelled when applicable)
+                        const effectiveStatus = reminder.status || (reminder.dueAt && new Date(reminder.dueAt) < new Date() ? 'Overdue' : null);
+                        
                         return (
                           <DraggableCalendarItem
                             key={`allday-reminder-${reminder.id}`}
                             id={`reminder:${reminder.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
-                              typeColor,
-                              statusBorder
+                              "absolute left-1 right-1 p-1.5 rounded text-xs hover:shadow-md transition-shadow z-10 group",
+                              "bg-yellow-50 dark:bg-yellow-950/20"
                             )}
                             style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
                           >
@@ -665,9 +639,15 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                                 <div className="font-semibold truncate flex-1">{reminder.title}</div>
                                 <div className="flex items-center gap-1">
                                   <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
-                                  <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
-                                    {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
-                                  </Badge>
+                                  {effectiveStatus && (
+                                    <Badge className={cn("text-[10px] px-1 py-0", 
+                                      effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
+                                      effectiveStatus === 'Completed' && "bg-green-100 text-green-800",
+                                      effectiveStatus === 'Cancelled' && "bg-gray-100 text-gray-800"
+                                    )} data-testid={`badge-${effectiveStatus}`}>
+                                      {effectiveStatus}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -718,17 +698,16 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                       
                       if (type === 'reminder') {
                         const reminder = item as Reminder;
-                        const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
-                        const typeColor = REMINDER_TYPE_COLORS[reminder.type as ReminderType] || REMINDER_TYPE_COLORS.custom;
-                        const statusBorder = STATUS_COLORS[status]?.border || STATUS_COLORS.upcoming.border;
+                        // Get effective status (null for active, Overdue/Completed/Cancelled when applicable)
+                        const effectiveStatus = reminder.status || (reminder.dueAt && new Date(reminder.dueAt) < new Date() ? 'Overdue' : null);
+                        
                         return (
                           <DraggableCalendarItem
                             key={`timed-reminder-${reminder.id}`}
                             id={`reminder:${reminder.id}`}
                             className={cn(
-                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
-                              typeColor,
-                              statusBorder
+                              "absolute left-1 right-1 p-2 rounded text-xs hover:shadow-md transition-shadow z-10 group",
+                              "bg-yellow-50 dark:bg-yellow-950/20"
                             )}
                             style={{ top: `${topPosition}px`, minHeight: '50px' }}
                           >
@@ -737,13 +716,19 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false }: {
                                 <div className="font-semibold truncate flex-1">{reminder.title}</div>
                                 <div className="flex items-center gap-1">
                                   <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-reminder-${reminder.id}`} />
-                                  <Badge className={cn("text-[10px] px-1 py-0", getStatusBadgeClasses(status))} data-testid={`badge-${status}`}>
-                                    {status === 'overdue' ? 'Overdue' : status === 'due_soon' ? 'Due Soon' : status === 'upcoming' ? 'Upcoming' : 'Done'}
-                                  </Badge>
+                                  {effectiveStatus && (
+                                    <Badge className={cn("text-[10px] px-1 py-0", 
+                                      effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
+                                      effectiveStatus === 'Completed' && "bg-green-100 text-green-800",
+                                      effectiveStatus === 'Cancelled' && "bg-gray-100 text-gray-800"
+                                    )} data-testid={`badge-${effectiveStatus}`}>
+                                      {effectiveStatus}
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
-                              <div className="text-xs opacity-75 capitalize">{reminder.type}</div>
+                              <div className="text-xs opacity-75 capitalize">{reminder.type?.replace(/_/g, ' ')}</div>
                             </div>
                           </DraggableCalendarItem>
                         );
@@ -838,18 +823,19 @@ function MonthView({ currentDate, getItemsForDate }: {
 
               <div className="space-y-1">
                 {reminders.slice(0, 2).map(reminder => {
-                  const status = getReminderStatus(reminder.dueAt, reminder.completedAt);
+                  // Get effective status for color coding
+                  const effectiveStatus = reminder.status || (reminder.dueAt && new Date(reminder.dueAt) < new Date() ? 'Overdue' : null);
                   return (
                   <div
                     key={reminder.id}
                     className={cn(
-                      "w-full h-1 rounded",
-                      status === 'overdue' && "bg-red-500",
-                      status === 'due_soon' && "bg-orange-500",
-                      status === 'upcoming' && "bg-blue-500",
-                      status === 'completed' && "bg-green-500"
+                      "w-full h-1.5 rounded",
+                      effectiveStatus === 'Overdue' && "bg-red-500",
+                      effectiveStatus === 'Completed' && "bg-green-500",
+                      effectiveStatus === 'Cancelled' && "bg-gray-400",
+                      !effectiveStatus && "bg-yellow-500"
                     )}
-                    title={reminder.title}
+                    title={`${reminder.title}${effectiveStatus ? ` (${effectiveStatus})` : ''}`}
                   />
                   );
                 })}
