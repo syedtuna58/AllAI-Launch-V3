@@ -1,5 +1,7 @@
 import cron from "node-cron";
 import { storage } from "./storage";
+import { checkAndSendTimeoutNotifications } from "./services/timeoutNotifications";
+import { cleanupExpiredSessions } from "./services/sessionService";
 
 export function startCronJobs() {
   // Run every hour to check for due reminders
@@ -108,6 +110,27 @@ export function startCronJobs() {
       console.log('Predictive insights regeneration completed');
     } catch (error) {
       console.error('Error generating predictive insights:', error);
+    }
+  });
+
+  // Check for timeout notifications every 30 minutes
+  cron.schedule('*/30 * * * *', async () => {
+    console.log('🔔 Running timeout notifications check...');
+    try {
+      await checkAndSendTimeoutNotifications();
+    } catch (error) {
+      console.error('Error in timeout notifications:', error);
+    }
+  });
+  
+  // Cleanup expired sessions daily at 4 AM
+  cron.schedule('0 4 * * *', async () => {
+    console.log('🧹 Cleaning up expired sessions...');
+    try {
+      const cleaned = await cleanupExpiredSessions();
+      console.log(`✅ Cleaned up ${cleaned} expired sessions`);
+    } catch (error) {
+      console.error('Error cleaning up sessions:', error);
     }
   });
 
