@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Calendar, Clock, Plus } from "lucide-react";
+import ReminderDetailDialog from "@/components/reminders/reminder-detail-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,10 +12,13 @@ import type { Reminder } from "@shared/schema";
 
 interface RemindersWidgetProps {
   onCreateReminder?: () => void;
+  onEditReminder?: (reminder: Reminder) => void;
 }
 
-export default function RemindersWidget({ onCreateReminder }: RemindersWidgetProps) {
+export default function RemindersWidget({ onCreateReminder, onEditReminder }: RemindersWidgetProps) {
   const [, setLocation] = useLocation();
+  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
   const { data: reminders, isLoading } = useQuery<Reminder[]>({
     queryKey: ["/api/reminders"],
     retry: false,
@@ -40,6 +45,7 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
   };
 
   return (
+    <>
     <Card data-testid="widget-reminders" className="flex flex-col h-full">
       <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -109,7 +115,8 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
                   data-testid={`reminder-widget-${reminder.id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    setLocation(`/reminders?reminderId=${reminder.id}`);
+                    setSelectedReminder(reminder);
+                    setShowDetailDialog(true);
                   }}
                 >
                   <div className="flex gap-2">
@@ -135,5 +142,13 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
         </ScrollArea>
       </CardContent>
     </Card>
+    
+    <ReminderDetailDialog
+      reminder={selectedReminder}
+      open={showDetailDialog}
+      onOpenChange={setShowDetailDialog}
+      onEdit={onEditReminder}
+    />
+    </>
   );
 }

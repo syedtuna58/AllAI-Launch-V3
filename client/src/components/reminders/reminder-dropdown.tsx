@@ -17,16 +17,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
-import { useLocation } from "wouter";
+import ReminderDetailDialog from "./reminder-detail-dialog";
 import type { Reminder } from "@shared/schema";
 
 interface ReminderDropdownProps {
   onCreateReminder: () => void;
+  onEditReminder?: (reminder: Reminder) => void;
 }
 
-export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownProps) {
+export default function ReminderDropdown({ onCreateReminder, onEditReminder }: ReminderDropdownProps) {
   const [open, setOpen] = useState(false);
-  const [, setLocation] = useLocation();
+  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
+  const [showDetailDialog, setShowDetailDialog] = useState(false);
 
   const { data: reminders } = useQuery<Reminder[]>({
     queryKey: ["/api/reminders"],
@@ -56,6 +58,7 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
   };
 
   return (
+    <>
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -133,7 +136,8 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
                     }
                   `}
                   onSelect={() => {
-                    setLocation(`/reminders?reminderId=${reminder.id}`);
+                    setSelectedReminder(reminder);
+                    setShowDetailDialog(true);
                   }}
                   data-testid={`reminder-${reminder.id}`}
                 >
@@ -171,5 +175,13 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
         </ScrollArea>
       </DropdownMenuContent>
     </DropdownMenu>
+    
+    <ReminderDetailDialog
+      reminder={selectedReminder}
+      open={showDetailDialog}
+      onOpenChange={setShowDetailDialog}
+      onEdit={onEditReminder}
+    />
+    </>
   );
 }

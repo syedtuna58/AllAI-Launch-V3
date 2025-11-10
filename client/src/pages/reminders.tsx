@@ -73,7 +73,7 @@ export default function Reminders() {
     retry: false,
   });
   
-  // Open specific reminder if reminderId is provided in URL
+  // Scroll to specific reminder if reminderId is provided in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const reminderId = params.get('reminderId');
@@ -81,9 +81,19 @@ export default function Reminders() {
     if (reminderId && reminders) {
       const reminder = reminders.find(r => r.id === reminderId);
       if (reminder) {
-        setEditingReminder(reminder);
-        setShowReminderForm(true);
-        // Clean up URL after opening
+        // Scroll to the reminder card
+        setTimeout(() => {
+          const element = document.querySelector(`[data-testid="reminder-card-${reminderId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Add a brief highlight effect
+            element.classList.add('ring-2', 'ring-blue-500');
+            setTimeout(() => {
+              element.classList.remove('ring-2', 'ring-blue-500');
+            }, 2000);
+          }
+        }, 100);
+        // Clean up URL after scrolling
         params.delete('reminderId');
         const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
         window.history.replaceState({}, '', newUrl);

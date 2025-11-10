@@ -36,6 +36,7 @@ export default function Header({ title }: HeaderProps) {
   const [, setLocation] = useLocation();
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showReminderForm, setShowReminderForm] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<any>(null);
   const [showMayaPrompts, setShowMayaPrompts] = useState(false);
   const [pinnedShortcuts, setPinnedShortcuts] = useState<string[]>(() => {
     const saved = localStorage.getItem('pinnedShortcuts');
@@ -180,7 +181,13 @@ export default function Header({ title }: HeaderProps) {
           <NotificationDropdown />
           
           {/* Reminders Calendar */}
-          <ReminderDropdown onCreateReminder={() => setShowReminderForm(true)} />
+          <ReminderDropdown 
+            onCreateReminder={() => setShowReminderForm(true)}
+            onEditReminder={(reminder) => {
+              setEditingReminder(reminder);
+              setShowReminderForm(true);
+            }}
+          />
           
           {/* Quick Add */}
           <Button onClick={() => setShowQuickAdd(true)} data-testid="button-quick-add">
@@ -205,17 +212,24 @@ export default function Header({ title }: HeaderProps) {
       />
 
       {/* Reminder Dialog */}
-      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+      <Dialog open={showReminderForm} onOpenChange={(open) => {
+        setShowReminderForm(open);
+        if (!open) setEditingReminder(null);
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Reminder</DialogTitle>
+            <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create New Reminder'}</DialogTitle>
           </DialogHeader>
           <ReminderForm 
+            reminder={editingReminder}
             properties={properties || []}
             entities={entities || []}
             units={units || []}
             onSubmit={(data) => createReminderMutation.mutate(data)}
-            onCancel={() => setShowReminderForm(false)}
+            onCancel={() => {
+              setShowReminderForm(false);
+              setEditingReminder(null);
+            }}
             isLoading={createReminderMutation.isPending}
           />
         </DialogContent>
