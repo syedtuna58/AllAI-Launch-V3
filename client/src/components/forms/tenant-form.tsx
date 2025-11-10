@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
 import type { Property, OwnershipEntity, Unit } from "@shared/schema";
 
 const tenantSchema = z.object({
@@ -19,8 +21,8 @@ const tenantSchema = z.object({
   tenants: z.array(z.object({
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
-    email: z.string().email("Valid email is required").optional().or(z.literal("")),
-    phone: z.string().optional(),
+    email: z.string().email("Valid email is required").min(1, "Email is required"),
+    phone: z.string().min(1, "Phone number is required"),
     emergencyContact: z.string().optional(),
     emergencyPhone: z.string().optional(),
     notes: z.string().optional(),
@@ -414,7 +416,16 @@ export default function TenantForm({ onSubmit, onCancel, isLoading, initialData 
                     </FormItem>
                   )}
                 />
+              </div>
 
+              <Alert className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-sm text-blue-800 dark:text-blue-200">
+                  Email and phone are required for communication purposes. If you'd like to use a spouse, partner, or other family member's contact information, please add them as a separate tenant for the same unit.
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name={`tenants.${index}.emergencyContact`}
