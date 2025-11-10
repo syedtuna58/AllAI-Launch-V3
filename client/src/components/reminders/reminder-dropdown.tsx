@@ -133,7 +133,7 @@ export default function ReminderDropdown({ onCreateReminder }: ReminderDropdownP
                     }
                   `}
                   onSelect={() => {
-                    setLocation('/reminders');
+                    setLocation(`/reminders?reminderId=${reminder.id}`);
                   }}
                   data-testid={`reminder-${reminder.id}`}
                 >

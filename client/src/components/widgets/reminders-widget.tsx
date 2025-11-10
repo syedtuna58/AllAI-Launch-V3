@@ -109,7 +109,7 @@ export default function RemindersWidget({ onCreateReminder }: RemindersWidgetPro
                   data-testid={`reminder-widget-${reminder.id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    setLocation('/reminders');
+                    setLocation(`/reminders?reminderId=${reminder.id}`);
                   }}
                 >
                   <div className="flex gap-2">

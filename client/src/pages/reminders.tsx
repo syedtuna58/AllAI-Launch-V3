@@ -72,6 +72,24 @@ export default function Reminders() {
     queryKey: ["/api/reminders"],
     retry: false,
   });
+  
+  // Open specific reminder if reminderId is provided in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reminderId = params.get('reminderId');
+    
+    if (reminderId && reminders) {
+      const reminder = reminders.find(r => r.id === reminderId);
+      if (reminder) {
+        setEditingReminder(reminder);
+        setShowReminderForm(true);
+        // Clean up URL after opening
+        params.delete('reminderId');
+        const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+  }, [reminders]);
 
   const { data: properties } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
