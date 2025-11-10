@@ -26,7 +26,24 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table (required for Replit Auth)
+// ============================================================================
+// MULTI-USER AUTHENTICATION & AUTHORIZATION SYSTEM
+// ============================================================================
+
+// User role enum
+export const userRoleEnum = pgEnum("user_role", ["platform_super_admin", "org_admin", "contractor", "tenant"]);
+
+// Membership status for invitations
+export const membershipStatusEnum = pgEnum("membership_status", ["invited", "active", "inactive"]);
+
+// Contractor specialty tiers (6-tier system)
+export const contractorSpecialtyTierEnum = pgEnum("contractor_specialty_tier", ["tier1", "tier2", "tier3", "tier4", "tier5", "tier6"]);
+
+// Verification types
+export const verificationTypeEnum = pgEnum("verification_type", ["email", "sms"]);
+export const verificationStatusEnum = pgEnum("verification_status", ["pending", "verified", "expired"]);
+
+// User storage table (enhanced for multi-user auth)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -35,6 +52,11 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   phone: varchar("phone"),
   bio: text("bio"),
+  // Multi-user auth fields
+  isPlatformSuperAdmin: boolean("is_platform_super_admin").default(false),
+  primaryRole: userRoleEnum("primary_role"), // Main role for the user
+  emailVerified: boolean("email_verified").default(false),
+  phoneVerified: boolean("phone_verified").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -53,12 +75,147 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Organization members
+// Organization members (enhanced with enum-backed roles and invitation status)
 export const organizationMembers = pgTable("organization_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   orgId: varchar("org_id").notNull().references(() => organizations.id),
   userId: varchar("user_id").notNull().references(() => users.id),
-  role: varchar("role").notNull().default("admin"), // admin, manager, tenant, vendor, accountant
+  orgRole: userRoleEnum("org_role").notNull().default("org_admin"), // Role within this organization
+  membershipStatus: membershipStatusEnum("membership_status").default("active"),
+  invitedBy: varchar("invited_by").references(() => users.id),
+  invitedAt: timestamp("invited_at"),
+  joinedAt: timestamp("joined_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ============================================================================
+// CONTRACTOR SYSTEM (Global Marketplace)
+// ============================================================================
+
+// Contractor Specialties - Master list of all available specialties across 6 tiers
+export const contractorSpecialties = pgTable("contractor_specialties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull().unique(), // e.g., "Plumber", "HVAC Technician"
+  tier: contractorSpecialtyTierEnum("tier").notNull(), // tier1-6
+  description: text("description"),
+  isActive: boolean("is_active").default(true),
+  displayOrder: integer("display_order").default(0), // Order within tier
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Contractor Profiles - One profile per contractor user (one-to-one with users)
+export const contractorProfiles = pgTable("contractor_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id), // One-to-one
+  bio: text("bio"),
+  isAvailable: boolean("is_available").default(true),
+  emergencyAvailable: boolean("emergency_available").default(false),
+  maxJobsPerDay: integer("max_jobs_per_day").default(3),
+  responseTimeHours: integer("response_time_hours").default(24),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User Contractor Specialties - Junction table (many-to-many: users to specialties)
+export const userContractorSpecialties = pgTable("user_contractor_specialties", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  specialtyId: varchar("specialty_id").notNull().references(() => contractorSpecialties.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Contractor-Organization Links - Track which orgs contractors have worked with
+export const contractorOrgLinks = pgTable("contractor_org_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorUserId: varchar("contractor_user_id").notNull().references(() => users.id),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  status: varchar("status").default("active"), // active, inactive
+  lastJobAt: timestamp("last_job_at"),
+  totalJobsCompleted: integer("total_jobs_completed").default(0),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_contractor_org_links_unique").on(table.contractorUserId, table.orgId).where(sql`${table.status} = 'active'`),
+]);
+
+// Favorite Contractors - Landlords mark their preferred contractors
+export const favoriteContractors = pgTable("favorite_contractors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
+  contractorUserId: varchar("contractor_user_id").notNull().references(() => users.id),
+  addedBy: varchar("added_by").notNull().references(() => users.id), // Which admin added them
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_favorite_contractors_unique").on(table.orgId, table.contractorUserId),
+]);
+
+// ============================================================================
+// VERIFICATION & SESSION MANAGEMENT
+// ============================================================================
+
+// Verification Tokens - Email and SMS verification
+export const verificationTokens = pgTable("verification_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // Nullable for pre-registration verification
+  email: varchar("email"), // For email verification
+  phone: varchar("phone"), // For SMS verification
+  type: verificationTypeEnum("type").notNull(),
+  tokenHash: varchar("token_hash").notNull(), // Hashed token for security
+  status: verificationStatusEnum("status").default("pending"),
+  expiresAt: timestamp("expires_at").notNull(),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Sessions - Long-lived refresh tokens for "remember me"
+export const userSessions = pgTable("user_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  refreshTokenHash: varchar("refresh_token_hash").notNull().unique(), // Hashed refresh token
+  expiresAt: timestamp("expires_at"), // Nullable = indefinite (as requested)
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// SMS Opt-Outs - Track users who opted out of SMS notifications
+export const smsOptOuts = pgTable("sms_opt_outs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  phone: varchar("phone").notNull().unique(),
+  userId: varchar("user_id").references(() => users.id), // Nullable if opt-out before user creation
+  reason: text("reason"),
+  optedOutAt: timestamp("opted_out_at").defaultNow(),
+});
+
+// ============================================================================
+// CONTRACTOR TEAM MANAGEMENT
+// ============================================================================
+
+// Contractor Team Members - Team members WITH their own login accounts
+export const contractorTeamMembers = pgTable("contractor_team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadContractorUserId: varchar("lead_contractor_user_id").notNull().references(() => users.id),
+  memberUserId: varchar("member_user_id").notNull().references(() => users.id),
+  role: varchar("role"), // e.g., "Assistant", "Apprentice"
+  canManageJobs: boolean("can_manage_jobs").default(false),
+  isActive: boolean("is_active").default(true),
+  invitedAt: timestamp("invited_at"),
+  joinedAt: timestamp("joined_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Contact Team Members - Team members WITHOUT login (contact info only)
+export const contactTeamMembers = pgTable("contact_team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorUserId: varchar("contractor_user_id").notNull().references(() => users.id),
+  name: varchar("name").notNull(),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  role: varchar("role"),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -229,6 +386,8 @@ export const tenantGroups = pgTable("tenant_groups", {
 export const tenants = pgTable("tenants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   groupId: varchar("group_id").references(() => tenantGroups.id),
+  // Link to user account (nullable for staged migration - tenants invited but not yet verified)
+  userId: varchar("user_id").references(() => users.id),
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
   email: varchar("email").notNull(), // Now required for omnichannel
@@ -236,6 +395,10 @@ export const tenants = pgTable("tenants", {
   emergencyContact: varchar("emergency_contact"),
   emergencyPhone: varchar("emergency_phone"),
   notes: text("notes"),
+  // Invitation tracking
+  invitedAt: timestamp("invited_at"),
+  emailVerificationSent: boolean("email_verification_sent").default(false),
+  smsVerificationSent: boolean("sms_verification_sent").default(false),
   // Archive status
   status: varchar("status").default("Active").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -358,9 +521,18 @@ export const smartCases = pgTable("smart_cases", {
   aiReasoningNotes: text("ai_reasoning_notes"), // Why Maya suggested this time
   triageConversationId: varchar("triage_conversation_id"),
   reporterUserId: varchar("reporter_user_id").references(() => users.id),
+  // Job marketplace fields
+  restrictToFavorites: boolean("restrict_to_favorites").default(false), // Only show to favorite contractors
+  postedAt: timestamp("posted_at"), // When job was posted to marketplace
+  timeoutNotificationSent: boolean("timeout_notification_sent").default(false), // 4-hour timeout notification
+  isUrgent: boolean("is_urgent").default(false), // Emergency bypass for favorites restriction
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Indexes for job marketplace performance
+  index("idx_smart_cases_org_status").on(table.orgId, table.status, table.priority, table.postedAt),
+  index("idx_smart_cases_marketplace").on(table.assignedContractorId, table.restrictToFavorites, table.postedAt).where(sql`${table.assignedContractorId} IS NULL`),
+]);
 
 // Case media
 export const caseMedia = pgTable("case_media", {
