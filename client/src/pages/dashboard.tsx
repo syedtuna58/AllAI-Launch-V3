@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +47,7 @@ export default function Dashboard() {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [showReminderForm, setShowReminderForm] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<any>(null);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -266,7 +267,13 @@ export default function Dashboard() {
 
             {/* Right Half - Reminders (Top) and Notifications (Bottom) */}
             <div className="grid grid-rows-2 gap-6 h-full">
-              <RemindersWidget onCreateReminder={() => setShowReminderForm(true)} />
+              <RemindersWidget 
+                onCreateReminder={() => setShowReminderForm(true)}
+                onEditReminder={(reminder) => {
+                  setEditingReminder(reminder);
+                  setShowReminderForm(true);
+                }}
+              />
               <NotificationsWidget />
             </div>
           </div>
@@ -274,17 +281,24 @@ export default function Dashboard() {
       </div>
 
       {/* Reminder Form Dialog */}
-      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+      <Dialog open={showReminderForm} onOpenChange={(open) => {
+        setShowReminderForm(open);
+        if (!open) setEditingReminder(null);
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Reminder</DialogTitle>
+            <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</DialogTitle>
           </DialogHeader>
           <ReminderForm 
+            reminder={editingReminder}
             properties={properties || []}
             entities={entities || []}
             units={units || []}
             onSubmit={(data) => createReminderMutation.mutate(data)}
-            onCancel={() => setShowReminderForm(false)}
+            onCancel={() => {
+              setShowReminderForm(false);
+              setEditingReminder(null);
+            }}
             isLoading={createReminderMutation.isPending}
           />
         </DialogContent>

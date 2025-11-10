@@ -44,11 +44,20 @@ export default function ReminderDropdown({ onCreateReminder, onEditReminder }: R
     r.dueAt && new Date(r.dueAt) <= now && !r.completedAt
   ) || [];
 
-  const sortedReminders = [...upcomingReminders, ...overdueReminders].sort((a, b) => {
+  // Sort overdue by oldest to newest, then upcoming by oldest to newest (matches reminders page)
+  const sortedOverdue = overdueReminders.sort((a, b) => {
     const dateA = a.dueAt ? new Date(a.dueAt).getTime() : 0;
     const dateB = b.dueAt ? new Date(b.dueAt).getTime() : 0;
-    return dateA - dateB;
+    return dateA - dateB; // oldest first
   });
+
+  const sortedUpcoming = upcomingReminders.sort((a, b) => {
+    const dateA = a.dueAt ? new Date(a.dueAt).getTime() : 0;
+    const dateB = b.dueAt ? new Date(b.dueAt).getTime() : 0;
+    return dateA - dateB; // oldest first
+  });
+
+  const sortedReminders = [...sortedOverdue, ...sortedUpcoming];
 
   const overdueCount = overdueReminders.length;
 

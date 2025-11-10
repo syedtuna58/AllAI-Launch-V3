@@ -23,6 +23,7 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [showReminderForm, setShowReminderForm] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<any>(null);
 
   const { data: allCases = [] } = useQuery<SmartCase[]>({
     queryKey: ['/api/cases'],
@@ -197,7 +198,13 @@ export default function AdminDashboard() {
 
               <div className="flex flex-col gap-6 h-[calc(100vh-28rem)] max-h-[700px]">
                 <div className="flex-1 min-h-0 overflow-hidden">
-                  <RemindersWidget onCreateReminder={() => setShowReminderForm(true)} />
+                  <RemindersWidget 
+                    onCreateReminder={() => setShowReminderForm(true)}
+                    onEditReminder={(reminder) => {
+                      setEditingReminder(reminder);
+                      setShowReminderForm(true);
+                    }}
+                  />
                 </div>
                 <div className="flex-1 min-h-0 overflow-hidden">
                   <NotificationsWidget />
@@ -215,17 +222,24 @@ export default function AdminDashboard() {
         />
       )}
 
-      <Dialog open={showReminderForm} onOpenChange={setShowReminderForm}>
+      <Dialog open={showReminderForm} onOpenChange={(open) => {
+        setShowReminderForm(open);
+        if (!open) setEditingReminder(null);
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create Reminder</DialogTitle>
+            <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</DialogTitle>
           </DialogHeader>
           <ReminderForm 
+            reminder={editingReminder}
             properties={properties || []}
             entities={entities || []}
             units={units || []}
             onSubmit={(data) => createReminderMutation.mutate(data)}
-            onCancel={() => setShowReminderForm(false)}
+            onCancel={() => {
+              setShowReminderForm(false);
+              setEditingReminder(null);
+            }}
             isLoading={createReminderMutation.isPending}
           />
         </DialogContent>
