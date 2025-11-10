@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService } from "./objectStorage";
 import { db } from "./db";
 import { users, organizationMembers, vendors, counterProposals } from "@shared/schema";
+import authRouter from "./routes/auth";
 import { eq, and, desc } from "drizzle-orm";
 import { 
   insertOrganizationSchema,
@@ -250,7 +251,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start cron jobs
   startCronJobs();
 
-  // Auth routes
+  // Multi-user auth routes
+  app.use('/api/auth', authRouter);
+
+  // Legacy auth routes (Replit Auth)
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
