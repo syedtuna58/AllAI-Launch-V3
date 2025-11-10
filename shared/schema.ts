@@ -146,9 +146,7 @@ export const favoriteContractors = pgTable("favorite_contractors", {
   addedBy: varchar("added_by").notNull().references(() => users.id), // Which admin added them
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_favorite_contractors_unique").on(table.orgId, table.contractorUserId),
-]);
+});
 
 // ============================================================================
 // VERIFICATION & SESSION MANAGEMENT
@@ -532,6 +530,21 @@ export const smartCases = pgTable("smart_cases", {
   // Indexes for job marketplace performance
   index("idx_smart_cases_org_status").on(table.orgId, table.status, table.priority, table.postedAt),
   index("idx_smart_cases_marketplace").on(table.assignedContractorId, table.restrictToFavorites, table.postedAt).where(sql`${table.assignedContractorId} IS NULL`),
+]);
+
+// Job Offers - Specific job offers to individual contractors (placed after smartCases)
+export const jobOffers = pgTable("job_offers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").notNull().references(() => smartCases.id),
+  contractorUserId: varchar("contractor_user_id").notNull().references(() => users.id),
+  offeredBy: varchar("offered_by").notNull().references(() => users.id), // Admin who offered
+  status: varchar("status").default("pending"), // pending, accepted, declined, expired
+  expiresAt: timestamp("expires_at"),
+  respondedAt: timestamp("responded_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_job_offers_contractor").on(table.contractorUserId, table.status, table.expiresAt),
 ]);
 
 // Case media
@@ -1665,6 +1678,43 @@ export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({
   tenantConfirmedAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]).optional(),
   teamId: z.string().nullable().optional(),
 });
+
+// Multi-user auth system insert schemas
+export const insertContractorSpecialtySchema = createInsertSchema(contractorSpecialties).omit({ id: true, createdAt: true });
+export const insertContractorProfileSchema = createInsertSchema(contractorProfiles).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserContractorSpecialtySchema = createInsertSchema(userContractorSpecialties).omit({ id: true, createdAt: true });
+export const insertContractorOrgLinkSchema = createInsertSchema(contractorOrgLinks).omit({ id: true, createdAt: true });
+export const insertFavoriteContractorSchema = createInsertSchema(favoriteContractors).omit({ id: true, createdAt: true });
+export const insertVerificationTokenSchema = createInsertSchema(verificationTokens).omit({ id: true, createdAt: true });
+export const insertUserSessionSchema = createInsertSchema(userSessions).omit({ id: true, createdAt: true });
+export const insertSmsOptOutSchema = createInsertSchema(smsOptOuts).omit({ id: true });
+export const insertContractorTeamMemberSchema = createInsertSchema(contractorTeamMembers).omit({ id: true, createdAt: true });
+export const insertContactTeamMemberSchema = createInsertSchema(contactTeamMembers).omit({ id: true, createdAt: true });
+export const insertJobOfferSchema = createInsertSchema(jobOffers).omit({ id: true, createdAt: true });
+
+// Multi-user auth system types
+export type ContractorSpecialty = typeof contractorSpecialties.$inferSelect;
+export type InsertContractorSpecialty = z.infer<typeof insertContractorSpecialtySchema>;
+export type ContractorProfile = typeof contractorProfiles.$inferSelect;
+export type InsertContractorProfile = z.infer<typeof insertContractorProfileSchema>;
+export type UserContractorSpecialty = typeof userContractorSpecialties.$inferSelect;
+export type InsertUserContractorSpecialty = z.infer<typeof insertUserContractorSpecialtySchema>;
+export type ContractorOrgLink = typeof contractorOrgLinks.$inferSelect;
+export type InsertContractorOrgLink = z.infer<typeof insertContractorOrgLinkSchema>;
+export type FavoriteContractor = typeof favoriteContractors.$inferSelect;
+export type InsertFavoriteContractor = z.infer<typeof insertFavoriteContractorSchema>;
+export type VerificationToken = typeof verificationTokens.$inferSelect;
+export type InsertVerificationToken = z.infer<typeof insertVerificationTokenSchema>;
+export type UserSession = typeof userSessions.$inferSelect;
+export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
+export type SmsOptOut = typeof smsOptOuts.$inferSelect;
+export type InsertSmsOptOut = z.infer<typeof insertSmsOptOutSchema>;
+export type ContractorTeamMember = typeof contractorTeamMembers.$inferSelect;
+export type InsertContractorTeamMember = z.infer<typeof insertContractorTeamMemberSchema>;
+export type ContactTeamMember = typeof contactTeamMembers.$inferSelect;
+export type InsertContactTeamMember = z.infer<typeof insertContactTeamMemberSchema>;
+export type JobOffer = typeof jobOffers.$inferSelect;
+export type InsertJobOffer = z.infer<typeof insertJobOfferSchema>;
 
 // Types for new tables
 export type UserCategory = typeof userCategories.$inferSelect;
