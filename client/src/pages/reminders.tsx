@@ -390,10 +390,10 @@ export default function Reminders() {
     if (statusFilter === "all") {
       statusMatch = true;
     } else if (statusFilter === "due") {
-      // Due means active reminders only (null status, not overdue/completed/cancelled)
-      statusMatch = !reminder.status && !isOverdue(reminder.dueAt);
+      // Due means all active reminders (includes overdue and upcoming, excludes completed/cancelled)
+      statusMatch = !reminder.status || effectiveStatus === "Overdue";
     } else if (statusFilter === "Overdue") {
-      // Overdue uses effective status (calculated or stored)
+      // Overdue only - uses effective status (calculated or stored)
       statusMatch = effectiveStatus === "Overdue";
     } else {
       // Completed, Cancelled use stored status
@@ -976,6 +976,7 @@ export default function Reminders() {
           ) : filteredReminders.length > 0 ? (
             <div className="space-y-4">
               {filteredReminders.map((reminder, index) => {
+                const effectiveStatus = getEffectiveStatus(reminder);
                 return (
                 <Card key={reminder.id} className="group hover:shadow-md transition-shadow bg-yellow-50 dark:bg-yellow-950/20" data-testid={`card-reminder-${index}`}>
                   <CardContent className="p-6">
@@ -1055,7 +1056,7 @@ export default function Reminders() {
                       </div>
                       
                       <div className="flex items-center space-x-3">
-                        {getStatusBadge(reminder.status)}
+                        {getStatusBadge(effectiveStatus)}
                         
                         {/* Edit/Delete Icons - subtle and only visible on hover */}
                         <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
