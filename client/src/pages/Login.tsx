@@ -28,11 +28,8 @@ export default function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: z.infer<typeof emailSchema>) => {
-      const res = await apiRequest('/api/auth/magic-link', {
-        method: 'POST',
-        body: data,
-      });
-      return res;
+      const res = await apiRequest('POST', '/api/auth/magic-link', data);
+      return res.json();
     },
     onSuccess: () => {
       setEmailSent(true);
