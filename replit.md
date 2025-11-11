@@ -157,9 +157,10 @@ The platform has been transformed from a single-user toggle-based role system to
 - ✅ **Super Admin Dashboard enhancements:**
   - Clickable stat cards that scroll to detailed sections (organizations, users, properties, cases)
   - Searchable and sortable data tables with scrollable containers (max-height)
-  - Sidebar streamlined to Dashboard, Inbox, Reminders only (removed Request & Calendar)
-  - Maya AI with super admin context for platform-wide insights
+  - Sidebar streamlined to Dashboard and Inbox only (removed Reminders, Request & Calendar)
+  - Maya AI with super admin context for platform-wide insights - now full-width above all tables
   - Removed org-specific widgets (Reminders/Notifications) from super admin view
+  - Full-width layout: Stats → Maya AI → Organizations table → Users table (no horizontal scrolling)
 
 **Test Accounts & Data (November 11, 2025):**
 

@@ -30,7 +30,6 @@ export default function Sidebar() {
   const superAdminNavigation = [
     { name: "Dashboard", href: "/admin-dashboard", icon: Home },
     { name: "Inbox", href: "/inbox", icon: Inbox },
-    { name: "Reminders", href: "/reminders", icon: Clock },
   ];
 
   const devToolsNavigation = [

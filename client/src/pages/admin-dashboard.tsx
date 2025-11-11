@@ -281,10 +281,21 @@ export default function AdminDashboard() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div className="lg:col-span-2">
-              {/* Organizations Section */}
-              <Card id="orgs-section" className="mb-6">
+          {/* Maya AI - Platform Scoped */}
+          <div className="mb-8">
+            <PropertyAssistant 
+              context="super_admin"
+              exampleQuestions={[
+                "How many organizations are actively using the platform?",
+                "What's the total revenue across all properties?",
+                "Which organizations have the most maintenance cases?",
+                "Show me platform-wide user growth trends"
+              ]}
+            />
+          </div>
+
+          {/* Organizations Section */}
+          <Card id="orgs-section" className="mb-8">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
@@ -392,114 +403,99 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Users Section */}
-              <Card id="users-section">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>All Users</CardTitle>
-                      <CardDescription>Recent users across all roles</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Search users..."
-                          value={userSearchTerm}
-                          onChange={(e) => setUserSearchTerm(e.target.value)}
-                          className="pl-9 w-64"
-                          data-testid="input-search-users"
-                        />
-                      </div>
-                    </div>
+          {/* Users Section */}
+          <Card id="users-section">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>All Users</CardTitle>
+                  <CardDescription>Recent users across all roles</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search users..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="pl-9 w-64"
+                      data-testid="input-search-users"
+                    />
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {usersLoading ? (
-                    <p className="text-muted-foreground">Loading users...</p>
-                  ) : filteredUsers.length === 0 ? (
-                    <p className="text-muted-foreground">No users found</p>
-                  ) : (
-                    <div className="max-h-96 overflow-auto border rounded-md">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-card z-10">
-                          <TableRow>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setUserSortBy('name')}
-                                className="hover:bg-transparent"
-                              >
-                                Name
-                                <ArrowUpDown className="ml-1 h-3 w-3" />
-                              </Button>
-                            </TableHead>
-                            <TableHead>Email</TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setUserSortBy('role')}
-                                className="hover:bg-transparent"
-                              >
-                                Role
-                                <ArrowUpDown className="ml-1 h-3 w-3" />
-                              </Button>
-                            </TableHead>
-                            <TableHead>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setUserSortBy('joined')}
-                                className="hover:bg-transparent"
-                              >
-                                Joined
-                                <ArrowUpDown className="ml-1 h-3 w-3" />
-                              </Button>
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredUsers.map((user) => (
-                            <TableRow key={user.id}>
-                              <TableCell className="font-medium">
-                                {user.firstName && user.lastName 
-                                  ? `${user.firstName} ${user.lastName}`
-                                  : user.firstName || user.email}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
-                              <TableCell>
-                                <Badge className={roleColors[user.primaryRole] || ""}>
-                                  {roleLabels[user.primaryRole] || user.primaryRole}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {format(new Date(user.createdAt), "MMM d, yyyy")}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-6">
-              {/* Maya AI - Platform Scoped */}
-              <PropertyAssistant 
-                context="super_admin"
-                exampleQuestions={[
-                  "How many organizations are actively using the platform?",
-                  "What's the total revenue across all properties?",
-                  "Which organizations have the most maintenance cases?",
-                  "Show me platform-wide user growth trends"
-                ]}
-              />
-            </div>
-          </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {usersLoading ? (
+                <p className="text-muted-foreground">Loading users...</p>
+              ) : filteredUsers.length === 0 ? (
+                <p className="text-muted-foreground">No users found</p>
+              ) : (
+                <div className="max-h-96 overflow-auto border rounded-md">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUserSortBy('name')}
+                            className="hover:bg-transparent"
+                          >
+                            Name
+                            <ArrowUpDown className="ml-1 h-3 w-3" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUserSortBy('role')}
+                            className="hover:bg-transparent"
+                          >
+                            Role
+                            <ArrowUpDown className="ml-1 h-3 w-3" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUserSortBy('joined')}
+                            className="hover:bg-transparent"
+                          >
+                            Joined
+                            <ArrowUpDown className="ml-1 h-3 w-3" />
+                          </Button>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">
+                            {user.firstName && user.lastName 
+                              ? `${user.firstName} ${user.lastName}`
+                              : user.firstName || user.email}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                          <TableCell>
+                            <Badge className={roleColors[user.primaryRole] || ""}>
+                              {roleLabels[user.primaryRole] || user.primaryRole}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(user.createdAt), "MMM d, yyyy")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </main>
       </div>
     </div>
