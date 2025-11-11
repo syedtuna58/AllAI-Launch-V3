@@ -1,249 +1,315 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle, Clock, Wrench, Bell, Calendar } from "lucide-react";
-import { LiveNotification } from "@/components/ui/live-notification";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Building2, Users, Home, AlertTriangle, Wrench } from "lucide-react";
+import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
-import CasesWidget from "@/components/widgets/cases-widget";
+import PropertyAssistant from "@/components/ai/property-assistant";
 import RemindersWidget from "@/components/widgets/reminders-widget";
 import NotificationsWidget from "@/components/widgets/notifications-widget";
-import ReminderForm from "@/components/forms/reminder-form";
-import type { SmartCase, Property, OwnershipEntity, Unit, Reminder, Notification } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+
+type PlatformStats = {
+  orgCount: number;
+  userCount: number;
+  contractorCount: number;
+  propertyCount: number;
+  openCaseCount: number;
+};
+
+type OrganizationDetail = {
+  id: string;
+  name: string;
+  ownerName: string;
+  ownerEmail: string;
+  createdAt: string;
+  _count: {
+    members: number;
+    properties: number;
+    tenants: number;
+    cases: number;
+  };
+};
+
+type UserDetail = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  primaryRole: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+};
 
 export default function AdminDashboard() {
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
-  const [showReminderForm, setShowReminderForm] = useState(false);
-  const [editingReminder, setEditingReminder] = useState<any>(null);
 
-  const { data: allCases = [] } = useQuery<SmartCase[]>({
-    queryKey: ['/api/cases'],
-    enabled: true
-  });
-
-  const { data: properties } = useQuery<Property[]>({
-    queryKey: ["/api/properties"],
-    retry: false,
-  });
-
-  const { data: entities } = useQuery<OwnershipEntity[]>({
-    queryKey: ["/api/entities"],
-    retry: false,
-  });
-
-  const { data: units } = useQuery<Unit[]>({
-    queryKey: ["/api/units"],
-    retry: false,
-  });
-
-  const { data: reminders } = useQuery<Reminder[]>({
-    queryKey: ["/api/reminders"],
-    retry: false,
-  });
-
-  const { data: notifications } = useQuery<Notification[]>({
-    queryKey: ["/api/notifications"],
-    retry: false,
-  });
-
-  const unassignedCases = allCases.filter(c => !c.assignedContractorId);
-  const urgentCases = allCases.filter(c => c.priority && ['High', 'Urgent'].includes(c.priority));
-  const newCases = allCases.filter(c => c.status === 'New');
-  
-  const now = new Date();
-  const overdueReminders = reminders?.filter(r => 
-    r.dueAt && new Date(r.dueAt) <= now && !r.completedAt
-  ) || [];
-  
-  const unreadNotifications = notifications?.filter(n => !n.isRead) || [];
-
-  const createReminderMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/reminders", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
-      setShowReminderForm(false);
-      toast({
-        title: "Success",
-        description: "Reminder created successfully",
-      });
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error as Error)) {
+  // Redirect non-platform-admins
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      if (user.primaryRole !== "platform_super_admin") {
         toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
+          title: "Access Denied",
+          description: "Platform admin access required",
           variant: "destructive",
         });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
+        setLocation("/dashboard");
         return;
       }
+    }
+  }, [user, isLoading, isAuthenticated, setLocation, toast]);
+
+  // Redirect to home if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
       toast({
-        title: "Error",
-        description: "Failed to create reminder",
+        title: "Unauthorized",
+        description: "Please log in to continue",
         variant: "destructive",
       });
-    },
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, toast]);
+
+  const { data: stats, isLoading: statsLoading } = useQuery<PlatformStats>({
+    queryKey: ["/api/admin/stats"],
+    retry: false,
   });
 
+  const { data: organizations = [], isLoading: orgsLoading } = useQuery<OrganizationDetail[]>({
+    queryKey: ["/api/admin/organizations"],
+    retry: false,
+  });
+
+  const { data: users = [], isLoading: usersLoading } = useQuery<UserDetail[]>({
+    queryKey: ["/api/admin/users"],
+    retry: false,
+  });
+
+  if (isLoading || !isAuthenticated) {
+    return null;
+  }
+
+  const roleColors: Record<string, string> = {
+    platform_super_admin: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+    org_admin: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    property_owner: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    contractor: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+    tenant: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
+  };
+
+  const roleLabels: Record<string, string> = {
+    platform_super_admin: "Platform Admin",
+    org_admin: "Landlord",
+    property_owner: "Property Owner",
+    contractor: "Contractor",
+    tenant: "Tenant",
+  };
+
   return (
-    <div className="min-h-screen bg-background flex" data-testid="page-admin-dashboard">
+    <div className="flex h-screen bg-background" data-testid="page-admin-dashboard">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Header title="Admin Dashboard" />
+      
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title="Platform Admin Dashboard" subtitle="Welcome back, Platform Admin" />
+        
+        <main className="flex-1 overflow-auto p-6 bg-muted/30">
+          {/* System-Wide Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <Card data-testid="card-total-orgs">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Organizations</p>
+                    <p className="text-3xl font-bold">{stats?.orgCount || 0}</p>
+                  </div>
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                    <Building2 className="h-6 w-6 text-blue-600 dark:text-blue-200" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto space-y-6">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground" data-testid="text-admin-dashboard-title">
-                  Admin Dashboard
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  Monitor and manage maintenance cases, contractors, and system performance
-                </p>
-              </div>
+            <Card data-testid="card-total-users">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Users</p>
+                    <p className="text-3xl font-bold">{stats?.userCount || 0}</p>
+                  </div>
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                    <Users className="h-6 w-6 text-purple-600 dark:text-purple-200" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-total-properties">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Properties</p>
+                    <p className="text-3xl font-bold">{stats?.propertyCount || 0}</p>
+                  </div>
+                  <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+                    <Home className="h-6 w-6 text-green-600 dark:text-green-200" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-open-cases">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Active Cases</p>
+                    <p className="text-3xl font-bold">{stats?.openCaseCount || 0}</p>
+                  </div>
+                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                    <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-200" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-contractors">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Contractors</p>
+                    <p className="text-3xl font-bold">{stats?.contractorCount || 0}</p>
+                  </div>
+                  <div className="p-3 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                    <Wrench className="h-6 w-6 text-orange-600 dark:text-orange-200" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2">
+              {/* Organizations Section */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>All Organizations</CardTitle>
+                  <CardDescription>Overview of all organizations in the platform</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {orgsLoading ? (
+                    <p className="text-muted-foreground">Loading organizations...</p>
+                  ) : organizations.length === 0 ? (
+                    <p className="text-muted-foreground">No organizations found</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Organization</TableHead>
+                          <TableHead>Owner</TableHead>
+                          <TableHead className="text-center">Properties</TableHead>
+                          <TableHead className="text-center">Tenants</TableHead>
+                          <TableHead className="text-center">Cases</TableHead>
+                          <TableHead>Created</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {organizations.map((org) => (
+                          <TableRow key={org.id}>
+                            <TableCell className="font-medium">{org.name}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{org.ownerName}</div>
+                                <div className="text-muted-foreground">{org.ownerEmail}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">{org._count.properties}</TableCell>
+                            <TableCell className="text-center">{org._count.tenants}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant={org._count.cases > 0 ? "default" : "secondary"}>
+                                {org._count.cases}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {format(new Date(org.createdAt), "MMM d, yyyy")}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Users Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Users</CardTitle>
+                  <CardDescription>Recent users across all roles</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {usersLoading ? (
+                    <p className="text-muted-foreground">Loading users...</p>
+                  ) : users.length === 0 ? (
+                    <p className="text-muted-foreground">No users found</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Joined</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell className="font-medium">
+                              {user.firstName && user.lastName 
+                                ? `${user.firstName} ${user.lastName}`
+                                : user.firstName || user.email}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+                            <TableCell>
+                              <Badge className={roleColors[user.primaryRole] || ""}>
+                                {roleLabels[user.primaryRole] || user.primaryRole}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {format(new Date(user.createdAt), "MMM d, yyyy")}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <Card 
-                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
-                onClick={() => setLocation('/maintenance')}
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Maintenance</CardTitle>
-                  <Wrench className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-cases">
-                    {allCases.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Active maintenance cases
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
-                onClick={() => setLocation('/maintenance')}
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Unassigned</CardTitle>
-                  <Wrench className="h-4 w-4 text-orange-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600" data-testid="text-unassigned-cases">
-                    {unassignedCases.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Need contractor assignment
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
-                onClick={() => setLocation('/reminders')}
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Reminders</CardTitle>
-                  <Calendar className="h-4 w-4 text-blue-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600" data-testid="text-reminders">
-                    {overdueReminders.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Overdue items
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card 
-                className="cursor-pointer hover:bg-accent transition-colors active:scale-[0.98]"
-              >
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Notifications</CardTitle>
-                  <Bell className="h-4 w-4 text-purple-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600" data-testid="text-notifications">
-                    {unreadNotifications.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Unread messages
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="h-[calc(100vh-28rem)] max-h-[700px]">
-                <CasesWidget />
-              </div>
-
-              <div className="flex flex-col gap-6 h-[calc(100vh-28rem)] max-h-[700px]">
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <RemindersWidget 
-                    onCreateReminder={() => setShowReminderForm(true)}
-                    onEditReminder={(reminder) => {
-                      setEditingReminder(reminder);
-                      setShowReminderForm(true);
-                    }}
-                  />
-                </div>
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <NotificationsWidget />
-                </div>
-              </div>
+            <div className="space-y-6">
+              {/* Maya AI - Platform Scoped */}
+              <PropertyAssistant />
+              
+              {/* Reminders Widget */}
+              <RemindersWidget />
+              
+              {/* Notifications Widget */}
+              <NotificationsWidget />
             </div>
           </div>
         </main>
       </div>
-
-      {user && (
-        <LiveNotification
-          userRole="admin"
-          userId={user.id}
-        />
-      )}
-
-      <Dialog open={showReminderForm} onOpenChange={(open) => {
-        setShowReminderForm(open);
-        if (!open) setEditingReminder(null);
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingReminder ? 'Edit Reminder' : 'Create Reminder'}</DialogTitle>
-          </DialogHeader>
-          <ReminderForm 
-            reminder={editingReminder}
-            properties={properties || []}
-            entities={entities || []}
-            units={units || []}
-            onSubmit={(data) => createReminderMutation.mutate(data)}
-            onCancel={() => {
-              setShowReminderForm(false);
-              setEditingReminder(null);
-            }}
-            isLoading={createReminderMutation.isPending}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

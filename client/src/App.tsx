@@ -50,9 +50,11 @@ function RoleBasedHome() {
     return <Redirect to="/tenant-dashboard-new" />;
   } else if (user?.primaryRole === 'contractor') {
     return <Redirect to="/contractor-dashboard" />;
+  } else if (user?.primaryRole === 'platform_super_admin') {
+    return <Redirect to="/admin-dashboard" />;
   }
   
-  // Platform admins, landlords, and property owners go to main dashboard
+  // Landlords and property owners go to main dashboard
   return <Redirect to="/dashboard" />;
 }
 
@@ -101,7 +103,7 @@ function Router() {
           <Route path="/contractor-legacy-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
           <Route path="/contractor-schedule" component={ContractorSchedule} />
-          <Route path="/admin-legacy-dashboard" component={AdminDashboard} />
+          <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin-calendar" component={AdminCalendar} />
           <Route path="/expenses" component={Expenses} />
           <Route path="/revenue" component={Revenue} />
