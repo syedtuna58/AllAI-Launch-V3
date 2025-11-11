@@ -161,6 +161,11 @@ The platform has been transformed from a single-user toggle-based role system to
   - Maya AI with super admin context for platform-wide insights - now full-width above all tables
   - Removed org-specific widgets (Reminders/Notifications) from super admin view
   - Full-width layout: Stats → Maya AI → Organizations table → Users table (no horizontal scrolling)
+- ✅ **Auto-Approval Settings Enhancement:**
+  - Single-active constraint: Only one approval policy can be active at any time
+  - Backend enforcement: Activating a policy automatically deactivates all others for that organization
+  - Frontend notifications: Toast warnings and informational text explain the constraint
+  - Settings menu simplified: Only landlords (org_admin) can access Approval Settings
 
 **Test Accounts & Data (November 11, 2025):**
 
