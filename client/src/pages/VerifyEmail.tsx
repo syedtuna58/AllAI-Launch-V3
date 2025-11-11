@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { queryClient } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +9,13 @@ export default function VerifyEmail() {
   const [, setLocation] = useLocation();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
+  const hasVerified = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate verification in React Strict Mode
+    if (hasVerified.current) return;
+    hasVerified.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
 
