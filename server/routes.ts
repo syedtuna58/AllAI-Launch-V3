@@ -5666,6 +5666,16 @@ Which property is this for? Let me know and I'll get the right person on it:`;
       const { insertApprovalPolicySchema } = await import("@shared/schema");
       const validatedData = insertApprovalPolicySchema.partial().parse(req.body);
       
+      // SINGLE-ACTIVE CONSTRAINT: If activating this policy, deactivate all others first
+      if (validatedData.isActive === true) {
+        const allPolicies = await storage.getApprovalPolicies(org.id);
+        for (const otherPolicy of allPolicies) {
+          if (otherPolicy.id !== req.params.id && otherPolicy.isActive) {
+            await storage.updateApprovalPolicy(otherPolicy.id, { isActive: false });
+          }
+        }
+      }
+      
       const policy = await storage.updateApprovalPolicy(req.params.id, validatedData);
       res.json(policy);
     } catch (error: any) {
