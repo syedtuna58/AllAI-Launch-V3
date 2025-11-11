@@ -91,38 +91,42 @@ export default function Sidebar() {
               <User className="h-4 w-4 mr-2" />
               Edit Profile
             </DropdownMenuItem>
-            <DropdownMenuItem 
-              onSelect={(e) => {
-                e.preventDefault();
-                setShowSettingsMenu(!showSettingsMenu);
-              }}
-              data-testid="menu-settings"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-              <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showSettingsMenu ? 'rotate-180' : ''}`} />
-            </DropdownMenuItem>
-            {showSettingsMenu && (
+            {currentRole !== 'platform_super_admin' && (
               <>
-                <DropdownMenuItem onClick={() => setLocation('/channel-settings')} className="pl-8" data-testid="menu-channel-settings">
-                  Channel Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLocation('/approval-settings')} className="pl-8" data-testid="menu-approval-settings">
-                  Approval Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLocation('/categories')} className="pl-8" data-testid="menu-categories">
-                  Categories
-                </DropdownMenuItem>
                 <DropdownMenuItem 
-                  onClick={() => setDevModeEnabled(!devModeEnabled)}
-                  className="pl-8 flex items-center justify-between"
-                  data-testid="menu-dev-mode"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setShowSettingsMenu(!showSettingsMenu);
+                  }}
+                  data-testid="menu-settings"
                 >
-                  <span>Dev Mode</span>
-                  <div className={`w-8 h-4 rounded-full transition-colors ${devModeEnabled ? 'bg-primary' : 'bg-muted'}`}>
-                    <div className={`w-3 h-3 rounded-full bg-white mt-0.5 transition-transform ${devModeEnabled ? 'ml-4' : 'ml-0.5'}`} />
-                  </div>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                  <ChevronDown className={`h-4 w-4 ml-auto transition-transform ${showSettingsMenu ? 'rotate-180' : ''}`} />
                 </DropdownMenuItem>
+                {showSettingsMenu && (
+                  <>
+                    <DropdownMenuItem onClick={() => setLocation('/channel-settings')} className="pl-8" data-testid="menu-channel-settings">
+                      Channel Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setLocation('/approval-settings')} className="pl-8" data-testid="menu-approval-settings">
+                      Approval Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setLocation('/categories')} className="pl-8" data-testid="menu-categories">
+                      Categories
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setDevModeEnabled(!devModeEnabled)}
+                      className="pl-8 flex items-center justify-between"
+                      data-testid="menu-dev-mode"
+                    >
+                      <span>Dev Mode</span>
+                      <div className={`w-8 h-4 rounded-full transition-colors ${devModeEnabled ? 'bg-primary' : 'bg-muted'}`}>
+                        <div className={`w-3 h-3 rounded-full bg-white mt-0.5 transition-transform ${devModeEnabled ? 'ml-4' : 'ml-0.5'}`} />
+                      </div>
+                    </DropdownMenuItem>
+                  </>
+                )}
               </>
             )}
             <DropdownMenuSeparator />
