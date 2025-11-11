@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate, useLocation } from 'wouter';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,6 @@ const emailSchema = z.object({
 
 export default function Login() {
   const [emailSent, setEmailSent] = useState(false);
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const form = useForm({

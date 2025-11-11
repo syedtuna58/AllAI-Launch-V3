@@ -2,10 +2,7 @@ import crypto from 'crypto';
 import { db } from '../db';
 import { verificationTokens, users, smsOptOuts } from '@shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
-
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
+import { getTwilioClient, getTwilioFromPhoneNumber } from './twilioClient';
 
 interface SendSMSParams {
   to: string;
@@ -26,25 +23,22 @@ async function sendSMS({ to, message, isEmergency = false }: SendSMSParams): Pro
     }
   }
 
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
-    console.warn('⚠️ Twilio not configured. SMS would be sent to:', to);
-    console.log('Message:', message);
-    return false;
-  }
-
   try {
-    const twilio = (await import('twilio')).default;
-    const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+    const client = await getTwilioClient();
+    const fromPhoneNumber = await getTwilioFromPhoneNumber();
     
     await client.messages.create({
       body: message,
-      from: TWILIO_PHONE_NUMBER,
+      from: fromPhoneNumber,
       to,
     });
     
+    console.log(`✅ SMS sent successfully to ${to}`);
     return true;
   } catch (error) {
     console.error('Failed to send SMS:', error);
+    console.warn('⚠️ SMS sending failed. Message would be sent to:', to);
+    console.log('Message:', message);
     return false;
   }
 }

@@ -99,4 +99,4 @@ localPort = 44507
 externalPort = 8099
 
 [agent]
-integrations = ["javascript_openai:1.0.0", "javascript_log_in_with_replit:1.0.0", "google-calendar:1.0.0", "javascript_database:1.0.0"]
+integrations = ["javascript_openai:1.0.0", "javascript_log_in_with_replit:1.0.0", "google-calendar:1.0.0", "javascript_database:1.0.0", "twilio:1.0.0"]

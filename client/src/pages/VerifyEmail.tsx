@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 
 export default function VerifyEmail() {
   const [location] = useLocation();
-  const navigate = useNavigate();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -36,15 +35,15 @@ export default function VerifyEmail() {
           // Redirect based on role
           setTimeout(() => {
             if (data.user.isPlatformSuperAdmin) {
-              navigate('/admin-dashboard');
+              window.location.href = '/admin-dashboard';
             } else if (data.user.role === 'org_admin') {
-              navigate('/dashboard');
+              window.location.href = '/dashboard';
             } else if (data.user.role === 'contractor') {
-              navigate('/contractor-dashboard');
+              window.location.href = '/contractor-dashboard';
             } else if (data.user.role === 'tenant') {
-              navigate('/tenant-dashboard');
+              window.location.href = '/tenant-dashboard';
             } else {
-              navigate('/dashboard');
+              window.location.href = '/dashboard';
             }
           }, 2000);
         } else {
@@ -57,7 +56,7 @@ export default function VerifyEmail() {
         setStatus('error');
         setErrorMessage('Failed to verify email');
       });
-  }, [location, navigate]);
+  }, [location]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
