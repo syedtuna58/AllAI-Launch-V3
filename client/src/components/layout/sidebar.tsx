@@ -27,6 +27,12 @@ export default function Sidebar() {
     { name: "Reminders", href: "/reminders", icon: Clock },
   ];
 
+  const superAdminNavigation = [
+    { name: "Dashboard", href: "/admin-dashboard", icon: Home },
+    { name: "Inbox", href: "/inbox", icon: Inbox },
+    { name: "Reminders", href: "/reminders", icon: Clock },
+  ];
+
   const devToolsNavigation = [
     { name: "AI Prompt Tester", href: "/prompt-tester", icon: TestTube2 },
     { name: "Maya Chat Tester", href: "/maya-tester", icon: MessageCircle },
@@ -46,7 +52,9 @@ export default function Sidebar() {
     { name: "Reminders", href: "/reminders", icon: Bell },
   ];
 
-  let navigation = currentRole === 'admin' 
+  let navigation = currentRole === 'platform_super_admin'
+    ? superAdminNavigation
+    : currentRole === 'admin' || currentRole === 'org_admin' || currentRole === 'property_owner'
     ? adminNavigation 
     : currentRole === 'contractor'
     ? contractorNavigation

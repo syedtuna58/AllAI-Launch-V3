@@ -3547,12 +3547,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { question, context, conversationHistory = [] } = req.body;
       const userId = req.user.claims.sub;
       
-      // Get user's organization (same pattern as other routes)
-      const org = await storage.getUserOrganization(userId);
-      if (!org) {
-        return res.status(404).json({ message: "Organization not found" });
+      // Check if user is super admin
+      const currentUser = await storage.getUserById(userId);
+      const isSuperAdmin = currentUser?.primaryRole === 'platform_super_admin' && context === 'super_admin';
+
+      let orgId: string | null = null;
+      
+      // Get user's organization if not super admin
+      if (!isSuperAdmin) {
+        const org = await storage.getUserOrganization(userId);
+        if (!org) {
+          return res.status(404).json({ message: "Organization not found" });
+        }
+        orgId = org.id;
       }
-      const orgId = org.id;
 
       if (!question?.trim()) {
         return res.status(400).json({ message: "Question is required" });
@@ -3569,16 +3577,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         apiKey: process.env.OPENAI_API_KEY 
       });
 
-      // Gather property data for context (including leases for rent mapping)
-      const [properties, units, tenantGroups, cases, reminders, transactions, leases] = await Promise.all([
-        storage.getProperties(orgId),
-        storage.getAllUnits(orgId),
-        storage.getTenantGroups(orgId),
-        storage.getSmartCases(orgId),
-        storage.getReminders(orgId),
-        storage.getTransactions(orgId),
-        storage.getLeases(orgId)
-      ]);
+      let properties, units, tenantGroups, cases, reminders, transactions, leases;
+
+      if (isSuperAdmin) {
+        // Gather platform-wide data for super admin
+        [properties, cases] = await Promise.all([
+          db.query.properties.findMany({ limit: 100 }),
+          db.query.smartCases.findMany({ limit: 100 })
+        ]);
+        units = [];
+        tenantGroups = [];
+        reminders = [];
+        transactions = [];
+        leases = [];
+      } else {
+        // Gather org-specific data for regular users
+        [properties, units, tenantGroups, cases, reminders, transactions, leases] = await Promise.all([
+          storage.getProperties(orgId!),
+          storage.getAllUnits(orgId!),
+          storage.getTenantGroups(orgId!),
+          storage.getSmartCases(orgId!),
+          storage.getReminders(orgId!),
+          storage.getTransactions(orgId!),
+          storage.getLeases(orgId!)
+        ]);
+      }
 
 
       // Filter August 2025 transactions for AI context
@@ -3678,7 +3701,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         questionText.includes(keyword)
       );
       
-      if (isFinancialQuestion) {
+      if (context === "super_admin") {
+        contextualGuidance = `
+
+SUPER ADMIN FOCUS: You are answering questions for a platform super administrator who oversees ALL organizations and users on the platform. Provide platform-wide insights, cross-organization analytics, system health metrics, and high-level strategic recommendations.
+
+KEY RESPONSIBILITIES:
+- Monitor platform-wide statistics (total organizations, users, properties, active cases, contractors)
+- Identify trends across multiple organizations
+- Flag system-wide issues or anomalies
+- Provide strategic insights for platform growth
+- Track user engagement and platform adoption metrics
+
+IMPORTANT: You have access to aggregate data across ALL organizations. Do NOT limit your analysis to a single organization. Provide cross-org comparisons and platform-wide insights.`;
+        
+        fewShotExample = `
+
+EXAMPLE OUTPUT for super admin question "How many organizations are actively using the platform?":
+{
+  "tldr": "3 organizations active with 6 total users. Strong engagement across landlords and property owners.",
+  "bullets": [
+    "Organization 1: 2 properties, 3 tenants, 5 active maintenance cases",
+    "Organization 2: 1 property, 1 tenant, 2 active cases", 
+    "Organization 3 (Property Owner): 1 property, 0 tenants (personal home), 2 cases",
+    "Platform health: Good engagement, no critical issues detected"
+  ],
+  "actions": [
+    {"label": "Review Organization 1 for potential upsell opportunities", "due": "This week"},
+    {"label": "Check contractor coverage across all organizations", "due": "Next week"},
+    {"label": "Analyze platform usage patterns for optimization", "due": "This month"}
+  ]
+}`;
+      } else if (isFinancialQuestion) {
         contextualGuidance = `
 
 FINANCIAL ANALYSIS FOCUS: For return calculations, use "downPayment" field as the primary cash investment. Cash-on-cash return = (Annual Net Cash Flow ÷ Cash Invested) × 100. Net cash flow = rental income - mortgage payments - expenses. If only downPayment is available, use it as Cash Invested; otherwise include closing costs and initial repairs when available.`;
