@@ -109,7 +109,7 @@ export default function LandingPage() {
             <CardHeader>
               <Wrench className="h-12 w-12 text-primary mb-2" />
               <CardTitle>Contractor</CardTitle>
-              <CardDescription>Free marketplace - thousands of immediate needs</CardDescription>
+              <CardDescription>Open marketplace – thousands of real-time jobs</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
