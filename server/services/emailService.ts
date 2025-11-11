@@ -87,6 +87,15 @@ export async function sendMagicLink(email: string): Promise<{ success: boolean; 
       `,
     });
 
+    // If email wasn't sent (SendGrid not configured), log the magic link for testing
+    if (!emailSent) {
+      console.log('\n🔑 ========================================');
+      console.log('📧 Magic link email would be sent to:', email);
+      console.log('🔗 COPY THIS MAGIC LINK:');
+      console.log(magicLink);
+      console.log('========================================\n');
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Error sending magic link:', error);
