@@ -8,9 +8,12 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
+          <div className="inline-block bg-primary text-primary-foreground px-4 py-2 rounded-full mb-4 font-semibold">
+            100% FREE - No Hidden Costs
+          </div>
           <h1 className="text-5xl font-bold mb-4">Your Home, Simplified</h1>
           <p className="text-xl text-muted-foreground mb-8">
-            Property management for homeowners, landlords, and renters
+            Free property management for homeowners, landlords, renters, and contractors
           </p>
           <div className="flex items-center justify-center gap-2 mb-4">
             <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
@@ -62,13 +65,20 @@ export default function LandingPage() {
             </CardHeader>
             <CardContent>
               <Link href="/login">
-                <Button className="w-full" data-testid="button-landlord-login">
-                  Get Started / Login
+                <Button className="w-full" size="lg" data-testid="button-landlord-login">
+                  Get Started Free
                 </Button>
               </Link>
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                Magic link authentication
-              </p>
+              <Link href="/login">
+                <Button variant="outline" className="w-full mt-2" data-testid="button-landlord-login-existing">
+                  Login
+                </Button>
+              </Link>
+              <ul className="text-xs text-muted-foreground mt-4 space-y-1">
+                <li>✓ Manage properties & tenants</li>
+                <li>✓ Track maintenance cases</li>
+                <li>✓ Invite tenants automatically</li>
+              </ul>
             </CardContent>
           </Card>
 
@@ -80,11 +90,18 @@ export default function LandingPage() {
             </CardHeader>
             <CardContent>
               <Link href="/login">
-                <Button className="w-full" data-testid="button-tenant-login">Tenant Login</Button>
+                <Button className="w-full" size="lg" data-testid="button-tenant-login">Get Started Free</Button>
               </Link>
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                Invited by your landlord
-              </p>
+              <Link href="/login">
+                <Button variant="outline" className="w-full mt-2" data-testid="button-tenant-login-existing">
+                  Login
+                </Button>
+              </Link>
+              <ul className="text-xs text-muted-foreground mt-4 space-y-1">
+                <li>✓ Submit maintenance requests</li>
+                <li>✓ Track case status</li>
+                <li>✓ Approve appointments</li>
+              </ul>
             </CardContent>
           </Card>
 
@@ -92,17 +109,22 @@ export default function LandingPage() {
             <CardHeader>
               <Wrench className="h-12 w-12 text-primary mb-2" />
               <CardTitle>Contractor</CardTitle>
-              <CardDescription>Access job marketplace and manage tasks</CardDescription>
+              <CardDescription>Free marketplace - thousands of immediate needs</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <Link href="/contractor-signup">
-                  <Button className="w-full" data-testid="button-contractor-signup">Sign Up</Button>
+                  <Button className="w-full" size="lg" data-testid="button-contractor-signup">Get Started Free</Button>
                 </Link>
                 <Link href="/login">
                   <Button variant="outline" className="w-full" data-testid="button-contractor-login">Login</Button>
                 </Link>
               </div>
+              <ul className="text-xs text-muted-foreground mt-4 space-y-1">
+                <li>✓ Access job marketplace</li>
+                <li>✓ No cold leads - real needs</li>
+                <li>✓ Direct client connections</li>
+              </ul>
             </CardContent>
           </Card>
         </div>
