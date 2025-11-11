@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
-import { useMutation } from '@tanstack/react-query';
+import { queryClient } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,20 +32,25 @@ export default function VerifyEmail() {
           
           setStatus('success');
           
+          // Invalidate auth query to trigger refetch
+          queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
+          
           // Redirect based on role
           setTimeout(() => {
             if (data.user.isPlatformSuperAdmin) {
               window.location.href = '/admin-dashboard';
             } else if (data.user.role === 'org_admin') {
-              window.location.href = '/dashboard';
+              window.location.href = '/landlord-dashboard';
+            } else if (data.user.role === 'property_owner') {
+              window.location.href = '/property-owner-dashboard';
             } else if (data.user.role === 'contractor') {
               window.location.href = '/contractor-dashboard';
             } else if (data.user.role === 'tenant') {
-              window.location.href = '/tenant-dashboard';
+              window.location.href = '/tenant-dashboard-new';
             } else {
               window.location.href = '/dashboard';
             }
-          }, 2000);
+          }, 1000);
         } else {
           setStatus('error');
           setErrorMessage(data.error || 'Verification failed');
