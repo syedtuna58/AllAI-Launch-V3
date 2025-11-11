@@ -187,6 +187,17 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Check session-based auth first (new multi-user system with magic links)
+  if (req.session?.userId) {
+    // Normalize session user to match expected req.user.claims.sub format
+    // This ensures downstream route handlers work without modification
+    if (!req.user) {
+      req.user = { claims: { sub: req.session.userId } } as any;
+    }
+    return next();
+  }
+
+  // Fallback to legacy Replit Auth (Passport.js OIDC)
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user?.expires_at) {
