@@ -13,9 +13,6 @@ import VerifyEmail from "@/pages/VerifyEmail";
 import ContractorSignup from "@/pages/ContractorSignup";
 import PropertyOwnerSignup from "@/pages/PropertyOwnerSignup";
 import ContractorMarketplaceDashboard from "@/pages/ContractorMarketplaceDashboard";
-import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
-import LandlordDashboard from "@/pages/LandlordDashboard";
-import PropertyOwnerDashboard from "@/pages/PropertyOwnerDashboard";
 import TenantDashboardNew from "@/pages/TenantDashboardNew";
 import Dashboard from "@/pages/dashboard";
 import Properties from "@/pages/properties";
@@ -53,11 +50,9 @@ function RoleBasedHome() {
     return <Redirect to="/tenant-dashboard-new" />;
   } else if (currentRole === 'contractor') {
     return <Redirect to="/contractor-dashboard" />;
-  } else if (currentRole === 'admin') {
-    return <Redirect to="/landlord-dashboard" />;
   }
   
-  return <Dashboard />;
+  return <Redirect to="/dashboard" />;
 }
 
 function Router() {
@@ -98,15 +93,13 @@ function Router() {
           <Route path="/tenants" component={Tenants} />
           <Route path="/maintenance" component={Maintenance} />
           <Route path="/tenant-request" component={TenantRequest} />
+          <Route path="/dashboard" component={Dashboard} />
           <Route path="/tenant-dashboard" component={TenantDashboard} />
           <Route path="/tenant-dashboard-new" component={TenantDashboardNew} />
-          <Route path="/landlord-dashboard" component={LandlordDashboard} />
-          <Route path="/property-owner-dashboard" component={PropertyOwnerDashboard} />
           <Route path="/contractor-dashboard" component={ContractorMarketplaceDashboard} />
           <Route path="/contractor-legacy-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
           <Route path="/contractor-schedule" component={ContractorSchedule} />
-          <Route path="/admin-dashboard" component={PlatformAdminDashboard} />
           <Route path="/admin-legacy-dashboard" component={AdminDashboard} />
           <Route path="/admin-calendar" component={AdminCalendar} />
           <Route path="/expenses" component={Expenses} />

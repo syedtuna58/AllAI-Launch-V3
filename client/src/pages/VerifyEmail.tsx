@@ -42,17 +42,15 @@ export default function VerifyEmail() {
           
           // Redirect based on role
           setTimeout(() => {
-            if (data.user.isPlatformSuperAdmin) {
-              window.location.href = '/admin-dashboard';
-            } else if (data.user.role === 'org_admin') {
-              window.location.href = '/landlord-dashboard';
-            } else if (data.user.role === 'property_owner') {
-              window.location.href = '/property-owner-dashboard';
-            } else if (data.user.role === 'contractor') {
+            const role = data.user.primaryRole;
+            
+            // Contractors and tenants have dedicated dashboards
+            if (role === 'contractor') {
               window.location.href = '/contractor-dashboard';
-            } else if (data.user.role === 'tenant') {
+            } else if (role === 'tenant') {
               window.location.href = '/tenant-dashboard-new';
             } else {
+              // Platform admins, landlords, and property owners use the main dashboard
               window.location.href = '/dashboard';
             }
           }, 1000);

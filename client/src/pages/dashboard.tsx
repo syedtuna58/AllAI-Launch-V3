@@ -42,12 +42,40 @@ type RentCollectionStatus = {
   }>;
 };
 
+// Role-based visibility helper functions
+function canViewTenants(userRole: string | undefined): boolean {
+  return userRole === "platform_super_admin" || userRole === "org_admin";
+}
+
+function canViewEntities(userRole: string | undefined): boolean {
+  return userRole === "platform_super_admin" || userRole === "org_admin";
+}
+
+function canViewFinancials(userRole: string | undefined): boolean {
+  // All dashboard users can see their own financials
+  return true;
+}
+
 export default function Dashboard() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<any>(null);
+
+  // Redirect contractors and tenants to their dedicated dashboards
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      if (user.primaryRole === "contractor") {
+        setLocation("/contractor-dashboard");
+        return;
+      }
+      if (user.primaryRole === "tenant") {
+        setLocation("/tenant-dashboard-new");
+        return;
+      }
+    }
+  }, [user, isLoading, isAuthenticated, setLocation]);
 
   // Redirect to home if not authenticated
   useEffect(() => {
@@ -72,6 +100,7 @@ export default function Dashboard() {
   const { data: rentCollection, isLoading: rentLoading } = useQuery<RentCollectionStatus>({
     queryKey: ["/api/dashboard/rent-collection"],
     retry: false,
+    enabled: canViewTenants(user?.primaryRole),
   });
 
   const { data: properties } = useQuery<Property[]>({
@@ -82,6 +111,7 @@ export default function Dashboard() {
   const { data: entities } = useQuery<OwnershipEntity[]>({
     queryKey: ["/api/entities"],
     retry: false,
+    enabled: canViewEntities(user?.primaryRole),
   });
 
   const { data: units } = useQuery<Unit[]>({
@@ -292,7 +322,7 @@ export default function Dashboard() {
           <ReminderForm 
             reminder={editingReminder}
             properties={properties || []}
-            entities={entities || []}
+            entities={canViewEntities(user?.primaryRole) ? (entities || []) : []}
             units={units || []}
             onSubmit={(data) => createReminderMutation.mutate(data)}
             onCancel={() => {
