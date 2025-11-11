@@ -113,12 +113,22 @@ The platform has been transformed from a single-user toggle-based role system to
 - Data scoping prevents contractors from accessing portfolio data
 - Role-based query filters ensure data isolation
 
+**Completed Features:**
+- ✅ Platform Admin dashboard (`/admin`) - View all orgs, users, system stats
+- ✅ Landlord (Org Admin) dashboard (`/landlord`) - Properties, tenants, cases, favorites
+- ✅ Contractor dashboard (`/contractor`) - Marketplace, assigned jobs, proposals
+- ✅ Tenant dashboard (`/tenant`) - Unit view, case submission, appointment approval
+- ✅ Tenant auto-invite flow - Landlord invites tenant → email verification → auto-account creation
+- ✅ Maya AI role-scoped data access - Contractors see job-only, no portfolio data
+- ✅ Security fixes: Token replay prevention, contractor assignment validation
+
+**Security Validations Completed:**
+- Tenant verification tokens bound to email/tenantId (prevents replay attacks)
+- Contractor Maya scoping validates assignment before returning job context
+- RBAC middleware validates orgRole membership to prevent cross-org leakage
+- Data scoping utilities prevent contractors from accessing portfolio/financial data
+
 **Pending Work:**
-- Platform Admin dashboard
-- Landlord (Org Admin) dashboard  
-- Tenant dashboard
-- Tenant auto-invite flow
-- Maya AI role-scoped data access
-- Contractor team management
-- Remove/update legacy RoleContext toggle system
-- Comprehensive end-to-end testing
+- Contractor team management (optional)
+- Remove legacy RoleContext toggle system
+- Comprehensive systematic testing of all user flows
