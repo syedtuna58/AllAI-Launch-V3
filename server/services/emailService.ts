@@ -15,7 +15,7 @@ interface SendEmailParams {
   html: string;
 }
 
-async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
+export async function sendEmail({ to, subject, html }: SendEmailParams): Promise<boolean> {
   if (!SENDGRID_API_KEY) {
     console.warn('⚠️ SendGrid not configured. Email would be sent to:', to);
     console.log('Subject:', subject);

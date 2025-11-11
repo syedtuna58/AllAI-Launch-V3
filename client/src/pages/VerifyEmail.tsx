@@ -1,0 +1,103 @@
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'wouter';
+import { useMutation } from '@tanstack/react-query';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+export default function VerifyEmail() {
+  const [location] = useLocation();
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.split('?')[1]);
+    const token = params.get('token');
+
+    if (!token) {
+      setStatus('error');
+      setErrorMessage('No verification token provided');
+      return;
+    }
+
+    // Verify token
+    fetch(`/api/auth/verify-email?token=${token}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          // Store session
+          localStorage.setItem('refreshToken', data.session.refreshToken);
+          localStorage.setItem('sessionId', data.session.sessionId);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          
+          setStatus('success');
+          
+          // Redirect based on role
+          setTimeout(() => {
+            if (data.user.isPlatformSuperAdmin) {
+              navigate('/admin-dashboard');
+            } else if (data.user.role === 'org_admin') {
+              navigate('/dashboard');
+            } else if (data.user.role === 'contractor') {
+              navigate('/contractor-dashboard');
+            } else if (data.user.role === 'tenant') {
+              navigate('/tenant-dashboard');
+            } else {
+              navigate('/dashboard');
+            }
+          }, 2000);
+        } else {
+          setStatus('error');
+          setErrorMessage(data.error || 'Verification failed');
+        }
+      })
+      .catch(error => {
+        console.error('Verification error:', error);
+        setStatus('error');
+        setErrorMessage('Failed to verify email');
+      });
+  }, [location, navigate]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Email Verification</CardTitle>
+          <CardDescription>
+            {status === 'verifying' && 'Verifying your email...'}
+            {status === 'success' && 'Email verified successfully!'}
+            {status === 'error' && 'Verification failed'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-8">
+            {status === 'verifying' && (
+              <>
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                <p className="text-sm text-muted-foreground">Please wait...</p>
+              </>
+            )}
+            
+            {status === 'success' && (
+              <>
+                <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
+                <p className="text-sm text-muted-foreground">Redirecting to your dashboard...</p>
+              </>
+            )}
+            
+            {status === 'error' && (
+              <>
+                <XCircle className="h-12 w-12 text-destructive mb-4" />
+                <p className="text-sm text-muted-foreground mb-4">{errorMessage}</p>
+                <Button onClick={() => navigate('/login')} data-testid="button-back-to-login">
+                  Back to Login
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

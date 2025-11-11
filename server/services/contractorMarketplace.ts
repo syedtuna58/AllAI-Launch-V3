@@ -179,50 +179,64 @@ export async function acceptCase(contractorUserId: string, caseId: string): Prom
   }
   
   try {
-    // Assign case to contractor
-    await db.update(smartCases)
-      .set({ 
-        assignedContractorId: contractorUserId,
-        status: 'in_progress'
-      })
-      .where(and(
-        eq(smartCases.id, caseId),
-        isNull(smartCases.assignedContractorId) // Double-check it's still unassigned
-      ));
-    
-    // Create/update contractor-org link
-    const caseItem = await db.query.smartCases.findFirst({
-      where: eq(smartCases.id, caseId),
+    // Use transaction to prevent race condition
+    const result = await db.transaction(async (tx) => {
+      // Assign case to contractor with WHERE clause ensuring it's still unassigned
+      const updated = await tx.update(smartCases)
+        .set({ 
+          assignedContractorId: contractorUserId,
+          status: 'in_progress'
+        })
+        .where(and(
+          eq(smartCases.id, caseId),
+          isNull(smartCases.assignedContractorId) // Prevents double-assign race
+        ))
+        .returning();
+      
+      // If no rows updated, case was already assigned
+      if (updated.length === 0) {
+        throw new Error('Case already assigned to another contractor');
+      }
+      
+      const caseItem = updated[0];
+      
+      // Create/update contractor-org link
+      if (caseItem.orgId) {
+        const existingLink = await tx.query.contractorOrgLinks.findFirst({
+          where: and(
+            eq(contractorOrgLinks.contractorUserId, contractorUserId),
+            eq(contractorOrgLinks.orgId, caseItem.orgId)
+          ),
+        });
+        
+        if (existingLink) {
+          await tx.update(contractorOrgLinks)
+            .set({ 
+              lastJobAt: new Date(),
+              status: 'active',
+              totalJobsCompleted: existingLink.totalJobsCompleted + 1
+            })
+            .where(eq(contractorOrgLinks.id, existingLink.id));
+        } else {
+          await tx.insert(contractorOrgLinks).values({
+            contractorUserId,
+            orgId: caseItem.orgId,
+            status: 'active',
+            lastJobAt: new Date(),
+            totalJobsCompleted: 1,
+          });
+        }
+      }
+      
+      return caseItem;
     });
     
-    if (caseItem?.orgId) {
-      const existingLink = await db.query.contractorOrgLinks.findFirst({
-        where: and(
-          eq(contractorOrgLinks.contractorUserId, contractorUserId),
-          eq(contractorOrgLinks.orgId, caseItem.orgId)
-        ),
-      });
-      
-      if (existingLink) {
-        await db.update(contractorOrgLinks)
-          .set({ 
-            lastJobAt: new Date(),
-            status: 'active'
-          })
-          .where(eq(contractorOrgLinks.id, existingLink.id));
-      } else {
-        await db.insert(contractorOrgLinks).values({
-          contractorUserId,
-          orgId: caseItem.orgId,
-          status: 'active',
-          lastJobAt: new Date(),
-        });
-      }
-    }
-    
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error accepting case:', error);
+    if (error.message?.includes('already assigned')) {
+      return { success: false, error: 'This case was just accepted by another contractor' };
+    }
     return { success: false, error: 'Failed to accept case' };
   }
 }

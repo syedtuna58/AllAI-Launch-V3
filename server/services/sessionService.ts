@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { db } from '../db';
 import { userSessions, users } from '@shared/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { eq, and, gt, lt } from 'drizzle-orm';
 
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
 
@@ -102,9 +102,9 @@ export async function revokeAllUserSessions(userId: string): Promise<boolean> {
 export async function cleanupExpiredSessions(): Promise<number> {
   try {
     const result = await db.delete(userSessions)
-      .where(and(
-        gt(userSessions.expiresAt, new Date()) // Remove expired sessions
-      ));
+      .where(
+        lt(userSessions.expiresAt, new Date()) // Remove sessions where expiresAt < now
+      );
     
     return result.rowCount || 0;
   } catch (error) {

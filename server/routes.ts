@@ -6,6 +6,7 @@ import { ObjectStorageService } from "./objectStorage";
 import { db } from "./db";
 import { users, organizationMembers, vendors, counterProposals } from "@shared/schema";
 import authRouter from "./routes/auth";
+import contractorRouter from "./routes/contractor";
 import { eq, and, desc } from "drizzle-orm";
 import { 
   insertOrganizationSchema,
@@ -253,6 +254,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Multi-user auth routes
   app.use('/api/auth', authRouter);
+  
+  // Contractor routes
+  app.use('/api/contractor', contractorRouter);
+
+  // Contractor specialties - Public route for signup
+  app.get('/api/contractor-specialties', async (req, res) => {
+    try {
+      const specialties = await db.query.contractorSpecialties.findMany({
+        where: eq((await import('@shared/schema')).contractorSpecialties.isActive, true),
+        orderBy: (specialties, { asc }) => [asc(specialties.tier), asc(specialties.displayOrder), asc(specialties.name)],
+      });
+      res.json(specialties);
+    } catch (error) {
+      console.error('Error fetching contractor specialties:', error);
+      res.status(500).json({ message: 'Failed to fetch specialties' });
+    }
+  });
 
   // Legacy auth routes (Replit Auth)
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {

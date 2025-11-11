@@ -7,6 +7,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { RoleProvider, useRole } from "@/contexts/RoleContext";
 import { DevModeProvider } from "@/contexts/DevModeContext";
 import Landing from "@/pages/landing";
+import LandingPage from "@/pages/LandingPage";
+import Login from "@/pages/Login";
+import VerifyEmail from "@/pages/VerifyEmail";
+import ContractorSignup from "@/pages/ContractorSignup";
+import ContractorMarketplaceDashboard from "@/pages/ContractorMarketplaceDashboard";
 import Dashboard from "@/pages/dashboard";
 import Properties from "@/pages/properties";
 import Entities from "@/pages/entities";
@@ -68,8 +73,12 @@ function Router() {
     <Switch>
       {!isAuthenticated ? (
         <>
-          <Route path="/" component={Landing} />
-          <Route component={Landing} />
+          <Route path="/" component={LandingPage} />
+          <Route path="/landing" component={Landing} />
+          <Route path="/login" component={Login} />
+          <Route path="/contractor-signup" component={ContractorSignup} />
+          <Route path="/auth/verify-email" component={VerifyEmail} />
+          <Route component={LandingPage} />
         </>
       ) : (
         <>
@@ -84,7 +93,8 @@ function Router() {
           <Route path="/maintenance" component={Maintenance} />
           <Route path="/tenant-request" component={TenantRequest} />
           <Route path="/tenant-dashboard" component={TenantDashboard} />
-          <Route path="/contractor-dashboard" component={ContractorDashboard} />
+          <Route path="/contractor-dashboard" component={ContractorMarketplaceDashboard} />
+          <Route path="/contractor-legacy-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
           <Route path="/contractor-schedule" component={ContractorSchedule} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
