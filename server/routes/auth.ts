@@ -312,6 +312,31 @@ router.post('/logout', async (req, res) => {
   }
 });
 
+// Logout current session
+router.post('/logout', async (req, res) => {
+  try {
+    // Get session ID from request
+    const sessionId = req.session?.sessionId;
+    
+    if (sessionId) {
+      await revokeSession(sessionId);
+    }
+    
+    // Destroy Express session
+    req.session?.destroy((err) => {
+      if (err) {
+        console.error('Session destroy error:', err);
+      }
+    });
+    
+    res.clearCookie('connect.sid');
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ success: false, error: 'Logout failed' });
+  }
+});
+
 // Logout all sessions
 router.post('/logout-all', async (req, res) => {
   try {

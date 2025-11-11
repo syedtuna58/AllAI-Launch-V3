@@ -20,11 +20,23 @@ export default function LandlordDashboard() {
     queryKey: ['/api/landlord/tenants'],
   });
 
-  const handleLogout = () => {
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('sessionId');
-    localStorage.removeItem('user');
-    window.location.href = '/';
+  const handleLogout = async () => {
+    try {
+      // Call logout endpoint to destroy session
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Clear localStorage
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('sessionId');
+      localStorage.removeItem('user');
+      // Redirect to landing page
+      window.location.href = '/';
+    }
   };
 
   const activeCases = cases?.filter(c => c.status !== 'completed' && c.status !== 'cancelled') || [];
