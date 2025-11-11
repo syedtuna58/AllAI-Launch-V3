@@ -151,8 +151,54 @@ The platform has been transformed from a single-user toggle-based role system to
 - 5-phase testing approach: Platform Admin → Landlord → Property Owner → Tenant → Contractor → Security
 - Quick start guide included (1-hour complete testing path)
 
+**Recent Updates (November 11, 2025 - Latest):**
+- ✅ **Legacy role toggle system REMOVED** - Deleted RoleContext, all components now use useAuth().user.primaryRole
+- ✅ **Test accounts created** - 6 test users with realistic data for systematic testing
+
+**Test Accounts & Data (November 11, 2025):**
+
+1. **Platform Super Admin**
+   - Email: `admin@test.com`
+   - Role: platform_super_admin
+   - Expected: See all orgs, all system data, full dashboard access
+   - Test: Verify can view data from all organizations
+
+2. **Landlord 1 (Org A - Test Org A - Landlord 1)**
+   - Email: `landlord1@test.com`
+   - Role: org_admin
+   - Data: 2 properties (Maple Street Apartments, Oak Avenue House), 5 units, 3 tenants (Sarah, Michael, Emma), 5 cases
+   - Expected: Dashboard shows properties/tenants/cases/entities sections
+   - Test: Verify ONLY sees Org A data, NO access to Org B
+
+3. **Landlord 2 (Org B - Test Org B - Landlord 2)**
+   - Email: `landlord2@test.com`
+   - Role: org_admin
+   - Data: 1 property (Pine Ridge Condo), 1 unit, 1 tenant (Jessica), 2 cases
+   - Expected: Dashboard shows properties/tenants/cases/entities sections
+   - Test: Verify ONLY sees Org B data, NO access to Org A (data isolation check)
+
+4. **Property Owner (Personal Org - Test Property Owner Personal)**
+   - Email: `propertyowner@test.com`
+   - Role: property_owner
+   - Data: 1 property (My Personal Home), 0 tenants, 2 cases (HVAC, roof leak)
+   - Expected: Dashboard shows properties/cases/contractors but NO tenants/entities sections
+   - Test: Verify simplified view without tenant/entity complexity
+
+5. **Contractor 1 (Plumber)**
+   - Email: `contractor1@test.com`
+   - Role: contractor
+   - Specialty: Plumber (Tier 1)
+   - Expected: Redirects to /contractor-dashboard, sees only plumbing jobs in marketplace
+   - Test: Maya AI scoped to job context only (NO portfolio/financial data)
+
+6. **Contractor 2 (HVAC Technician)**
+   - Email: `contractor2@test.com`
+   - Role: contractor
+   - Specialty: HVAC Technician (Tier 1)
+   - Expected: Redirects to /contractor-dashboard, sees only HVAC jobs in marketplace
+   - Test: Verify specialty-based filtering works correctly
+
 **Pending Work:**
 - Contractor team management (optional)
-- Remove legacy RoleContext toggle system
-- Execute comprehensive systematic testing per TESTING_PLAN.md
+- Execute comprehensive systematic testing with test accounts
 - Consider refactoring PropertyOwnerSignup to use react-hook-form pattern for consistency
