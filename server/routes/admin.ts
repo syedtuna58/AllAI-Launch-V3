@@ -17,8 +17,8 @@ router.get('/stats', requireAuth, requirePlatformAdmin, async (req: Authenticate
     const [openCaseCount] = await db.select({ count: count() })
       .from(smartCases)
       .where(and(
-        ne(smartCases.status, 'Completed'),
-        ne(smartCases.status, 'Cancelled')
+        ne(smartCases.status, 'Resolved'),
+        ne(smartCases.status, 'Closed')
       ));
 
     res.json({
@@ -39,7 +39,6 @@ router.get('/organizations', requireAuth, requirePlatformAdmin, async (req: Auth
   try {
     const orgs = await db.query.organizations.findMany({
       with: {
-        members: true,
         properties: true,
       },
       orderBy: (orgs, { desc }) => [desc(orgs.createdAt)],
@@ -65,7 +64,6 @@ router.get('/organizations', requireAuth, requirePlatformAdmin, async (req: Auth
         ownerName: owner ? `${owner.firstName || ''} ${owner.lastName || ''}`.trim() || owner.email : 'Unknown',
         ownerEmail: owner?.email,
         _count: {
-          members: org.members?.length || 0,
           properties: org.properties?.length || 0,
           cases: caseCount.count,
           tenants: tenantCount.count,
