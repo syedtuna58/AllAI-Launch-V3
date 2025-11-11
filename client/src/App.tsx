@@ -11,6 +11,7 @@ import LandingPage from "@/pages/LandingPage";
 import Login from "@/pages/Login";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ContractorSignup from "@/pages/ContractorSignup";
+import PropertyOwnerSignup from "@/pages/PropertyOwnerSignup";
 import ContractorMarketplaceDashboard from "@/pages/ContractorMarketplaceDashboard";
 import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
 import LandlordDashboard from "@/pages/LandlordDashboard";
@@ -80,6 +81,7 @@ function Router() {
           <Route path="/" component={LandingPage} />
           <Route path="/landing" component={Landing} />
           <Route path="/login" component={Login} />
+          <Route path="/property-owner-signup" component={PropertyOwnerSignup} />
           <Route path="/contractor-signup" component={ContractorSignup} />
           <Route path="/auth/verify-email" component={VerifyEmail} />
           <Route component={LandingPage} />
