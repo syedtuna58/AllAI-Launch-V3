@@ -17,6 +17,7 @@ const emailSchema = z.object({
 
 export default function Login() {
   const [emailSent, setEmailSent] = useState(false);
+  const [devMagicLink, setDevMagicLink] = useState<string | null>(null);
   const { toast } = useToast();
 
   const form = useForm({
@@ -31,8 +32,11 @@ export default function Login() {
       const res = await apiRequest('POST', '/api/auth/magic-link', data);
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setEmailSent(true);
+      if (data.devMagicLink) {
+        setDevMagicLink(data.devMagicLink);
+      }
       toast({
         title: 'Magic link sent!',
         description: 'Check your email for a link to sign in.',
@@ -90,10 +94,27 @@ export default function Login() {
               <p className="text-sm text-muted-foreground mt-2">
                 Click the link in the email to sign in.
               </p>
+              
+              {devMagicLink && (
+                <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <p className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                    🔧 DEV MODE - Testing Shortcut
+                  </p>
+                  <a href={devMagicLink}>
+                    <Button variant="default" size="sm" className="w-full" data-testid="button-dev-login">
+                      Click Here to Login (Skip Email)
+                    </Button>
+                  </a>
+                </div>
+              )}
+              
               <Button
                 variant="outline"
                 className="mt-4"
-                onClick={() => setEmailSent(false)}
+                onClick={() => {
+                  setEmailSent(false);
+                  setDevMagicLink(null);
+                }}
                 data-testid="button-try-again"
               >
                 Try a different email

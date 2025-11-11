@@ -96,7 +96,11 @@ export async function sendMagicLink(email: string): Promise<{ success: boolean; 
       console.log('========================================\n');
     }
 
-    return { success: true };
+    // Return magic link in dev mode for easy testing
+    return { 
+      success: true, 
+      devMagicLink: process.env.NODE_ENV === 'development' && !emailSent ? magicLink : undefined 
+    };
   } catch (error) {
     console.error('Error sending magic link:', error);
     return { success: false, error: 'Failed to send magic link' };

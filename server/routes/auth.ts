@@ -21,7 +21,11 @@ router.post('/magic-link', async (req, res) => {
     const result = await sendMagicLink(email);
     
     if (result.success) {
-      res.json({ success: true, message: 'Magic link sent to your email' });
+      res.json({ 
+        success: true, 
+        message: 'Magic link sent to your email',
+        devMagicLink: result.devMagicLink  // Only present in dev mode when email fails
+      });
     } else {
       res.status(500).json({ success: false, error: result.error });
     }
