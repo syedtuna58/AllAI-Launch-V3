@@ -66,10 +66,18 @@ router.get('/verify-email', async (req, res) => {
       rememberMe: true,
     });
     
-    // Set session on request so Express creates session cookie
+    // Set session on request and save it
     if (req.session) {
       req.session.userId = user.id;
       req.session.sessionId = session.sessionId;
+      
+      // Save session explicitly to ensure cookie is created
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
     }
     
     res.json({
