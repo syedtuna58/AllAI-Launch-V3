@@ -13,8 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import PropertyAssistant from "@/components/ai/property-assistant";
-import RemindersWidget from "@/components/widgets/reminders-widget";
-import NotificationsWidget from "@/components/widgets/notifications-widget";
 
 type PlatformStats = {
   orgCount: number;
@@ -500,12 +498,6 @@ export default function AdminDashboard() {
                   "Show me platform-wide user growth trends"
                 ]}
               />
-              
-              {/* Reminders Widget */}
-              <RemindersWidget />
-              
-              {/* Notifications Widget */}
-              <NotificationsWidget />
             </div>
           </div>
         </main>

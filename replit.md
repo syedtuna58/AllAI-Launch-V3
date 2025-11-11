@@ -154,6 +154,12 @@ The platform has been transformed from a single-user toggle-based role system to
 **Recent Updates (November 11, 2025 - Latest):**
 - ✅ **Legacy role toggle system REMOVED** - Deleted RoleContext, all components now use useAuth().user.primaryRole
 - ✅ **Test accounts created** - 6 test users with realistic data for systematic testing
+- ✅ **Super Admin Dashboard enhancements:**
+  - Clickable stat cards that scroll to detailed sections (organizations, users, properties, cases)
+  - Searchable and sortable data tables with scrollable containers (max-height)
+  - Sidebar streamlined to Dashboard, Inbox, Reminders only (removed Request & Calendar)
+  - Maya AI with super admin context for platform-wide insights
+  - Removed org-specific widgets (Reminders/Notifications) from super admin view
 
 **Test Accounts & Data (November 11, 2025):**
 
