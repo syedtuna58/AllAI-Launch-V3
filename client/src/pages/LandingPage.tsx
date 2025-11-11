@@ -24,7 +24,7 @@ export default function LandingPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          <Card className="border-2 border-primary shadow-lg">
+          <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <Home className="h-12 w-12 text-primary mb-2" />
