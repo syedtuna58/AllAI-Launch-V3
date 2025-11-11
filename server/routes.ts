@@ -9,7 +9,9 @@ import authRouter from "./routes/auth";
 import contractorRouter from "./routes/contractor";
 import adminRouter from "./routes/admin";
 import landlordRouter from "./routes/landlord";
+import landlordInvitesRouter from "./routes/landlord-invites";
 import tenantRouter from "./routes/tenant";
+import tenantAuthRouter from "./routes/tenant-auth";
 import { eq, and, desc } from "drizzle-orm";
 import { 
   insertOrganizationSchema,
@@ -257,6 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Multi-user auth routes
   app.use('/api/auth', authRouter);
+  app.use('/auth', tenantAuthRouter);
   
   // Contractor routes
   app.use('/api/contractor', contractorRouter);
@@ -266,6 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Landlord routes
   app.use('/api/landlord', landlordRouter);
+  app.use('/api/landlord', landlordInvitesRouter);
   
   // Tenant routes
   app.use('/api/tenant', tenantRouter);

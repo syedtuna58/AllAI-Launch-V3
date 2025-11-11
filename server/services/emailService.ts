@@ -131,32 +131,67 @@ export async function verifyEmailToken(token: string): Promise<{ success: boolea
   }
 }
 
-export async function sendTenantInvite(email: string, tenantId: string, propertyName: string): Promise<boolean> {
+export async function createVerificationToken(email: string, type: 'email' | 'sms', userId: string | null): Promise<string> {
   const token = crypto.randomBytes(32).toString('hex');
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
   await db.insert(verificationTokens).values({
+    userId,
     email,
-    type: 'email',
+    type,
     tokenHash,
     status: 'pending',
     expiresAt,
   });
 
-  const inviteLink = `${BASE_URL}/tenant-signup?token=${token}&tenantId=${tenantId}`;
-  
-  return await sendEmail({
-    to: email,
-    subject: `You've been invited to access ${propertyName}`,
-    html: `
-      <h2>Welcome to Property Management</h2>
-      <p>You've been invited to access your tenant portal for ${propertyName}.</p>
-      <p>Click the link below to set up your account:</p>
-      <p><a href="${inviteLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Set Up Account</a></p>
-      <p>Or copy and paste this link:</p>
-      <p>${inviteLink}</p>
-      <p>This link will expire in 7 days.</p>
-    `,
-  });
+  return token;
+}
+
+interface TenantInviteParams {
+  to: string;
+  tenantName: string;
+  propertyName: string;
+  unitNumber: string;
+  tenantId: string;
+}
+
+export async function sendTenantInvite({
+  to,
+  tenantName,
+  propertyName,
+  unitNumber,
+  tenantId,
+}: TenantInviteParams): Promise<{ success: boolean; error?: string }> {
+  try {
+    const token = await createVerificationToken(to, 'email', null);
+    const inviteLink = `${BASE_URL}/auth/verify-tenant?token=${token}&tenantId=${tenantId}`;
+
+    const emailSent = await sendEmail({
+      to,
+      subject: `Welcome to ${propertyName} - Set Up Your Tenant Account`,
+      html: `
+        <h2>Welcome to ${propertyName}!</h2>
+        <p>Hi ${tenantName},</p>
+        <p>You've been invited to set up your tenant portal account for ${unitNumber} at ${propertyName}.</p>
+        <p>With your tenant portal, you can:</p>
+        <ul>
+          <li>Submit maintenance requests</li>
+          <li>View your unit details</li>
+          <li>Approve appointment times</li>
+          <li>Communicate with property management</li>
+        </ul>
+        <p><strong><a href="${inviteLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Activate Your Account</a></strong></p>
+        <p>Or copy and paste this link:</p>
+        <p>${inviteLink}</p>
+        <p>This link will expire in 24 hours.</p>
+        <p>If you have any questions, please contact your property manager.</p>
+      `,
+    });
+
+    return { success: emailSent };
+  } catch (error) {
+    console.error('Error sending tenant invite:', error);
+    return { success: false, error: 'Failed to send invite email' };
+  }
 }
