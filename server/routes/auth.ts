@@ -295,23 +295,6 @@ router.get('/session', async (req, res) => {
   }
 });
 
-// Logout
-router.post('/logout', async (req, res) => {
-  try {
-    const schema = z.object({
-      sessionId: z.string(),
-    });
-    
-    const { sessionId } = schema.parse(req.body);
-    
-    await revokeSession(sessionId);
-    
-    res.json({ success: true, message: 'Logged out successfully' });
-  } catch (error) {
-    res.status(400).json({ success: false, error: 'Invalid request' });
-  }
-});
-
 // Logout current session
 router.post('/logout', async (req, res) => {
   try {
