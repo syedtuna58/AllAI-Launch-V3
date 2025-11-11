@@ -6,12 +6,12 @@ import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function VerifyEmail() {
-  const [location] = useLocation();
+  const [, setLocation] = useLocation();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    const params = new URLSearchParams(location.split('?')[1]);
+    const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
 
     if (!token) {
@@ -56,7 +56,7 @@ export default function VerifyEmail() {
         setStatus('error');
         setErrorMessage('Failed to verify email');
       });
-  }, [location]);
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -89,7 +89,7 @@ export default function VerifyEmail() {
               <>
                 <XCircle className="h-12 w-12 text-destructive mb-4" />
                 <p className="text-sm text-muted-foreground mb-4">{errorMessage}</p>
-                <Button onClick={() => navigate('/login')} data-testid="button-back-to-login">
+                <Button onClick={() => setLocation('/login')} data-testid="button-back-to-login">
                   Back to Login
                 </Button>
               </>
