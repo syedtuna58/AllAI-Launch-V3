@@ -74,3 +74,51 @@ Preferred communication style: Simple, everyday language.
 - **date-fns**: Date utility library.
 - **clsx**: Conditional className utility.
 - **memoizee**: Function memoization.
+
+## Integration Notes
+
+### Twilio Integration (✅ CONFIGURED)
+- **Status**: Active via Replit Connector
+- **Purpose**: SMS verification codes for contractor/tenant signup, emergency notifications
+- **Implementation**: `server/services/twilioClient.ts` using Replit's connector API
+- **Usage**: Automatic phone verification in multi-user authentication flows
+
+### SendGrid Integration (❌ NOT CONFIGURED)
+- **Status**: User dismissed integration setup
+- **Alternative**: Email service (`server/services/emailService.ts`) uses graceful fallback - logs email content without sending
+- **Future**: Can be configured later via Replit SendGrid connector or manual API key
+- **Note**: Magic link authentication and tenant invites will log emails to console until configured
+
+## Recent Changes (November 2025)
+
+### Multi-User Authentication System Transformation
+The platform has been transformed from a single-user toggle-based role system to a full multi-user authentication platform supporting four distinct user types with separate logins and role-based access control.
+
+**User Types:**
+1. **Platform Super Admin** (owners) - Full system access, view all orgs
+2. **Org Admin** (landlords) - Property management, tenant invites, contractor favorites
+3. **Contractor** - Job marketplace access with specialty-based filtering
+4. **Tenant** - Unit view, case submission, appointment approval
+
+**Key Features Implemented:**
+- Email/SMS verification flows with magic links and verification codes
+- Session management with indefinite refresh tokens (localStorage-based)
+- RBAC middleware with data scoping utilities
+- Contractor marketplace with 60 specialties across 6 tiers
+- 4-hour timeout notifications for hands-off landlords on non-urgent cases
+- Cron jobs for timeout checks (30 min) and session cleanup (daily 4 AM)
+
+**Security Considerations:**
+- Refresh tokens stored in localStorage (high-severity XSS risk - acceptable for MVP, should migrate to httpOnly cookies + short-lived access tokens before production)
+- Data scoping prevents contractors from accessing portfolio data
+- Role-based query filters ensure data isolation
+
+**Pending Work:**
+- Platform Admin dashboard
+- Landlord (Org Admin) dashboard  
+- Tenant dashboard
+- Tenant auto-invite flow
+- Maya AI role-scoped data access
+- Contractor team management
+- Remove/update legacy RoleContext toggle system
+- Comprehensive end-to-end testing

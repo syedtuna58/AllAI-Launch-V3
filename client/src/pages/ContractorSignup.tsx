@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useLocation } from 'wouter';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ export default function ContractorSignup() {
   const [phone, setPhone] = useState<string>('');
   const [selectedSpecialties, setSelectedSpecialties] = useState<Set<string>>(new Set());
   const [expandedTiers, setExpandedTiers] = useState<Set<string>>(new Set(['tier1']));
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   // Fetch specialties
@@ -160,7 +161,7 @@ export default function ContractorSignup() {
         title: 'Welcome!',
         description: 'Your contractor account is ready.',
       });
-      navigate('/contractor-dashboard');
+      setLocation('/contractor-dashboard');
     },
     onError: () => {
       toast({
