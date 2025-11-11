@@ -138,6 +138,14 @@ The platform has been transformed from a single-user toggle-based role system to
 - ✅ Property owner favorites use correct schema fields (contractorUserId)
 - ✅ Data scoping utilities prevent contractors from accessing portfolio/financial data
 
+**Landing Page Market Positioning (November 11, 2025):**
+- ✅ **Property Owners prioritized** - Featured first with "Popular" badge, dedicated signup page
+- ✅ Hero section repositioned: "Your Home, Simplified" targets homeowner market
+- ✅ User type order: Property Owners → Landlords → Tenants → Contractors
+- ✅ Platform Admin hidden from public view (direct URL only)
+- ✅ Property Owner signup page (`/property-owner-signup`) with email verification
+- Business rationale: Property Owners = largest addressable market (millions of homeowners)
+
 **Testing Status:**
 - 📋 Comprehensive testing plan created in `TESTING_PLAN.md`
 - 5-phase testing approach: Platform Admin → Landlord → Property Owner → Tenant → Contractor → Security
@@ -147,3 +155,4 @@ The platform has been transformed from a single-user toggle-based role system to
 - Contractor team management (optional)
 - Remove legacy RoleContext toggle system
 - Execute comprehensive systematic testing per TESTING_PLAN.md
+- Consider refactoring PropertyOwnerSignup to use react-hook-form pattern for consistency
