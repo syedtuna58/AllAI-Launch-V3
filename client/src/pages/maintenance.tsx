@@ -30,7 +30,6 @@ import type { SmartCase, Property, OwnershipEntity, Unit, PredictiveInsight } fr
 import { format, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import PropertyAssistant from "@/components/ai/property-assistant";
-import { useRole } from "@/contexts/RoleContext";
 import { TimePicker15Min } from "@/components/ui/time-picker-15min";
 import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
@@ -161,8 +160,8 @@ const proposeThreeSlotsSchema = z.object({
 
 export default function Maintenance() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
-  const { currentRole: role } = useRole();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const role = user?.primaryRole;
   const [, navigate] = useLocation();
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);

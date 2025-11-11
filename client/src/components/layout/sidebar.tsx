@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useRole } from "@/contexts/RoleContext";
 import { useDevMode } from "@/contexts/DevModeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +11,7 @@ import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, C
 export default function Sidebar() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
-  const { currentRole } = useRole();
+  const currentRole = user?.primaryRole;
   const { devModeEnabled, setDevModeEnabled } = useDevMode();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);

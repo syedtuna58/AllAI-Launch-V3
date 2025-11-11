@@ -4,7 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
-import { RoleProvider, useRole } from "@/contexts/RoleContext";
 import { DevModeProvider } from "@/contexts/DevModeContext";
 import Landing from "@/pages/landing";
 import LandingPage from "@/pages/LandingPage";
@@ -44,14 +43,16 @@ import ChannelSettings from "@/pages/channel-settings";
 import NotFound from "@/pages/not-found";
 
 function RoleBasedHome() {
-  const { currentRole } = useRole();
+  const { user } = useAuth();
   
-  if (currentRole === 'tenant') {
+  // Redirect based on authenticated user's actual role
+  if (user?.primaryRole === 'tenant') {
     return <Redirect to="/tenant-dashboard-new" />;
-  } else if (currentRole === 'contractor') {
+  } else if (user?.primaryRole === 'contractor') {
     return <Redirect to="/contractor-dashboard" />;
   }
   
+  // Platform admins, landlords, and property owners go to main dashboard
   return <Redirect to="/dashboard" />;
 }
 
@@ -121,15 +122,11 @@ function Router() {
 }
 
 function AppWithProviders() {
-  const { user } = useAuth();
-  
   return (
-    <RoleProvider defaultRole="admin" userId={user?.id}>
-      <DevModeProvider>
-        <Toaster />
-        <Router />
-      </DevModeProvider>
-    </RoleProvider>
+    <DevModeProvider>
+      <Toaster />
+      <Router />
+    </DevModeProvider>
   );
 }
 

@@ -11,7 +11,6 @@ import MayaQuickPromptsModal from "@/components/modals/maya-quick-prompts-modal"
 import ReminderForm from "@/components/forms/reminder-form";
 import NotificationDropdown from "@/components/notifications/notification-dropdown";
 import ReminderDropdown from "@/components/reminders/reminder-dropdown";
-import { RoleSwitcher } from "@/components/role-switcher";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { Plus, Bot, DollarSign, TrendingUp, Inbox, Receipt, Calculator, MessageSquare, Clock } from "lucide-react";
@@ -174,9 +173,6 @@ export default function Header({ title }: HeaderProps) {
             </Tooltip>
           </TooltipProvider>
 
-          {/* Role Switcher */}
-          {user && <RoleSwitcher />}
-          
           {/* Notifications Bell */}
           <NotificationDropdown />
           

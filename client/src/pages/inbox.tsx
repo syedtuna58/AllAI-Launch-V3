@@ -4,7 +4,6 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import Messages from "@/pages/messages";
 import { useAuth } from "@/hooks/useAuth";
-import { useRole } from "@/contexts/RoleContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -248,7 +247,8 @@ function OmnichannelView() {
 
 // Main Inbox page with External/Internal tabs
 export default function Inbox() {
-  const { currentRole } = useRole();
+  const { user } = useAuth();
+  const currentRole = user?.primaryRole;
   
   // Check if user is admin (can see Internal/External tabs)
   const isAdmin = currentRole === 'admin';

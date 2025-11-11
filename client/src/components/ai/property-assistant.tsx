@@ -12,7 +12,7 @@ import { Loader2, Bot, Send, Lightbulb, CheckCircle, Calendar, CalendarDays, Ale
 import { apiRequest } from "@/lib/queryClient";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/hooks/useAuth";
 
 type AIAction = {
   label: string;
@@ -344,7 +344,7 @@ type PropertyAssistantProps = {
 };
 
 export default function PropertyAssistant({ context = "dashboard", exampleQuestions: customQuestions, onCreateCase }: PropertyAssistantProps) {
-  const { currentRole } = useRole();
+  const { user } = useAuth();
   const [question, setQuestion] = useState("");
   const [conversation, setConversation] = useState<Array<{
     type: "user" | "ai";
@@ -366,9 +366,9 @@ export default function PropertyAssistant({ context = "dashboard", exampleQuesti
     
     // Select questions based on current role
     let questions = ADMIN_EXAMPLE_QUESTIONS;
-    if (currentRole === "tenant") {
+    if (user?.primaryRole === "tenant") {
       questions = TENANT_EXAMPLE_QUESTIONS;
-    } else if (currentRole === "contractor") {
+    } else if (user?.primaryRole === "contractor") {
       questions = CONTRACTOR_EXAMPLE_QUESTIONS;
     }
     
