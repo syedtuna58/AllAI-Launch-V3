@@ -31,7 +31,7 @@ export const sessions = pgTable(
 // ============================================================================
 
 // User role enum
-export const userRoleEnum = pgEnum("user_role", ["platform_super_admin", "org_admin", "contractor", "tenant"]);
+export const userRoleEnum = pgEnum("user_role", ["platform_super_admin", "org_admin", "property_owner", "contractor", "tenant"]);
 
 // Membership status for invitations
 export const membershipStatusEnum = pgEnum("membership_status", ["invited", "active", "inactive"]);
@@ -64,11 +64,15 @@ export const users = pgTable("users", {
 // Contractor scheduling enums (declared early for organizations table)
 export const schedulingModeEnum = pgEnum("scheduling_mode", ["contractor_first", "mutual_availability"]);
 
+// Organization type enum - distinguishes landlords from property owners
+export const organizationTypeEnum = pgEnum("organization_type", ["landlord", "property_owner"]);
+
 // Organizations
 export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   ownerId: varchar("owner_id").notNull().references(() => users.id),
+  ownerType: organizationTypeEnum("owner_type").default("landlord"),
   timezone: varchar("timezone").default("America/New_York"),
   schedulingMode: schedulingModeEnum("scheduling_mode").default("contractor_first"),
   defaultAccessApprovalHours: integer("default_access_approval_hours").default(24),

@@ -14,6 +14,7 @@ import ContractorSignup from "@/pages/ContractorSignup";
 import ContractorMarketplaceDashboard from "@/pages/ContractorMarketplaceDashboard";
 import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
 import LandlordDashboard from "@/pages/LandlordDashboard";
+import PropertyOwnerDashboard from "@/pages/PropertyOwnerDashboard";
 import TenantDashboardNew from "@/pages/TenantDashboardNew";
 import Dashboard from "@/pages/dashboard";
 import Properties from "@/pages/properties";
@@ -98,6 +99,7 @@ function Router() {
           <Route path="/tenant-dashboard" component={TenantDashboard} />
           <Route path="/tenant-dashboard-new" component={TenantDashboardNew} />
           <Route path="/landlord-dashboard" component={LandlordDashboard} />
+          <Route path="/property-owner-dashboard" component={PropertyOwnerDashboard} />
           <Route path="/contractor-dashboard" component={ContractorMarketplaceDashboard} />
           <Route path="/contractor-legacy-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
