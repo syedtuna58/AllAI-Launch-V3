@@ -315,34 +315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Get user's role in their organization
-      const org = await storage.getUserOrganization(userId);
-      let role = null;
-      
-      if (org) {
-        const userRole = await db
-          .select({ role: organizationMembers.role })
-          .from(organizationMembers)
-          .where(
-            and(
-              eq(organizationMembers.userId, userId),
-              eq(organizationMembers.orgId, org.id)
-            )
-          )
-          .limit(1);
-        
-        if (userRole[0]) {
-          role = userRole[0].role;
-        }
-      }
-      
-      // If no role found, default to admin ONLY for org owner (backward compatibility)
-      if (!role && org?.ownerId === userId) {
-        role = 'admin';
-      }
-      
-      // If still no role, user has no membership - return null role (not admin!)
-      res.json({ ...user, role: role || null });
+      // New multi-user system: return user with primaryRole from users table
+      res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
