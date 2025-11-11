@@ -163,6 +163,16 @@ export default function ApprovalSettings() {
   };
 
   const togglePolicyStatus = (policy: ApprovalPolicy) => {
+    const isActivating = !policy.isActive;
+    const hasOtherActivePolicies = policies.some(p => p.id !== policy.id && p.isActive);
+    
+    if (isActivating && hasOtherActivePolicies) {
+      toast({
+        title: "Note",
+        description: "Activating this policy will deactivate all other policies. Only one policy can be active at a time.",
+      });
+    }
+    
     updateMutation.mutate({
       id: policy.id,
       data: { 
@@ -195,6 +205,10 @@ export default function ApprovalSettings() {
           <h1 className="text-3xl font-bold">Auto-Approval Settings</h1>
           <p className="text-muted-foreground mt-1">
             Control when scheduling happens automatically vs. when you want to be involved
+          </p>
+          <p className="text-sm text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
+            <Shield className="h-4 w-4" />
+            Only one policy can be active at a time. Activating a policy will deactivate all others.
           </p>
         </div>
         <Button
