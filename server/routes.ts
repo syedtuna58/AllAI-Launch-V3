@@ -294,10 +294,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy auth routes (Replit Auth)
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  // Current user endpoint - supports both session-based and legacy Replit Auth
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // Try session-based auth first (new multi-user system)
+      let userId = req.session?.userId;
+      
+      // Fallback to legacy Replit Auth if no session
+      if (!userId && req.user?.claims?.sub) {
+        userId = req.user.claims.sub;
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
       const user = await storage.getUser(userId);
       
       if (!user) {
