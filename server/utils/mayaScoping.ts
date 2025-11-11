@@ -11,7 +11,7 @@ import { eq } from 'drizzle-orm';
  */
 
 interface MayaScopedContext {
-  role: 'platform_super_admin' | 'org_admin' | 'contractor' | 'tenant';
+  role: 'platform_super_admin' | 'org_admin' | 'property_owner' | 'contractor' | 'tenant';
   caseId?: string;
   propertyContext?: any;
   unitContext?: any;
@@ -22,7 +22,7 @@ interface MayaScopedContext {
 
 export async function getMayaScopedContext(
   userId: string,
-  userRole: 'platform_super_admin' | 'org_admin' | 'contractor' | 'tenant',
+  userRole: 'platform_super_admin' | 'org_admin' | 'property_owner' | 'contractor' | 'tenant',
   caseId?: string
 ): Promise<MayaScopedContext> {
   
@@ -57,6 +57,21 @@ export async function getMayaScopedContext(
       unitContext: caseData?.unit,
       tenantContext: caseData?.tenant,
       portfolioAccess: true,
+    };
+  }
+
+  // Property owners get property context WITHOUT tenant/entity management
+  if (userRole === 'property_owner') {
+    const caseData = caseId ? await db.query.smartCases.findFirst({
+      where: eq(smartCases.id, caseId),
+      with: { property: true },
+    }) : null;
+
+    return {
+      role: userRole,
+      caseId,
+      propertyContext: caseData?.property,
+      portfolioAccess: false, // No portfolio/financial access
     };
   }
 
@@ -183,6 +198,10 @@ export function buildMayaSystemPrompt(context: MayaScopedContext): string {
 
   if (context.role === 'platform_super_admin' || context.role === 'org_admin') {
     return `${basePrompt} You have full access to help with property management, tenant issues, financial tracking, and maintenance coordination. You can see all organizational data and help make informed decisions.`;
+  }
+
+  if (context.role === 'property_owner') {
+    return `${basePrompt} You are assisting a property owner who lives in their own property. You can help them with property maintenance, contractor coordination, and general homeowner questions. You do NOT have access to tenant management, entity tracking, or portfolio financial data - focus on helping them maintain their personal property.`;
   }
 
   if (context.role === 'contractor') {

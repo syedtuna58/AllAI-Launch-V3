@@ -131,9 +131,8 @@ router.get('/favorites', async (req, res) => {
     const favorites = await db.query.favoriteContractors.findMany({
       where: eq(favoriteContractors.orgId, membership.orgId),
       with: {
-        vendor: {
+        contractorUser: {
           with: {
-            user: true,
             contractorProfile: {
               with: {
                 specialties: {
@@ -158,10 +157,10 @@ router.get('/favorites', async (req, res) => {
 router.post('/favorites', async (req, res) => {
   try {
     const userId = req.user!.id;
-    const { vendorId } = req.body;
+    const { contractorUserId } = req.body;
 
-    if (!vendorId) {
-      return res.status(400).json({ error: 'Vendor ID is required' });
+    if (!contractorUserId) {
+      return res.status(400).json({ error: 'Contractor user ID is required' });
     }
 
     const membership = await db.query.organizationMembers.findFirst({
@@ -177,7 +176,7 @@ router.post('/favorites', async (req, res) => {
 
     const [favorite] = await db.insert(favoriteContractors).values({
       orgId: membership.orgId,
-      vendorId,
+      contractorUserId,
       addedBy: userId,
     }).returning();
 

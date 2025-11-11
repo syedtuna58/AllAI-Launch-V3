@@ -114,21 +114,36 @@ The platform has been transformed from a single-user toggle-based role system to
 - Role-based query filters ensure data isolation
 
 **Completed Features:**
-- ✅ Platform Admin dashboard (`/admin`) - View all orgs, users, system stats
-- ✅ Landlord (Org Admin) dashboard (`/landlord`) - Properties, tenants, cases, favorites
-- ✅ Contractor dashboard (`/contractor`) - Marketplace, assigned jobs, proposals
-- ✅ Tenant dashboard (`/tenant`) - Unit view, case submission, appointment approval
+- ✅ Platform Admin dashboard (`/admin-dashboard`) - View all orgs, users, system stats
+- ✅ Landlord (Org Admin) dashboard (`/landlord-dashboard`) - Properties, tenants, cases, favorites
+- ✅ **Property Owner dashboard (`/property-owner-dashboard`) - Homeowners without tenants** ⭐
+  - Personal property management (no tenant/entity complexity)
+  - Contractor favorites and marketplace access
+  - Maintenance case tracking
+  - Auto-provisioned personal organization
+- ✅ Contractor dashboard (`/contractor-dashboard`) - Marketplace, assigned jobs, proposals
+- ✅ Tenant dashboard (`/tenant-dashboard-new`) - Unit view, case submission, appointment approval
 - ✅ Tenant auto-invite flow - Landlord invites tenant → email verification → auto-account creation
-- ✅ Maya AI role-scoped data access - Contractors see job-only, no portfolio data
-- ✅ Security fixes: Token replay prevention, contractor assignment validation
+- ✅ Maya AI role-scoped data access:
+  - Platform admins: Full system access
+  - Landlords: Full org context (properties, tenants, cases)
+  - Property owners: Property context only (NO tenant/entity data)
+  - Contractors: Job context only (NO portfolio/financial data)
+  - Tenants: Unit context only (their cases)
 
 **Security Validations Completed:**
-- Tenant verification tokens bound to email/tenantId (prevents replay attacks)
-- Contractor Maya scoping validates assignment before returning job context
-- RBAC middleware validates orgRole membership to prevent cross-org leakage
-- Data scoping utilities prevent contractors from accessing portfolio/financial data
+- ✅ Tenant verification tokens bound to email/tenantId (prevents replay attacks)
+- ✅ Contractor Maya scoping validates assignment before returning job context
+- ✅ RBAC middleware validates orgRole membership to prevent cross-org leakage
+- ✅ Property owner favorites use correct schema fields (contractorUserId)
+- ✅ Data scoping utilities prevent contractors from accessing portfolio/financial data
+
+**Testing Status:**
+- 📋 Comprehensive testing plan created in `TESTING_PLAN.md`
+- 5-phase testing approach: Platform Admin → Landlord → Property Owner → Tenant → Contractor → Security
+- Quick start guide included (1-hour complete testing path)
 
 **Pending Work:**
 - Contractor team management (optional)
 - Remove legacy RoleContext toggle system
-- Comprehensive systematic testing of all user flows
+- Execute comprehensive systematic testing per TESTING_PLAN.md
