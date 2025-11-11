@@ -7,6 +7,9 @@ import { db } from "./db";
 import { users, organizationMembers, vendors, counterProposals } from "@shared/schema";
 import authRouter from "./routes/auth";
 import contractorRouter from "./routes/contractor";
+import adminRouter from "./routes/admin";
+import landlordRouter from "./routes/landlord";
+import tenantRouter from "./routes/tenant";
 import { eq, and, desc } from "drizzle-orm";
 import { 
   insertOrganizationSchema,
@@ -257,6 +260,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Contractor routes
   app.use('/api/contractor', contractorRouter);
+  
+  // Platform admin routes
+  app.use('/api/admin', adminRouter);
+  
+  // Landlord routes
+  app.use('/api/landlord', landlordRouter);
+  
+  // Tenant routes
+  app.use('/api/tenant', tenantRouter);
 
   // Contractor specialties - Public route for signup
   app.get('/api/contractor-specialties', async (req, res) => {

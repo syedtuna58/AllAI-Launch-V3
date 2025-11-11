@@ -41,13 +41,24 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       return res.status(401).json({ error: 'User not found' });
     }
     
-    // Get user's organization (if any)
-    const orgMembership = await db.query.organizationMembers.findFirst({
-      where: and(
-        eq(organizationMembers.userId, user.id),
-        eq(organizationMembers.membershipStatus, 'active')
-      ),
-    });
+    // Get user's organization membership based on their primary role
+    let orgMembership = null;
+    
+    // For org admins, landlords, and tenants - find membership matching their role
+    if (user.primaryRole === 'org_admin') {
+      orgMembership = await db.query.organizationMembers.findFirst({
+        where: and(
+          eq(organizationMembers.userId, user.id),
+          eq(organizationMembers.membershipStatus, 'active'),
+          eq(organizationMembers.orgRole, 'org_admin')
+        ),
+      });
+    } else if (user.primaryRole === 'tenant') {
+      // Tenants don't have org memberships - they're linked via tenants table
+      // Don't set orgId for tenants
+    } else {
+      // For platform admins and contractors, they may have org memberships but don't need them
+    }
     
     req.userId = user.id;
     req.user = {
@@ -99,6 +110,18 @@ export function requireOrgAccess(req: AuthenticatedRequest, res: Response, next:
   // Check if user has org membership
   if (!req.user.orgId) {
     return res.status(403).json({ error: 'No organization access' });
+  }
+  
+  next();
+}
+
+export function requirePlatformAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  if (!req.user.isPlatformSuperAdmin) {
+    return res.status(403).json({ error: 'Platform admin access required' });
   }
   
   next();
