@@ -248,6 +248,7 @@ export interface IStorage {
   getContractors(orgId: string): Promise<Vendor[]>;
   getContractor(id: string): Promise<Vendor | undefined>;
   getContractorByUserId(userId: string): Promise<Vendor | undefined>;
+  getContractorVendorsByUserId(userId: string): Promise<Vendor[]>; // Get all vendor records for a contractor across orgs
   updateVendor(id: string, vendor: Partial<InsertVendor>): Promise<Vendor>;
   
   // Contractor Availability operations
@@ -3167,6 +3168,15 @@ export class DatabaseStorage implements IStorage {
       )
     );
     return contractor;
+  }
+
+  async getContractorVendorsByUserId(userId: string): Promise<Vendor[]> {
+    return db.select().from(vendors).where(
+      and(
+        eq(vendors.userId, userId),
+        eq(vendors.isActiveContractor, true)
+      )
+    );
   }
 
   async updateVendor(id: string, vendorData: Partial<InsertVendor>): Promise<Vendor> {

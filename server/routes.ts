@@ -4263,22 +4263,31 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
-  // Get cases assigned to current contractor
+  // Get cases assigned to current contractor (aggregates across all orgs where contractor works)
   app.get('/api/contractor/cases', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const contractor = await storage.getContractorByUserId(userId);
       
-      if (!contractor) {
+      // Get ALL vendor records for this contractor (they may work across multiple orgs)
+      const contractorVendors = await storage.getContractorVendorsByUserId(userId);
+      
+      if (contractorVendors.length === 0) {
         return res.json([]); // Return empty array if not a contractor
       }
 
-      const org = await storage.getUserOrganization(userId);
-      if (!org) return res.status(404).json({ message: "Organization not found" });
-
-      // Get all cases assigned to this contractor
-      const allCases = await storage.getSmartCases(org.id);
-      const contractorCases = allCases.filter((c: any) => c.assignedContractorId === contractor.id);
+      // Get vendor IDs to filter cases
+      const vendorIds = contractorVendors.map(v => v.id);
+      
+      // Get organization IDs where contractor works
+      const orgIds = [...new Set(contractorVendors.map(v => v.orgId))];
+      
+      // Fetch cases from all organizations where contractor has vendor records
+      const allCasesPromises = orgIds.map(orgId => storage.getSmartCases(orgId));
+      const allCasesArrays = await Promise.all(allCasesPromises);
+      const allCases = allCasesArrays.flat();
+      
+      // Filter to cases assigned to any of this contractor's vendor IDs
+      const contractorCases = allCases.filter((c: any) => vendorIds.includes(c.assignedContractorId));
 
       // Enrich with property/unit details
       const enrichedCases = await Promise.all(contractorCases.map(async (case_: any) => {
@@ -4300,18 +4309,29 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
     }
   });
 
-  // Get appointments for current contractor
+  // Get appointments for current contractor (aggregates across all orgs where contractor works)
   app.get('/api/contractor/appointments', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const contractor = await storage.getContractorByUserId(userId);
       
-      if (!contractor) {
+      // Get ALL vendor records for this contractor (they may work across multiple orgs)
+      const contractorVendors = await storage.getContractorVendorsByUserId(userId);
+      
+      if (contractorVendors.length === 0) {
         return res.json([]); // Return empty array if not a contractor
       }
 
-      const appointments = await storage.getContractorAppointments(contractor.id);
-      res.json(appointments);
+      // Get appointments for ALL vendor IDs
+      const appointmentsPromises = contractorVendors.map(v => storage.getContractorAppointments(v.id));
+      const appointmentsArrays = await Promise.all(appointmentsPromises);
+      const allAppointments = appointmentsArrays.flat();
+      
+      // Remove duplicates (if any) and sort by start time
+      const uniqueAppointments = Array.from(
+        new Map(allAppointments.map(apt => [apt.id, apt])).values()
+      ).sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+
+      res.json(uniqueAppointments);
     } catch (error) {
       console.error("Error fetching contractor appointments:", error);
       res.status(500).json({ message: "Failed to fetch contractor appointments" });
