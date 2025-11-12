@@ -221,8 +221,11 @@ export const contactTeamMembers = pgTable("contact_team_members", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Ownership entities
-export const ownershipEntityTypeEnum = pgEnum("ownership_entity_type", ["LLC", "Individual"]);
+// Ownership entities - Expanded to support both legacy and new types during migration
+export const ownershipEntityTypeEnum = pgEnum("ownership_entity_type", [
+  "LLC", "Individual", // Legacy types (will be migrated)
+  "Personal", "Joint", "LLC/Corp", "Trust" // New types
+]);
 
 // Tax-related enums
 export const scheduleECategoryEnum = pgEnum("schedule_e_category", [
