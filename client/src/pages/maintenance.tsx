@@ -167,7 +167,7 @@ export default function Maintenance() {
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
   const [showCaseDialog, setShowCaseDialog] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("active");
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -796,7 +796,13 @@ export default function Maintenance() {
   const filteredProperties = properties || [];
   
   const filteredCases = smartCases?.filter(smartCase => {
-    const statusMatch = statusFilter === "all" || smartCase.status === statusFilter;
+    // Active filter shows: New, In Review, Scheduled, In Progress, Resolved
+    const activeStatuses = ["New", "In Review", "Scheduled", "In Progress", "Resolved"];
+    const statusMatch = statusFilter === "all" 
+      ? true 
+      : statusFilter === "active" 
+        ? activeStatuses.includes(smartCase.status || "New")
+        : smartCase.status === statusFilter;
     const propertyMatch = propertyFilter === "all" || smartCase.propertyId === propertyFilter;
     const categoryMatch = categoryFilter === "all" || smartCase.category === categoryFilter;
     const unitMatch = unitFilter.length === 0 || (smartCase.unitId && unitFilter.includes(smartCase.unitId)) || (unitFilter.includes("common") && !smartCase.unitId);
@@ -1301,8 +1307,8 @@ export default function Maintenance() {
 
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Smart Cases</h1>
-                  <p className="text-muted-foreground">Track and manage maintenance requests</p>
+                  <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Work Orders</h1>
+                  <p className="text-muted-foreground">Track and manage work order requests</p>
                 </div>
             
             <div className="flex items-center space-x-3">
@@ -1423,6 +1429,7 @@ export default function Maintenance() {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="active">Active Work</SelectItem>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="New">New</SelectItem>
                   <SelectItem value="In Review">In Review</SelectItem>
@@ -1438,12 +1445,12 @@ export default function Maintenance() {
                 <DialogTrigger asChild>
                   <Button data-testid="button-add-case">
                     <Plus className="h-4 w-4 mr-2" />
-                    Create Case
+                    Add a Work Order
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>{editingCase ? "Edit Maintenance Case" : "Create Maintenance Case"}</DialogTitle>
+                    <DialogTitle>{editingCase ? "Edit Work Order" : "Add a Work Order"}</DialogTitle>
                   </DialogHeader>
                   
                   <Form {...form}>
@@ -1651,8 +1658,8 @@ export default function Maintenance() {
                         </Button>
                         <Button type="submit" disabled={createCaseMutation.isPending || updateCaseMutation.isPending} data-testid="button-submit-case">
                           {(createCaseMutation.isPending || updateCaseMutation.isPending) 
-                            ? (editingCase ? "Updating..." : "Creating...") 
-                            : (editingCase ? "Update Case" : "Create Case")
+                            ? (editingCase ? "Updating..." : "Adding...") 
+                            : (editingCase ? "Update Work Order" : "Add Work Order")
                           }
                         </Button>
                       </div>
@@ -1699,7 +1706,7 @@ export default function Maintenance() {
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground">
-                  Ready to track maintenance cases
+                  Ready to track work orders
                 </div>
               )}
               
@@ -1993,7 +2000,7 @@ export default function Maintenance() {
                   {/* List Header */}
                   <div className="bg-background border rounded-lg p-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">Maintenance Cases</h3>
+                      <h3 className="text-lg font-semibold">Work Orders</h3>
                       <Badge variant="outline" data-testid="list-total-count">
                         {filteredCases.length} cases
                       </Badge>
@@ -2423,11 +2430,11 @@ export default function Maintenance() {
             <Card>
               <CardContent className="p-12 text-center">
                 <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2" data-testid="text-no-cases">No Maintenance Cases</h3>
-                <p className="text-muted-foreground mb-4">Create your first maintenance case to start tracking issues and repairs.</p>
+                <h3 className="text-lg font-semibold text-foreground mb-2" data-testid="text-no-cases">No Work Orders</h3>
+                <p className="text-muted-foreground mb-4">Add your first work order to start tracking issues and repairs.</p>
                 <Button onClick={() => setShowCaseForm(true)} data-testid="button-add-first-case">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Case
+                  Add a Work Order
                 </Button>
               </CardContent>
             </Card>
