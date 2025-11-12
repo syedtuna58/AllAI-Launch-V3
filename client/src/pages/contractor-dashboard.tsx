@@ -658,10 +658,11 @@ export default function ContractorDashboard() {
                 <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-primary/5 border-primary/20" data-testid="card-job-hub">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Job Hub</CardTitle>
+                    <Wrench className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-primary mb-1">
-                      <Wrench className="h-8 w-8 mx-auto" />
+                    <div className="text-2xl font-bold text-primary flex items-center justify-center">
+                      <Wrench className="h-8 w-8" />
                     </div>
                     <p className="text-xs text-muted-foreground text-center">View all jobs</p>
                   </CardContent>
@@ -684,7 +685,7 @@ export default function ContractorDashboard() {
                     </TabsTrigger>
                   </TabsList>
 
-              <TabsContent value="cases" className="mt-6 space-y-4">
+              <TabsContent value="cases" className="mt-6 space-y-4 max-h-[600px] overflow-y-auto pr-2">
                 {casesLoading ? (
                   <div className="text-center py-8">Loading cases...</div>
                 ) : myCases.length === 0 ? (
@@ -707,7 +708,7 @@ export default function ContractorDashboard() {
                 )}
               </TabsContent>
 
-              <TabsContent value="new" className="mt-6 space-y-4">
+              <TabsContent value="new" className="mt-6 space-y-4 max-h-[600px] overflow-y-auto pr-2">
                 {newCases.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No new cases available at the moment.
@@ -728,7 +729,7 @@ export default function ContractorDashboard() {
                 )}
               </TabsContent>
 
-              <TabsContent value="active" className="mt-6 space-y-4">
+              <TabsContent value="active" className="mt-6 space-y-4 max-h-[600px] overflow-y-auto pr-2">
                 {activeCases.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     No active cases.
