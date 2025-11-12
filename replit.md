@@ -210,6 +210,24 @@ The platform has been transformed from a single-user toggle-based role system to
    - Expected: Redirects to /contractor-dashboard, sees only HVAC jobs in marketplace
    - Test: Verify specialty-based filtering works correctly
 
+**Recent Updates (November 12, 2025):**
+- ✅ **Property Owner UX Refinements:**
+  - "Tenants" tab hidden for property_owner role (only visible for landlords/super admins)
+  - Informational banner added to Financial page explaining tax deductions designed for investment properties
+- ✅ **Entity Form Redesign:**
+  - Replaced dropdown with 4 intuitive template buttons (Personal, Joint, LLC/Corp, Trust) in 2x2 grid
+  - Entity Name field directly below templates for streamlined data entry
+  - All optional fields (State, EIN, Registered Agent, Renewal Month, Notes) collapsed by default
+  - Optional fields only shown for LLC/Corp and Trust entity types
+- ✅ **Database Schema Migration:**
+  - Expanded ownership_entity_type enum to support new values (Personal, Joint, LLC/Corp, Trust)
+  - Successfully migrated 12 test entities (6 from LLC→LLC/Corp, 6 from Individual→Personal)
+  - Maintained backward compatibility by keeping legacy enum values temporarily
+
+**Design Decisions Postponed to Post-MVP:**
+- Role-switching feature (contractors managing personal properties vs rental investments) - Deferred to avoid scope creep during critical testing phase
+- Full removal of legacy entity type enum values - Will clean up after MVP validation complete
+
 **Pending Work:**
 - Contractor team management (optional)
 - Execute comprehensive systematic testing with test accounts
