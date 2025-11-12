@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Settings2, Trash2, Edit, DollarSign, Clock, Shield } from "lucide-react";
+import { Plus, Settings2, Trash2, Edit, DollarSign, Clock, Shield, ArrowLeft } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertApprovalPolicySchema, type ApprovalPolicy, type Vendor } from "@shared/schema";
@@ -35,6 +36,7 @@ type FormData = z.infer<typeof formSchema>;
 export default function ApprovalSettings() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<ApprovalPolicy | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -200,24 +202,36 @@ export default function ApprovalSettings() {
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Auto-Approval Settings</h1>
-          <p className="text-muted-foreground mt-1">
-            Control when scheduling happens automatically vs. when you want to be involved
-          </p>
-          <p className="text-sm text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
-            <Shield className="h-4 w-4" />
-            Only one policy can be active at a time. Activating a policy will deactivate all others.
-          </p>
-        </div>
-        <Button
-          onClick={() => setIsCreateDialogOpen(true)}
-          data-testid="button-create-policy"
+      <div className="mb-6">
+        <Button 
+          variant="ghost" 
+          onClick={() => setLocation('/')} 
+          className="mb-4"
+          data-testid="button-back-to-dashboard"
         >
-          <Plus className="mr-2 h-4 w-4" />
-          New Policy
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Dashboard
         </Button>
+        
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Auto-Approval Settings</h1>
+            <p className="text-muted-foreground mt-1">
+              Control when scheduling happens automatically vs. when you want to be involved
+            </p>
+            <p className="text-sm text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
+              <Shield className="h-4 w-4" />
+              Only one policy can be active at a time. Activating a policy will deactivate all others.
+            </p>
+          </div>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            data-testid="button-create-policy"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            New Policy
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4">
