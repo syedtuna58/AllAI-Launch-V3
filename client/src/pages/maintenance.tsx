@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { filterCasesByStatus, type StatusFilterKey } from "@/lib/work-order-filters";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -167,7 +168,7 @@ export default function Maintenance() {
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
   const [showCaseDialog, setShowCaseDialog] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>("active");
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -795,20 +796,16 @@ export default function Maintenance() {
 
   const filteredProperties = properties || [];
   
-  const filteredCases = smartCases?.filter(smartCase => {
-    // Active filter shows: New, In Review, Scheduled, In Progress, Resolved
-    const activeStatuses = ["New", "In Review", "Scheduled", "In Progress", "Resolved"];
-    const statusMatch = statusFilter === "all" 
-      ? true 
-      : statusFilter === "active" 
-        ? activeStatuses.includes(smartCase.status || "New")
-        : smartCase.status === statusFilter;
+  // Filter by status using shared utility
+  const statusFilteredCases = filterCasesByStatus(smartCases || [], statusFilter);
+  
+  // Apply additional filters
+  const filteredCases = statusFilteredCases.filter(smartCase => {
     const propertyMatch = propertyFilter === "all" || smartCase.propertyId === propertyFilter;
     const categoryMatch = categoryFilter === "all" || smartCase.category === categoryFilter;
     const unitMatch = unitFilter.length === 0 || (smartCase.unitId && unitFilter.includes(smartCase.unitId)) || (unitFilter.includes("common") && !smartCase.unitId);
-    // Note: SmartCase doesn't have entityId directly, but we can filter by property's entity relationship if needed
-    return statusMatch && propertyMatch && categoryMatch && unitMatch;
-  }) || [];
+    return propertyMatch && categoryMatch && unitMatch;
+  });
 
 
   const onSubmit = async (data: z.infer<typeof createCaseSchema>) => {

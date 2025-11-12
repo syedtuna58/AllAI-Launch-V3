@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { filterCasesByStatus, type StatusFilterKey } from "@/lib/work-order-filters";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -40,8 +41,8 @@ type MaintenanceCase = {
   id: string;
   title: string;
   description: string | null;
-  status: 'open' | 'in_progress' | 'on_hold' | 'resolved' | 'closed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: "New" | "In Review" | "Scheduled" | "In Progress" | "On Hold" | "Resolved" | "Closed" | null;
+  priority: "Low" | "Medium" | "High" | "Urgent" | null;
   propertyId: string | null;
   unitId: string | null;
   category: string | null;
@@ -98,6 +99,7 @@ export default function AdminCalendarPage() {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [filterMode, setFilterMode] = useState<'all' | 'reminders' | 'cases'>('all');
   const [reminderTypeFilter, setReminderTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>('active');
   const [hideWeekends, setHideWeekends] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -138,10 +140,10 @@ export default function AdminCalendarPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
-      toast({ title: "Maintenance case updated successfully" });
+      toast({ title: "Work order updated successfully" });
     },
     onError: () => {
-      toast({ title: "Failed to update maintenance case", variant: "destructive" });
+      toast({ title: "Failed to update work order", variant: "destructive" });
     },
   });
 
@@ -207,6 +209,9 @@ export default function AdminCalendarPage() {
   const filteredReminders = reminderTypeFilter === 'all' 
     ? reminders 
     : reminders.filter(r => r.type === reminderTypeFilter);
+  
+  // Filter cases by status using shared utility
+  const filteredCases = filterCasesByStatus(cases, statusFilter);
 
   // Navigation handlers
   const goToPrevious = () => {
@@ -290,7 +295,7 @@ export default function AdminCalendarPage() {
       return dueDate >= dayStart && dueDate <= dayEnd;
     }) : [];
 
-    const dayCases = filterMode !== 'reminders' ? cases.filter(c => {
+    const dayCases = filterMode !== 'reminders' ? filteredCases.filter(c => {
       if (!c.scheduledDate) return false;
       const schedDate = new Date(c.scheduledDate);
       return schedDate >= dayStart && schedDate <= dayEnd;
@@ -329,7 +334,7 @@ export default function AdminCalendarPage() {
                   Admin Calendar
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  View and manage reminders and maintenance cases
+                  View and manage reminders and work orders
                 </p>
               </div>
             </div>
@@ -397,6 +402,25 @@ export default function AdminCalendarPage() {
                         </SelectContent>
                       </Select>
                     )}
+                    
+                    {filterMode !== 'reminders' && (
+                      <Select value={statusFilter} onValueChange={(v: StatusFilterKey) => setStatusFilter(v)}>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active Work</SelectItem>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="New">New</SelectItem>
+                          <SelectItem value="In Review">In Review</SelectItem>
+                          <SelectItem value="Scheduled">Scheduled</SelectItem>
+                          <SelectItem value="In Progress">In Progress</SelectItem>
+                          <SelectItem value="On Hold">On Hold</SelectItem>
+                          <SelectItem value="Resolved">Resolved</SelectItem>
+                          <SelectItem value="Closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
 
                     {view === 'week' && (
                       <div className="flex items-center gap-2">
@@ -446,7 +470,7 @@ export default function AdminCalendarPage() {
                 ? filteredReminders.filter(r => !r.dueAt) 
                 : [];
               const unscheduledCases = filterMode !== 'reminders'
-                ? cases.filter(c => !c.scheduledDate)
+                ? filteredCases.filter(c => !c.scheduledDate)
                 : [];
               
               if (unscheduledReminders.length === 0 && unscheduledCases.length === 0) {
