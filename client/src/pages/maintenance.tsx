@@ -26,7 +26,7 @@ import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell,
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
-import type { SmartCase, Property, OwnershipEntity, Unit, PredictiveInsight } from "@shared/schema";
+import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema";
 import { format, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import PropertyAssistant from "@/components/ai/property-assistant";
@@ -175,21 +175,14 @@ export default function Maintenance() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
-  const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list" | "insights">("cards");
+  const [currentView, setCurrentView] = useState<"cards" | "heat-map" | "kanban" | "list">("cards");
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [acceptingCase, setAcceptingCase] = useState<SmartCase | null>(null);
-  const [predictivePropertyFilter, setPredictivePropertyFilter] = useState<string>("all");
-  const [predictiveEquipmentTypeFilter, setPredictiveEquipmentTypeFilter] = useState<string>("all");
-  const [predictiveEntityFilter, setPredictiveEntityFilter] = useState<string>("all");
-  const [timelineFilter, setTimelineFilter] = useState<string>("5"); // Default to "Due Within 5 Years"
-  const [activeTab, setActiveTab] = useState<"maintenance" | "predictive">("maintenance");
   const [tenantTab, setTenantTab] = useState<"requests" | "calendar" | "appointments" | "approval">("requests");
   const [showAcceptDialog, setShowAcceptDialog] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [viewingProposalsCase, setViewingProposalsCase] = useState<SmartCase | null>(null);
   const [showProposalsDialog, setShowProposalsDialog] = useState(false);
-  const [selectedInsight, setSelectedInsight] = useState<PredictiveInsight | null>(null);
-  const [showInsightDialog, setShowInsightDialog] = useState(false);
   const [counterProposingJob, setCounterProposingJob] = useState<any | null>(null);
   const [reviewingCounterProposal, setReviewingCounterProposal] = useState<{job: any, proposalId: string} | null>(null);
   const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
@@ -213,10 +206,6 @@ export default function Maintenance() {
     retry: false,
   });
 
-  const { data: predictiveInsights, isLoading: insightsLoading } = useQuery<PredictiveInsight[]>({
-    queryKey: ["/api/predictive-insights"],
-    retry: false,
-  });
 
   const { data: properties } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
@@ -264,11 +253,6 @@ export default function Maintenance() {
     retry: false,
   });
 
-  // Fetch predictive insights
-  const { data: insights = [] } = useQuery<PredictiveInsight[]>({
-    queryKey: ['/api/predictive-insights'],
-    retry: false,
-  });
 
   const selectedProperty = properties?.find(p => p.id === selectedPropertyId);
   const selectedPropertyUnits = units.filter(unit => unit.propertyId === selectedPropertyId);
@@ -485,29 +469,6 @@ export default function Maintenance() {
     },
   });
 
-  const generatePredictionsMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/predictive-insights/generate');
-      return response.json();
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/predictive-insights'] });
-      // Close insight detail modal if open to prevent showing stale data
-      setShowInsightDialog(false);
-      setSelectedInsight(null);
-      toast({
-        title: "Predictions Generated",
-        description: `Successfully generated ${data.count || 0} predictions from your equipment data.`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate predictions",
-        variant: "destructive",
-      });
-    },
-  });
 
   const acceptCaseMutation = useMutation({
     mutationFn: async ({ caseId, appointmentData }: { caseId: string, appointmentData: any }) => {
@@ -542,7 +503,6 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/tenant/cases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/scheduled-jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/predictive-insights"] });
       setShowCaseDialog(false);
       setSelectedCase(null);
       toast({
@@ -844,31 +804,6 @@ export default function Maintenance() {
     return statusMatch && propertyMatch && categoryMatch && unitMatch;
   }) || [];
 
-  const filteredInsights = predictiveInsights?.filter(insight => {
-    const propertyMatch = predictivePropertyFilter === "all" || insight.propertyId === predictivePropertyFilter;
-    const equipmentTypeMatch = predictiveEquipmentTypeFilter === "all" || insight.equipmentType === predictiveEquipmentTypeFilter;
-    
-    // Filter by entity - check property's ownerships
-    let entityMatch = true;
-    if (predictiveEntityFilter !== "all") {
-      const property = properties?.find(p => p.id === insight.propertyId);
-      if (property && property.ownerships) {
-        entityMatch = property.ownerships.some(ownership => ownership.entityId === predictiveEntityFilter);
-      } else {
-        entityMatch = false;
-      }
-    }
-
-    // Filter by timeline - check years until predicted date
-    let timelineMatch = true;
-    if (timelineFilter !== "all" && insight.predictedDate) {
-      const yearsUntil = (new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 365);
-      const filterYears = parseInt(timelineFilter);
-      timelineMatch = yearsUntil <= filterYears;
-    }
-    
-    return propertyMatch && equipmentTypeMatch && entityMatch && timelineMatch;
-  }) || [];
 
   const onSubmit = async (data: z.infer<typeof createCaseSchema>) => {
     const { createReminder, ...caseData } = data;
@@ -1261,24 +1196,9 @@ export default function Maintenance() {
       <Sidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Maintenance" />
+        <Header title="Work Orders" />
         
-        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as "maintenance" | "predictive")} className="flex-1 flex flex-col overflow-hidden">
-          <div className="px-6 pt-6 pb-4 bg-muted/30 border-b">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="maintenance" data-testid="tab-maintenance">
-                <Wrench className="h-4 w-4 mr-2" />
-                Maintenance
-              </TabsTrigger>
-              <TabsTrigger value="predictive" data-testid="tab-predictive">
-                <TrendingUp className="h-4 w-4 mr-2" />
-                Predictive Maintenance
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <main className="flex-1 overflow-auto p-6 bg-muted/30">
-            <TabsContent value="maintenance" className="mt-0 h-full">
+        <main className="flex-1 overflow-auto p-6 bg-muted/30">
               {/* Maya AI Assistant */}
               <PropertyAssistant 
                 key="maintenance"
@@ -1821,15 +1741,6 @@ export default function Maintenance() {
                 >
                   <BarChart3 className="h-4 w-4 mr-1" />
                   Kanban
-                </Button>
-                <Button
-                  variant={currentView === "insights" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("insights")}
-                  data-testid="button-view-insights"
-                >
-                  <TrendingUp className="h-4 w-4 mr-1" />
-                  Insights
                 </Button>
               </div>
             </div>
@@ -2507,243 +2418,6 @@ export default function Maintenance() {
                 </VisualizationErrorBoundary>
               )}
 
-              {/* Insights View */}
-              {currentView === "insights" && (
-                <div className="space-y-6">
-                  {insights.length > 0 ? (
-                    <>
-                      {/* Equipment Failure Predictions */}
-                      {insights.filter(i => i.insightType === 'equipment_failure').length > 0 && (
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <Wrench className="h-5 w-5 text-red-600" />
-                            Equipment Failure Predictions
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {insights
-                              .filter(i => i.insightType === 'equipment_failure')
-                              .map((insight) => (
-                                <Card key={insight.id} className="hover:shadow-md transition-shadow" data-testid={`insight-card-${insight.id}`}>
-                                  <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex items-start gap-3 flex-1">
-                                        <Wrench className="h-5 w-5 text-red-600 mt-1" />
-                                        <div className="flex-1">
-                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
-                                          {insight.reasoning && (
-                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <Badge variant={parseFloat(insight.confidence ?? '0') >= 0.8 ? "default" : "secondary"}>
-                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
-                                      </Badge>
-                                    </div>
-                                  </CardHeader>
-                                  <CardContent className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-4 text-sm">
-                                      {insight.predictedDate && (
-                                        <div className="flex items-center gap-2">
-                                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                                          <div>
-                                            <p className="text-xs text-muted-foreground">Predicted Date</p>
-                                            <p className="font-medium">{format(new Date(insight.predictedDate), 'MMM d, yyyy')}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                      {insight.estimatedCost && (
-                                        <div className="flex items-center gap-2">
-                                          <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                          <div>
-                                            <p className="text-xs text-muted-foreground">Estimated Cost</p>
-                                            <p className="font-medium">${Math.round(parseFloat(insight.estimatedCost))}</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                      {insight.basedOnDataPoints && (
-                                        <div className="flex items-center gap-2">
-                                          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                                          <div>
-                                            <p className="text-xs text-muted-foreground">Based On</p>
-                                            <p className="font-medium">{insight.basedOnDataPoints} data points</p>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                    {insight.recommendations && insight.recommendations.length > 0 && (
-                                      <div className="pt-3 border-t">
-                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
-                                        <ul className="list-disc list-inside space-y-1">
-                                          {insight.recommendations.map((rec: string, idx: number) => (
-                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* High Maintenance Units */}
-                      {insights.filter(i => i.insightType === 'high_maintenance_unit').length > 0 && (
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-orange-600" />
-                            High Maintenance Units
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {insights
-                              .filter(i => i.insightType === 'high_maintenance_unit')
-                              .map((insight) => (
-                                <Card key={insight.id} className="hover:shadow-md transition-shadow">
-                                  <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex items-start gap-3 flex-1">
-                                        <AlertTriangle className="h-5 w-5 text-orange-600 mt-1" />
-                                        <div className="flex-1">
-                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
-                                          {insight.reasoning && (
-                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <Badge variant="secondary">
-                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
-                                      </Badge>
-                                    </div>
-                                  </CardHeader>
-                                  <CardContent className="space-y-3">
-                                    {insight.recommendations && insight.recommendations.length > 0 && (
-                                      <div>
-                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
-                                        <ul className="list-disc list-inside space-y-1">
-                                          {insight.recommendations.map((rec: string, idx: number) => (
-                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Problematic Contractors */}
-                      {insights.filter(i => i.insightType === 'problematic_contractor').length > 0 && (
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-blue-600" />
-                            Contractor Performance Insights
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {insights
-                              .filter(i => i.insightType === 'problematic_contractor')
-                              .map((insight) => (
-                                <Card key={insight.id} className="hover:shadow-md transition-shadow">
-                                  <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex items-start gap-3 flex-1">
-                                        <TrendingUp className="h-5 w-5 text-blue-600 mt-1" />
-                                        <div className="flex-1">
-                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
-                                          {insight.reasoning && (
-                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <Badge variant="outline">
-                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
-                                      </Badge>
-                                    </div>
-                                  </CardHeader>
-                                  <CardContent className="space-y-3">
-                                    {insight.recommendations && insight.recommendations.length > 0 && (
-                                      <div>
-                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
-                                        <ul className="list-disc list-inside space-y-1">
-                                          {insight.recommendations.map((rec: string, idx: number) => (
-                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Other Insights */}
-                      {insights.filter(i => !['equipment_failure', 'high_maintenance_unit', 'problematic_contractor'].includes(i.insightType)).length > 0 && (
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <Target className="h-5 w-5 text-purple-600" />
-                            Other Insights
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {insights
-                              .filter(i => !['equipment_failure', 'high_maintenance_unit', 'problematic_contractor'].includes(i.insightType))
-                              .map((insight) => (
-                                <Card key={insight.id} className="hover:shadow-md transition-shadow">
-                                  <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                      <div className="flex items-start gap-3 flex-1">
-                                        <Target className="h-5 w-5 text-purple-600 mt-1" />
-                                        <div className="flex-1">
-                                          <CardTitle className="text-base">{insight.prediction}</CardTitle>
-                                          {insight.reasoning && (
-                                            <p className="text-sm text-muted-foreground mt-1">{insight.reasoning}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <Badge variant="outline">
-                                        {Math.round(parseFloat(insight.confidence ?? '0') * 100)}%
-                                      </Badge>
-                                    </div>
-                                  </CardHeader>
-                                  <CardContent className="space-y-3">
-                                    {insight.recommendations && insight.recommendations.length > 0 && (
-                                      <div>
-                                        <p className="text-sm font-medium mb-2">Recommendations:</p>
-                                        <ul className="list-disc list-inside space-y-1">
-                                          {insight.recommendations.map((rec: string, idx: number) => (
-                                            <li key={idx} className="text-sm text-muted-foreground">{rec}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                  </CardContent>
-                                </Card>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <Card className="border-2 border-dashed">
-                      <CardContent className="p-12 text-center">
-                        <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">Get Started with Predictive Insights</h3>
-                        <p className="text-muted-foreground mb-6">
-                          Track equipment at your properties to receive intelligent replacement predictions based on industry data and climate.
-                        </p>
-                        {selectedProperty && (
-                          <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-setup-equipment">
-                            <Wrench className="h-4 w-4 mr-2" />
-                            Add Equipment to {selectedProperty.name}
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
             </>
           ) : (
             <Card>
@@ -2984,351 +2658,8 @@ export default function Maintenance() {
           </DialogContent>
         </Dialog>
       )}
-            </TabsContent>
-
-            <TabsContent value="predictive" className="mt-0 h-full">
-              {/* Maya AI Assistant */}
-              <PropertyAssistant 
-                key="predictive"
-                context="predictive-maintenance"
-                exampleQuestions={[
-                  "Which equipment is most likely to fail soon?",
-                  "What's the total cost of upcoming replacements?",
-                  "Which property has the highest equipment risk?",
-                  "What equipment should I budget for this year?"
-                ]}
-                onCreateCase={(caseData) => {
-                  toast({
-                    title: "Feature Not Available",
-                    description: "Case creation from predictive insights is not yet available.",
-                    variant: "destructive",
-                  });
-                }}
-              />
-
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground">Predictive Maintenance</h1>
-                  <p className="text-muted-foreground">Equipment replacement predictions and insights</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    onClick={() => generatePredictionsMutation.mutate()} 
-                    disabled={generatePredictionsMutation.isPending}
-                    variant="outline"
-                    data-testid="button-generate-predictions"
-                  >
-                    {generatePredictionsMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <TrendingUp className="h-4 w-4 mr-2" />
-                        Generate Predictions
-                      </>
-                    )}
-                  </Button>
-                  <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-manage-equipment">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Manage Equipment
-                  </Button>
-                </div>
-              </div>
-
-              {/* Filters */}
-              <div className="flex items-center gap-3 mb-6">
-                <Select value={predictivePropertyFilter} onValueChange={setPredictivePropertyFilter}>
-                  <SelectTrigger className="w-52" data-testid="select-predictive-property-filter">
-                    <SelectValue placeholder="All Properties" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Properties</SelectItem>
-                    {properties?.map((property) => (
-                      <SelectItem key={property.id} value={property.id}>
-                        {property.name || `${property.street}, ${property.city}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={predictiveEquipmentTypeFilter} onValueChange={setPredictiveEquipmentTypeFilter}>
-                  <SelectTrigger className="w-52" data-testid="select-equipment-type-filter">
-                    <SelectValue placeholder="All Equipment Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Equipment Types</SelectItem>
-                    <SelectItem value="hvac">HVAC</SelectItem>
-                    <SelectItem value="water_heater">Water Heater</SelectItem>
-                    <SelectItem value="boiler">Boiler</SelectItem>
-                    <SelectItem value="roof">Roof</SelectItem>
-                    <SelectItem value="appliance">Appliance</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={predictiveEntityFilter} onValueChange={setPredictiveEntityFilter}>
-                  <SelectTrigger className="w-44" data-testid="select-predictive-entity-filter">
-                    <SelectValue placeholder="All Entities" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Entities</SelectItem>
-                    {entities?.map((entity) => (
-                      <SelectItem key={entity.id} value={entity.id}>
-                        {entity.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={timelineFilter} onValueChange={setTimelineFilter}>
-                  <SelectTrigger className="w-52" data-testid="select-timeline-filter">
-                    <SelectValue placeholder="Timeline" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="1">Due Within 1 Year</SelectItem>
-                    <SelectItem value="2">Due Within 2 Years</SelectItem>
-                    <SelectItem value="5">Due Within 5 Years</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Predictive Insights Cards */}
-              {insightsLoading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading predictions...</p>
-                </div>
-              ) : filteredInsights.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No Predictions Available</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Add equipment to your properties to start generating predictive maintenance insights
-                    </p>
-                    <Button onClick={() => setShowEquipmentModal(true)} data-testid="button-add-equipment">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Equipment
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredInsights.map((insight) => {
-                    const property = properties?.find(p => p.id === insight.propertyId);
-                    const unit = units?.find(u => u.id === insight.unitId);
-                    const daysUntil = insight.predictedDate 
-                      ? Math.ceil((new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                      : null;
-                    
-                    // Calculate years until replacement for color coding
-                    const yearsUntil = insight.predictedDate 
-                      ? (new Date(insight.predictedDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 365)
-                      : null;
-                    
-                    // Color coding based on urgency: Red (0-2 years), Yellow (3-5 years), Green (5+ years)
-                    let urgencyColor = 'text-green-600 border-green-600 bg-green-50 dark:bg-green-950';
-                    let cardBorderColor = 'border-l-4 border-l-green-500';
-                    
-                    if (yearsUntil !== null) {
-                      if (yearsUntil <= 2) {
-                        urgencyColor = 'text-red-600 border-red-600 bg-red-50 dark:bg-red-950';
-                        cardBorderColor = 'border-l-4 border-l-red-500';
-                      } else if (yearsUntil <= 5) {
-                        urgencyColor = 'text-yellow-600 border-yellow-600 bg-yellow-50 dark:bg-yellow-950';
-                        cardBorderColor = 'border-l-4 border-l-yellow-500';
-                      }
-                    }
-
-                    return (
-                      <Card 
-                        key={insight.id} 
-                        className={`hover:shadow-lg transition-shadow cursor-pointer ${cardBorderColor}`} 
-                        data-testid={`card-insight-${insight.id}`}
-                        onClick={() => {
-                          setSelectedInsight(insight);
-                          setShowInsightDialog(true);
-                        }}
-                      >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge variant="outline" className={urgencyColor}>
-                                  {insight.equipmentType?.replace(/_/g, ' ').toUpperCase()}
-                                </Badge>
-                                {insight.confidence && (
-                                  <Badge variant="outline" className="text-muted-foreground">
-                                    {Math.round(Number(insight.confidence) * 100)}% confidence
-                                  </Badge>
-                                )}
-                              </div>
-                              <CardTitle className="text-base">{insight.prediction}</CardTitle>
-                              <CardDescription className="mt-1">
-                                {property?.name || `${property?.street}, ${property?.city}`}
-                                {unit && ` • ${unit.unitNumber}`}
-                              </CardDescription>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {insight.predictedDate && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-muted-foreground">
-                                Expected: {format(new Date(insight.predictedDate), 'MMM d, yyyy')}
-                                {daysUntil !== null && ` (${formatDaysToRelativeTime(daysUntil)})`}
-                              </span>
-                            </div>
-                          )}
-                          {insight.estimatedCost && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">
-                                ${Number(insight.estimatedCost).toLocaleString()}
-                              </span>
-                              <span className="text-muted-foreground">estimated cost</span>
-                            </div>
-                          )}
-                          {insight.basedOnDataPoints && (
-                            <div className="text-xs text-muted-foreground">
-                              Based on {insight.basedOnDataPoints} data point{insight.basedOnDataPoints !== 1 ? 's' : ''}
-                            </div>
-                          )}
-                          <div className="pt-2 border-t">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="w-full"
-                              onClick={() => {
-                                setSelectedPropertyId(insight.propertyId || '');
-                                setShowEquipmentModal(true);
-                              }}
-                              data-testid={`button-manage-equipment-${insight.id}`}
-                            >
-                              <Settings className="h-4 w-4 mr-2" />
-                              Manage Equipment
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
-          </main>
-        </Tabs>
+        </main>
       </div>
-
-      {/* Insight Detail Dialog */}
-      <Dialog open={showInsightDialog} onOpenChange={setShowInsightDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-insight-detail">
-          {selectedInsight && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedInsight.prediction}</DialogTitle>
-                <CardDescription className="mt-2">
-                  {properties?.find(p => p.id === selectedInsight.propertyId)?.name || 
-                   `${properties?.find(p => p.id === selectedInsight.propertyId)?.street}, ${properties?.find(p => p.id === selectedInsight.propertyId)?.city}`}
-                  {selectedInsight.unitId && ` • Unit ${units?.find(u => u.id === selectedInsight.unitId)?.unitNumber}`}
-                </CardDescription>
-              </DialogHeader>
-              
-              <div className="space-y-6 mt-4">
-                {/* Key Details */}
-                <div className="grid grid-cols-2 gap-4">
-                  {selectedInsight.equipmentType && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Equipment Type</p>
-                      <p className="text-lg font-semibold">{selectedInsight.equipmentType.replace(/_/g, ' ').toUpperCase()}</p>
-                    </div>
-                  )}
-                  {selectedInsight.confidence && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Confidence</p>
-                      <p className="text-lg font-semibold">{Math.round(Number(selectedInsight.confidence) * 100)}%</p>
-                    </div>
-                  )}
-                  {selectedInsight.predictedDate && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Expected Date</p>
-                      <p className="text-lg font-semibold">{format(new Date(selectedInsight.predictedDate), 'MMM d, yyyy')}</p>
-                    </div>
-                  )}
-                  {selectedInsight.estimatedCost && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Estimated Cost</p>
-                      <p className="text-lg font-semibold">${Number(selectedInsight.estimatedCost).toLocaleString()}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Reasoning */}
-                {selectedInsight.reasoning && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <Target className="h-4 w-4" />
-                      Analysis
-                    </h3>
-                    <p className="text-sm text-muted-foreground bg-muted p-4 rounded-lg">{selectedInsight.reasoning}</p>
-                  </div>
-                )}
-
-                {/* Recommendations */}
-                {selectedInsight.recommendations && selectedInsight.recommendations.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4" />
-                      Recommendations
-                    </h3>
-                    <ul className="space-y-2">
-                      {selectedInsight.recommendations.map((rec, index) => (
-                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <span className="text-primary mt-1">•</span>
-                          <span>{rec}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Data Points */}
-                {selectedInsight.basedOnDataPoints && (
-                  <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
-                    Based on {selectedInsight.basedOnDataPoints} data point{selectedInsight.basedOnDataPoints !== 1 ? 's' : ''}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-4 border-t">
-                  <Button 
-                    onClick={() => {
-                      setSelectedPropertyId(selectedInsight.propertyId || '');
-                      setShowEquipmentModal(true);
-                      setShowInsightDialog(false);
-                    }}
-                    data-testid="button-manage-equipment-dialog"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Manage Equipment
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowInsightDialog(false)}
-                    data-testid="button-close-insight-dialog"
-                  >
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Equipment Management Modal */}
       {properties && properties.length > 0 && (

@@ -3,6 +3,9 @@
 ## Overview
 AllAI Property is a comprehensive platform for part-time landlords and small property management companies. It enables users to track properties, manage tenants, monitor maintenance, handle expenses, and stay organized with automated reminders. The platform supports various user types including platform super admins, organization admins (landlords), property owners, contractors, and tenants, each with role-based access control. Its goal is to provide an intuitive interface for managing real estate portfolios, including features like ownership entity management, smart case tracking, and automated regulatory compliance.
 
+## Recent Changes
+- **November 12, 2025**: Removed predictive maintenance feature from Work Orders page (formerly Maintenance page). Terminology changed from "Smart Cases" to "Work Orders" throughout the application. The Predictive Maintenance tab has been removed, and all related predictive insights functionality (equipment failure predictions, maintenance forecasting) has been excised to streamline the contractor-focused workflow.
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
