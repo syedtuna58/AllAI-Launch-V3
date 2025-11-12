@@ -660,8 +660,8 @@ export default function ContractorDashboard() {
                     <CardTitle className="text-sm font-medium">Job Hub</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center justify-center py-2">
-                      <Wrench className="h-8 w-8 text-primary" />
+                    <div className="text-2xl font-bold text-primary mb-1">
+                      <Wrench className="h-8 w-8 mx-auto" />
                     </div>
                     <p className="text-xs text-muted-foreground text-center">View all jobs</p>
                   </CardContent>
@@ -669,62 +669,20 @@ export default function ContractorDashboard() {
               </Link>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Filters</CardTitle>
-              </CardHeader>
-              <CardContent className="flex gap-4 items-center">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]" data-testid="select-status-filter">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Statuses</SelectItem>
-                    {statuses.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-[180px]" data-testid="select-type-filter">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Types</SelectItem>
-                    {categories.map(cat => (
-                      <SelectItem key={cat} value={cat!}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="hide-closed"
-                    checked={hideClosedCases}
-                    onCheckedChange={setHideClosedCases}
-                    data-testid="switch-hide-closed"
-                  />
-                  <Label htmlFor="hide-closed">Hide Closed Cases</Label>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="cases" data-testid="tab-my-cases">
-                  My Cases ({myCases.length})
-                </TabsTrigger>
-                <TabsTrigger value="new" data-testid="tab-new-cases">
-                  New Cases ({newCases.length})
-                </TabsTrigger>
-                <TabsTrigger value="active" data-testid="tab-active">
-                  Active ({activeCases.length})
-                </TabsTrigger>
-                <TabsTrigger value="favorites" data-testid="tab-favorites">
-                  Favorites ({favoritedCases.length})
-                </TabsTrigger>
-              </TabsList>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="cases" data-testid="tab-my-cases">
+                      My Cases ({myCases.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="new" data-testid="tab-new-cases">
+                      New Cases ({newCases.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="active" data-testid="tab-active">
+                      Active ({activeCases.length})
+                    </TabsTrigger>
+                  </TabsList>
 
               <TabsContent value="cases" className="mt-6 space-y-4">
                 {casesLoading ? (
@@ -791,27 +749,54 @@ export default function ContractorDashboard() {
                 )}
               </TabsContent>
 
-              <TabsContent value="favorites" className="mt-6 space-y-4">
-                {favoritedCases.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No favorited cases. Click the heart icon on any case to add it to favorites.
-                  </div>
-                ) : (
-                  favoritedCases.map((case_) => (
-                    <CaseCard
-                      key={case_.id}
-                      case_={case_}
-                      isFavorite={favoriteCases.has(case_.id)}
-                      onToggleFavorite={handleToggleFavorite}
-                      onAcceptCase={handleAcceptCase}
-                      onProposeTime={handleProposeTime}
-                      updateCaseStatus={updateCaseStatus}
-                      acceptCaseMutation={acceptCaseMutation}
-                    />
-                  ))
-                )}
-              </TabsContent>
-            </Tabs>
+                </Tabs>
+              </div>
+
+              <div className="lg:col-span-1">
+                <Card className="h-full">
+                  <CardHeader>
+                    <CardTitle className="text-lg">This Week</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href="/calendar">
+                      <Button variant="ghost" className="w-full justify-start text-sm mb-4 hover:bg-primary/10" data-testid="button-view-full-calendar">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        View Full Calendar
+                      </Button>
+                    </Link>
+                    
+                    {appointmentsLoading ? (
+                      <div className="text-center py-8 text-sm text-muted-foreground">Loading schedule...</div>
+                    ) : appointments.length === 0 ? (
+                      <div className="text-center py-8 text-sm text-muted-foreground">
+                        No scheduled appointments this week
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {appointments.slice(0, 5).map((apt) => (
+                          <div key={apt.id} className="border-l-4 border-primary pl-3 py-2 hover:bg-muted/50 transition-colors" data-testid={`appointment-${apt.id}`}>
+                            <div className="font-medium text-sm">Scheduled Job</div>
+                            <div className="text-xs text-muted-foreground">
+                              {format(new Date(apt.scheduledStartAt), 'EEE, MMM d • h:mm a')}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Status: {apt.status}
+                            </div>
+                          </div>
+                        ))}
+                        {appointments.length > 5 && (
+                          <Link href="/calendar">
+                            <Button variant="link" size="sm" className="w-full text-xs" data-testid="button-view-more-appointments">
+                              View {appointments.length - 5} more →
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
         </main>
       </div>
