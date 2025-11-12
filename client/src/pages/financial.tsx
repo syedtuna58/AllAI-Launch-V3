@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Receipt, DollarSign, Calculator } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Receipt, DollarSign, Calculator, Info } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import Expenses from "./expenses";
@@ -9,6 +11,7 @@ import Tax from "./tax";
 
 export default function Financial() {
   const [activeTab, setActiveTab] = useState("expenses");
+  const { user } = useAuth();
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -26,6 +29,15 @@ export default function Financial() {
         <Header title="Financial" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
+          {user?.primaryRole === 'property_owner' && (
+            <Alert className="mb-6 border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800" data-testid="alert-property-owner-tax-info">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200">
+                Tax deduction features are designed for investment properties. Please consult a tax professional regarding personal residence expenses.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full max-w-lg grid-cols-3 mb-6">
               <TabsTrigger value="expenses" data-testid="tab-expenses">

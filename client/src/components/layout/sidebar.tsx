@@ -46,7 +46,12 @@ export default function Sidebar() {
   let navigation = currentRole === 'platform_super_admin'
     ? superAdminNavigation
     : currentRole === 'admin' || currentRole === 'org_admin' || currentRole === 'property_owner'
-    ? adminNavigation 
+    ? adminNavigation.filter(item => {
+        if (currentRole === 'property_owner' && item.name === 'Tenants') {
+          return false;
+        }
+        return true;
+      })
     : currentRole === 'contractor'
     ? contractorNavigation
     : tenantNavigation;
