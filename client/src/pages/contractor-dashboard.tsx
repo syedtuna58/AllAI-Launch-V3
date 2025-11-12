@@ -257,6 +257,12 @@ export default function ContractorDashboard() {
   const [aiGuidance, setAiGuidance] = useState<any>(null);
   const [loadingGuidance, setLoadingGuidance] = useState(false);
 
+  // Fetch contractor's vendor profile to get vendor ID
+  const { data: contractorProfile } = useQuery<any>({
+    queryKey: ['/api/contractors/me'],
+    enabled: !!user
+  });
+
   const { data: assignedCases = [], isLoading: casesLoading } = useQuery<ContractorCase[]>({
     queryKey: ['/api/contractor/cases'],
     enabled: !!user
@@ -569,8 +575,14 @@ export default function ContractorDashboard() {
     return true;
   });
 
-  const myCases = filteredCases.filter(c => c.assignedContractorId === user?.id);
-  const newCases = filteredCases.filter(c => c.status === "New" && !c.assignedContractorId);
+  // All assignedCases from the backend are already filtered to this contractor's vendor IDs
+  // So myCases is simply all the assigned cases (no additional filtering needed)
+  const myCases = filteredCases;
+  
+  // New cases would come from marketplace - currently assignedCases only contains assigned cases
+  // So newCases for marketplace would need a separate endpoint in the future
+  const newCases = filteredCases.filter(c => c.status === "New");
+  
   const activeCases = myCases.filter(c => ["Scheduled", "In Progress"].includes(c.status || ""));
   const favoritedCases = filteredCases.filter(c => favoriteCases.has(c.id));
 
