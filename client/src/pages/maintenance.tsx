@@ -337,7 +337,7 @@ export default function Maintenance() {
       form.reset();
       toast({
         title: "Success",
-        description: "Maintenance case created successfully",
+        description: "Work order created successfully",
       });
     },
     onError: (error) => {
@@ -354,7 +354,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to create maintenance case",
+        description: "Failed to create work order",
         variant: "destructive",
       });
     },
@@ -372,7 +372,7 @@ export default function Maintenance() {
       form.reset();
       toast({
         title: "Success",
-        description: "Maintenance case updated successfully",
+        description: "Work order updated successfully",
       });
     },
     onError: (error) => {
@@ -389,7 +389,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to update maintenance case",
+        description: "Failed to update work order",
         variant: "destructive",
       });
     },
@@ -404,7 +404,7 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
       toast({
         title: "Success",
-        description: "Case status updated successfully",
+        description: "Work order status updated successfully",
       });
     },
     onError: (error) => {
@@ -421,7 +421,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to update case status",
+        description: "Failed to update work order status",
         variant: "destructive",
       });
     },
@@ -436,7 +436,7 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
       toast({
         title: "AI Triage Complete",
-        description: "Case has been analyzed and categorized",
+        description: "Work order has been analyzed and categorized",
       });
     },
     onError: (error: any) => {
@@ -457,7 +457,7 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
       toast({
         title: "Contractor Assigned",
-        description: "Best contractor has been assigned to this case",
+        description: "Best contractor has been assigned to this work order",
       });
     },
     onError: (error: any) => {
@@ -480,14 +480,14 @@ export default function Maintenance() {
       setShowAcceptDialog(false);
       setAcceptingCase(null);
       toast({
-        title: "Case Accepted",
+        title: "Work Order Accepted",
         description: "Appointment has been scheduled. Tenant will be notified for approval.",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to accept case",
+        description: error.message || "Failed to accept work order",
         variant: "destructive",
       });
     },
@@ -507,7 +507,7 @@ export default function Maintenance() {
       setSelectedCase(null);
       toast({
         title: "Success", 
-        description: "Case deleted successfully",
+        description: "Work order deleted successfully",
       });
     },
     onError: (error) => {
@@ -524,7 +524,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to delete case",
+        description: "Failed to delete work order",
         variant: "destructive",
       });
     },
@@ -837,7 +837,7 @@ export default function Maintenance() {
       form.reset();
       toast({
         title: "Success",
-        description: "Maintenance case created successfully",
+        description: "Work order created successfully",
       });
     }
   };
@@ -915,7 +915,7 @@ export default function Maintenance() {
                       <Card>
                         <CardContent className="p-6 text-center text-muted-foreground">
                           <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>No maintenance requests yet</p>
+                          <p>No work order requests yet</p>
                           <Button 
                             onClick={() => navigate("/tenant-request")} 
                             className="mt-4"
@@ -1205,110 +1205,52 @@ export default function Maintenance() {
         <Header title="Work Orders" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-              {/* Maya AI Assistant */}
-              <PropertyAssistant 
-                key="maintenance"
-                context="maintenance"
-                exampleQuestions={[
-                  "What maintenance is overdue or urgent?",
-                  "Which property needs the most attention?",
-                  "Any recurring maintenance patterns I should address?",
-                  "What repairs are costing me the most?"
-                ]}
-                onCreateCase={(caseData) => {
-                  // Validate case data
-                  if (!caseData?.property || !caseData?.unit) {
-                    toast({
-                      title: "Incomplete Information",
-                      description: "Maya needs property and unit information to create the case. Please provide these details.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-
-                  // Fuzzy matching helper function
-                  const fuzzyMatch = (search: string, target: string): number => {
-                    const searchLower = search.toLowerCase().trim();
-                    const targetLower = target.toLowerCase().trim();
-                    
-                    if (!searchLower || searchLower.length === 0) return 0;
-                    if (!targetLower || targetLower.length === 0) return 0;
-                    if (searchLower === targetLower) return 100;
-                    if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
-                    
-                    const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
-                    const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
-                    const overlap = searchWords.filter(w => targetWords.includes(w)).length;
-                    if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
-                    
-                    return 0;
-                  };
-
-                  const bestPropertyMatch = properties?.reduce((best, prop) => {
-                    const nameScore = fuzzyMatch(caseData.property, prop.name || '');
-                    const addressScore = fuzzyMatch(caseData.property, `${prop.street}, ${prop.city}`);
-                    const score = Math.max(nameScore, addressScore);
-                    return score > best.score ? { property: prop, score } : best;
-                  }, { property: null as Property | null, score: 0 });
-
-                  if (!bestPropertyMatch?.property || bestPropertyMatch.score < 50) {
-                    toast({
-                      title: "Property Not Found",
-                      description: `Could not find a property matching "${caseData.property}". Please create the case manually.`,
-                      variant: "destructive",
-                    });
-                    setShowCaseForm(true);
-                    return;
-                  }
-
-                  const property = bestPropertyMatch.property;
-                  const propertyUnits = units?.filter(u => u.propertyId === property.id) || [];
-
-                  const bestUnitMatch = propertyUnits.reduce((best, unit) => {
-                    const score = fuzzyMatch(caseData.unit, unit.label || '');
-                    return score > best.score ? { unit, score } : best;
-                  }, { unit: null as Unit | null, score: 0 });
-
-                  if (!bestUnitMatch?.unit || bestUnitMatch.score < 50) {
-                    toast({
-                      title: "Unit Not Found",
-                      description: `Could not find a unit matching "${caseData.unit}" in ${property.name}. Please create the case manually.`,
-                      variant: "destructive",
-                    });
-                    setShowCaseForm(true);
-                    return;
-                  }
-
-                  const unit = bestUnitMatch.unit;
-
-                  const newCaseData = {
-                    title: caseData.title || "Maintenance Request",
-                    description: caseData.description || "",
-                    propertyId: property.id,
-                    unitId: unit.id,
-                    priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                    category: caseData.category || "",
-                    createReminder: false
-                  };
-
-                  createCaseMutation.mutate(newCaseData);
-                  
-                  const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
-                  const matchMessage = isExactMatch 
-                    ? `Creating maintenance request for ${property.name}, ${unit.label}...`
-                    : `Matched to ${property.name}, ${unit.label}. Creating request...`;
-                  
-                  toast({
-                    title: "Creating Case",
-                    description: matchMessage,
-                  });
-                }}
-              />
-
               <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Work Orders</h1>
-                  <p className="text-muted-foreground">Track and manage work order requests</p>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Work Orders</h1>
+                    <p className="text-muted-foreground">Track and manage work order requests</p>
+                  </div>
+                  
+                  {/* View Toggle Buttons */}
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant={currentView === "cards" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("cards")}
+                      data-testid="button-view-cards"
+                    >
+                      <LayoutGrid className="h-4 w-4 mr-1" />
+                      Cards
+                    </Button>
+                    <Button
+                      variant={currentView === "list" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("list")}
+                      data-testid="button-view-list"
+                    >
+                      <List className="h-4 w-4 mr-1" />
+                      List
+                    </Button>
+                    <Button
+                      variant={currentView === "heat-map" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("heat-map")}
+                      data-testid="button-view-heat-map"
+                    >
+                      <Map className="h-4 w-4 mr-1" />
+                      Heat Map
+                    </Button>
+                    <Button
+                      variant={currentView === "kanban" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("kanban")}
+                      data-testid="button-view-kanban"
+                    >
+                      <BarChart3 className="h-4 w-4 mr-1" />
+                      Kanban
+                    </Button>
+                  </div>
                 </div>
             
             <div className="flex items-center space-x-3">
@@ -1670,7 +1612,107 @@ export default function Maintenance() {
             </div>
           </div>
 
-          {/* Summary Bar and View Toggle */}
+          {/* Maya AI Assistant */}
+          <PropertyAssistant 
+            key="maintenance"
+            context="maintenance"
+            exampleQuestions={[
+              "What maintenance is overdue or urgent?",
+              "Which property needs the most attention?",
+              "Any recurring maintenance patterns I should address?",
+              "What repairs are costing me the most?"
+            ]}
+            onCreateCase={(caseData) => {
+              // Validate case data
+              if (!caseData?.property || !caseData?.unit) {
+                toast({
+                  title: "Incomplete Information",
+                  description: "Maya needs property and unit information to create the case. Please provide these details.",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              // Fuzzy matching helper function
+              const fuzzyMatch = (search: string, target: string): number => {
+                const searchLower = search.toLowerCase().trim();
+                const targetLower = target.toLowerCase().trim();
+                
+                if (!searchLower || searchLower.length === 0) return 0;
+                if (!targetLower || targetLower.length === 0) return 0;
+                if (searchLower === targetLower) return 100;
+                if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
+                
+                const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+                const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
+                const overlap = searchWords.filter(w => targetWords.includes(w)).length;
+                if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
+                
+                return 0;
+              };
+
+              const bestPropertyMatch = properties?.reduce((best, prop) => {
+                const nameScore = fuzzyMatch(caseData.property, prop.name || '');
+                const addressScore = fuzzyMatch(caseData.property, `${prop.street}, ${prop.city}`);
+                const score = Math.max(nameScore, addressScore);
+                return score > best.score ? { property: prop, score } : best;
+              }, { property: null as Property | null, score: 0 });
+
+              if (!bestPropertyMatch?.property || bestPropertyMatch.score < 50) {
+                toast({
+                  title: "Property Not Found",
+                  description: `Could not find a property matching "${caseData.property}". Please create the case manually.`,
+                  variant: "destructive",
+                });
+                setShowCaseForm(true);
+                return;
+              }
+
+              const property = bestPropertyMatch.property;
+              const propertyUnits = units?.filter(u => u.propertyId === property.id) || [];
+
+              const bestUnitMatch = propertyUnits.reduce((best, unit) => {
+                const score = fuzzyMatch(caseData.unit, unit.label || '');
+                return score > best.score ? { unit, score } : best;
+              }, { unit: null as Unit | null, score: 0 });
+
+              if (!bestUnitMatch?.unit || bestUnitMatch.score < 50) {
+                toast({
+                  title: "Unit Not Found",
+                  description: `Could not find a unit matching "${caseData.unit}" in ${property.name}. Please create the case manually.`,
+                  variant: "destructive",
+                });
+                setShowCaseForm(true);
+                return;
+              }
+
+              const unit = bestUnitMatch.unit;
+
+              const newCaseData = {
+                title: caseData.title || "Work Order",
+                description: caseData.description || "",
+                propertyId: property.id,
+                unitId: unit.id,
+                priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                category: caseData.category || "",
+                createReminder: false
+              };
+
+              createCaseMutation.mutate(newCaseData);
+              
+              const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
+              const matchMessage = isExactMatch 
+                ? `Creating work order for ${property.name}, ${unit.label}...`
+                : `Matched to ${property.name}, ${unit.label}. Creating work order...`;
+              
+              toast({
+                title: "Creating Work Order",
+                description: matchMessage,
+              });
+            }}
+          />
+
+          {/* Summary Bar */}
           <div className="bg-background border rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
               {filteredCases.length > 0 ? (
@@ -1709,47 +1751,6 @@ export default function Maintenance() {
                   Ready to track work orders
                 </div>
               )}
-              
-              {/* View Toggle Buttons - Always Visible */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground mr-2">View:</span>
-                <Button
-                  variant={currentView === "cards" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("cards")}
-                  data-testid="button-view-cards"
-                >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Cards
-                </Button>
-                <Button
-                  variant={currentView === "list" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("list")}
-                  data-testid="button-view-list"
-                >
-                  <List className="h-4 w-4 mr-1" />
-                  List
-                </Button>
-                <Button
-                  variant={currentView === "heat-map" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("heat-map")}
-                  data-testid="button-view-heat-map"
-                >
-                  <Map className="h-4 w-4 mr-1" />
-                  Heat Map
-                </Button>
-                <Button
-                  variant={currentView === "kanban" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("kanban")}
-                  data-testid="button-view-kanban"
-                >
-                  <BarChart3 className="h-4 w-4 mr-1" />
-                  Kanban
-                </Button>
-              </div>
             </div>
           </div>
 
