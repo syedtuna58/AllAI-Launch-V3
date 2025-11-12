@@ -32,7 +32,7 @@ export default function Sidebar() {
   const contractorNavigation = [
     { name: "Dashboard", href: "/contractor-dashboard", icon: Home },
     { name: "Inbox", href: "/inbox", icon: Inbox },
-    { name: "My Jobs", href: "/maintenance", icon: Wrench },
+    { name: "Job Hub", href: "/maintenance", icon: Wrench },
     { name: "Calendar", href: "/contractor-schedule", icon: Calendar },
     { name: "Reminders", href: "/reminders", icon: Clock },
   ];

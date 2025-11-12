@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Clock, MapPin, Heart, CheckCircle, AlertTriangle } from "lucide-react";
+import { Calendar, Clock, MapPin, Heart, CheckCircle, AlertTriangle, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
@@ -606,7 +606,7 @@ export default function ContractorDashboard() {
             <PropertyAssistant context="contractor-dashboard" />
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedTab("cases")} data-testid="card-my-cases">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">My Cases</CardTitle>
                 </CardHeader>
@@ -618,7 +618,7 @@ export default function ContractorDashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedTab("active")} data-testid="card-active-work">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Active Work</CardTitle>
                 </CardHeader>
@@ -630,7 +630,7 @@ export default function ContractorDashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedTab("new")} data-testid="card-new-cases">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">New Cases</CardTitle>
                 </CardHeader>
@@ -642,17 +642,19 @@ export default function ContractorDashboard() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Favorites</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-pink-600" data-testid="text-favorites-count">
-                    {favoritedCases.length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Saved cases</p>
-                </CardContent>
-              </Card>
+              <Link href="/maintenance">
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-primary/5 border-primary/20" data-testid="card-job-hub">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Job Hub</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-center py-2">
+                      <Wrench className="h-8 w-8 text-primary" />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">View all jobs</p>
+                  </CardContent>
+                </Card>
+              </Link>
             </div>
 
             <Card>
