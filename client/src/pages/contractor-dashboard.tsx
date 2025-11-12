@@ -660,10 +660,10 @@ export default function ContractorDashboard() {
                     <CardTitle className="text-sm font-medium">Job Hub</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-primary flex items-center justify-center mb-1">
+                    <div className="text-2xl font-bold text-primary mb-1">
                       <Wrench className="h-8 w-8" />
                     </div>
-                    <p className="text-xs text-muted-foreground text-center">View all jobs</p>
+                    <p className="text-xs text-muted-foreground">View all jobs</p>
                   </CardContent>
                 </Card>
               </Link>
