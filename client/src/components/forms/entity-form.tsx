@@ -73,9 +73,59 @@ export default function EntityForm({ onSubmit, onCancel, isLoading, initialData 
               <FormLabel>
                 {selectedType === "LLC" ? "LLC Name" : "Individual Name"}
               </FormLabel>
+              
+              {/* Name Templates */}
+              <div className="mb-3 p-3 bg-muted/50 rounded-md border border-border">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Name Templates (click to start, then customize):
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => field.onChange("My Family Trust")}
+                    data-testid="button-quick-trust"
+                  >
+                    🏢 My Family Trust
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => field.onChange("Smith Properties LLC")}
+                    data-testid="button-quick-llc"
+                  >
+                    🏛️ [Name] LLC
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => field.onChange("Personal Ownership")}
+                    data-testid="button-quick-personal"
+                  >
+                    👤 Personal
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-8"
+                    onClick={() => field.onChange("Joint with Spouse")}
+                    data-testid="button-quick-joint"
+                  >
+                    👥 Joint Ownership
+                  </Button>
+                </div>
+              </div>
+              
               <FormControl>
                 <Input 
-                  placeholder={selectedType === "LLC" ? "e.g., Smith Properties LLC" : "e.g., John Smith"} 
+                  placeholder="Enter entity name (customize templates above or type your own)" 
                   {...field} 
                   data-testid="input-entity-name"
                 />
