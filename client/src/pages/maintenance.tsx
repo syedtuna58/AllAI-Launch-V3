@@ -168,8 +168,7 @@ export default function Maintenance() {
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
   const [showCaseDialog, setShowCaseDialog] = useState(false);
-  // Default to "all" for contractors so they see all their assigned work
-  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>(user?.userType === 'contractor' ? "all" : "active");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>("all");
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -203,10 +202,18 @@ export default function Maintenance() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
+  // Set default status filter based on user type once user loads
+  useEffect(() => {
+    if (user?.userType === 'contractor') {
+      setStatusFilter("all"); // Contractors see all their assigned work by default
+    } else if (user?.userType && statusFilter === "all") {
+      setStatusFilter("active"); // Non-contractors see only active work by default
+    }
+  }, [user?.userType]);
+
   // Fetch smart cases - use contractor endpoint for contractors, org endpoint for admins
-  const casesEndpoint = user?.userType === 'contractor' ? '/api/contractor/cases' : '/api/cases';
   const { data: smartCases, isLoading: casesLoading, error } = useQuery<SmartCase[]>({
-    queryKey: [casesEndpoint],
+    queryKey: [user?.userType === 'contractor' ? '/api/contractor/cases' : '/api/cases'],
     enabled: !!user,
     retry: false,
   });
@@ -817,6 +824,16 @@ export default function Maintenance() {
     const categoryMatch = categoryFilter === "all" || smartCase.category === categoryFilter;
     const unitMatch = unitFilter.length === 0 || (smartCase.unitId && unitFilter.includes(smartCase.unitId)) || (unitFilter.includes("common") && !smartCase.unitId);
     return propertyMatch && categoryMatch && unitMatch;
+  });
+
+  // Debug logging
+  console.log('🔍 DEBUG - Job Hub Cases:', {
+    smartCases: smartCases?.length || 0,
+    statusFilter,
+    statusFilteredCases: statusFilteredCases.length,
+    filteredCases: filteredCases.length,
+    user: user?.userType,
+    casesLoading
   });
 
 
