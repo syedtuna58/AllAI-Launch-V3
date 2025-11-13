@@ -212,9 +212,11 @@ export default function Maintenance() {
   }, [user?.userType]);
 
   // Fetch smart cases - use contractor endpoint for contractors, org endpoint for admins
+  // Important: queryKey must include userType to ensure it updates when user loads
+  const endpoint = user?.userType === 'contractor' ? '/api/contractor/cases' : '/api/cases';
   const { data: smartCases, isLoading: casesLoading, error } = useQuery<SmartCase[]>({
-    queryKey: [user?.userType === 'contractor' ? '/api/contractor/cases' : '/api/cases'],
-    enabled: !!user,
+    queryKey: [endpoint, user?.userType],
+    enabled: !!user && !!user.userType,
     retry: false,
   });
 
