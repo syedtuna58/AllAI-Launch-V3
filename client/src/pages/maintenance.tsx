@@ -219,6 +219,18 @@ export default function Maintenance() {
     retry: false,
   });
 
+  // Debug query results
+  useEffect(() => {
+    console.log('🔍 QUERY DEBUG:', {
+      endpoint,
+      userType: user?.userType,
+      enabled: !!user && !!user.userType,
+      casesLoading,
+      smartCases: smartCases?.length || 0,
+      error: error?.message,
+      rawData: smartCases
+    });
+  }, [endpoint, user?.userType, casesLoading, smartCases, error]);
 
   const { data: properties } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
