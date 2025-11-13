@@ -204,18 +204,18 @@ export default function Maintenance() {
 
   // Set default status filter based on user type once user loads
   useEffect(() => {
-    if (user?.userType === 'contractor') {
+    if (role === 'contractor') {
       setStatusFilter("all"); // Contractors see all their assigned work by default
-    } else if (user?.userType && statusFilter === "all") {
+    } else if (role && statusFilter === "all") {
       setStatusFilter("active"); // Non-contractors see only active work by default
     }
-  }, [user?.userType]);
+  }, [role]);
 
   // Fetch smart cases - use contractor endpoint for contractors, org endpoint for admins
-  const endpoint = user?.userType === 'contractor' ? '/api/contractor/cases' : '/api/cases';
+  const endpoint = role === 'contractor' ? '/api/contractor/cases' : '/api/cases';
   const { data: smartCases, isLoading: casesLoading, error } = useQuery<SmartCase[]>({
     queryKey: [endpoint],
-    enabled: !!user && !!user.userType,
+    enabled: !!user && !!role,
     retry: false,
   });
 
@@ -223,14 +223,14 @@ export default function Maintenance() {
   useEffect(() => {
     console.log('🔍 QUERY DEBUG:', {
       endpoint,
-      userType: user?.userType,
-      enabled: !!user && !!user.userType,
+      role,
+      enabled: !!user && !!role,
       casesLoading,
       smartCases: smartCases?.length || 0,
       error: error?.message,
       rawData: smartCases
     });
-  }, [endpoint, user?.userType, casesLoading, smartCases, error]);
+  }, [endpoint, role, casesLoading, smartCases, error]);
 
   const { data: properties } = useQuery<Property[]>({
     queryKey: ["/api/properties"],
