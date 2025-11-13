@@ -102,7 +102,7 @@ function Router() {
           <Route path="/contractor-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-marketplace-dashboard" component={ContractorMarketplaceDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
-          <Route path="/contractor-schedule" component={ContractorSchedule} />
+          <Route path="/contractor-schedule" component={AdminCalendar} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin-calendar" component={AdminCalendar} />
           <Route path="/expenses" component={Expenses} />
