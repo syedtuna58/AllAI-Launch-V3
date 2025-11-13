@@ -207,6 +207,7 @@ export default function Maintenance() {
   const casesEndpoint = user?.userType === 'contractor' ? '/api/contractor/cases' : '/api/cases';
   const { data: smartCases, isLoading: casesLoading, error } = useQuery<SmartCase[]>({
     queryKey: [casesEndpoint],
+    enabled: !!user,
     retry: false,
   });
 
@@ -336,6 +337,7 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       setShowCaseForm(false);
       setEditingCase(null);
       form.reset();
@@ -371,6 +373,7 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       setShowCaseForm(false);
       setEditingCase(null);
       form.reset();
@@ -406,6 +409,7 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       toast({
         title: "Success",
         description: "Work order status updated successfully",
@@ -438,6 +442,7 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       toast({
         title: "AI Triage Complete",
         description: "Work order has been analyzed and categorized",
@@ -459,6 +464,7 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       toast({
         title: "Contractor Assigned",
         description: "Best contractor has been assigned to this work order",
@@ -481,6 +487,7 @@ export default function Maintenance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       setShowAcceptDialog(false);
       setAcceptingCase(null);
       toast({
@@ -617,6 +624,7 @@ export default function Maintenance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
       queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
       setReviewingCounterProposal(null);
       toast({
@@ -641,6 +649,7 @@ export default function Maintenance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/scheduled-jobs'] });
       queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
       queryClient.invalidateQueries({ queryKey: ['/api/counter-proposals'] });
       setReviewingCounterProposal(null);
       toast({
@@ -832,6 +841,7 @@ export default function Maintenance() {
       
       // Update UI
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       setShowCaseForm(false);
       setEditingCase(null);
       form.reset();
@@ -3124,6 +3134,7 @@ function ProposalsDialog({
         description: "Appointment time selected successfully!",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/cases'] });
       queryClient.invalidateQueries({ queryKey: [`/api/cases/${case_.id}/proposals`] });
       queryClient.invalidateQueries({ queryKey: [`/api/cases/${case_.id}/appointments`] });
       onClose();
