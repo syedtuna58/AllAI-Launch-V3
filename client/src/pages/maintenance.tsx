@@ -38,6 +38,7 @@ import TenantCalendar from "@/components/TenantCalendar";
 import TenantAvailabilitySelector from "@/components/TenantAvailabilitySelector";
 import ContractorCalendarMatch from "@/components/ContractorCalendarMatch";
 import { ThumbsUp, ThumbsDown, CalendarClock, X } from "lucide-react";
+import WorkOrderCard from "@/components/cards/work-order-card";
 
 // Helper function to convert days to human-friendly relative time
 function formatDaysToRelativeTime(days: number): string {
@@ -1697,6 +1698,41 @@ export default function Maintenance() {
             <>
               {/* Render different views based on currentView state */}
               {currentView === "cards" && (
+                <VisualizationErrorBoundary>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredCases.map((smartCase, index) => (
+                    <WorkOrderCard
+                      key={smartCase.id}
+                      workOrder={smartCase}
+                      properties={properties}
+                      units={units}
+                      userRole={role}
+                      index={index}
+                      onStatusChange={(id, status) => updateCaseStatusMutation.mutate({ id, status })}
+                      onEdit={handleEditCase}
+                      onReminder={(workOrder) => {
+                        setReminderCaseContext({
+                          caseId: workOrder.id,
+                          caseTitle: workOrder.title
+                        });
+                        setShowReminderForm(true);
+                      }}
+                      onDelete={(id) => setCaseToDelete(id)}
+                      onAccept={(workOrder) => {
+                        setAcceptingCase(workOrder);
+                        setShowAcceptDialog(true);
+                      }}
+                      onReviewCounter={(job) => {
+                        setReviewingCounterProposal({ job, proposalId: '' });
+                      }}
+                    />
+                  ))}
+                </div>
+                </VisualizationErrorBoundary>
+              )}
+
+              {/* BACKUP: old card rendering code to be removed */}
+              {false && currentView === "cards-old" && (
                 <VisualizationErrorBoundary>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filteredCases.map((smartCase, index) => (
