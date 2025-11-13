@@ -133,6 +133,13 @@ export default function AdminCalendarPage() {
     retry: false,
   });
 
+  // Fetch teams for the current contractor
+  const { data: teams = [] } = useQuery<any[]>({
+    queryKey: ["/api/teams"],
+    enabled: role === "contractor",
+    retry: false,
+  });
+
   // Fetch maintenance cases - use contractor endpoint for contractors
   const casesEndpoint = role === 'contractor' ? '/api/contractor/cases' : '/api/cases';
   const { data: cases = [], isLoading: casesLoading } = useQuery<MaintenanceCase[]>({
