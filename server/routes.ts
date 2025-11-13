@@ -7004,15 +7004,29 @@ If you cannot identify the equipment with confidence, return an empty object {}.
   // TEAM ROUTES
   // ===========================
 
-  // Get all teams for an organization
+  // Get all teams for an organization (or all orgs for contractors)
   app.get('/api/teams', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const org = await storage.getUserOrganization(userId);
-      if (!org) return res.status(404).json({ message: "Organization not found" });
-
-      const teams = await storage.getTeams(org.id);
-      res.json(teams);
+      
+      // Check if user is a contractor (has vendor records)
+      const contractorVendors = await storage.getContractorVendorsByUserId(userId);
+      
+      if (contractorVendors.length > 0) {
+        // Contractor: fetch teams from all organizations they work in
+        const orgIds = [...new Set(contractorVendors.map(v => v.orgId))];
+        const teamsPromises = orgIds.map(orgId => storage.getTeams(orgId));
+        const teamsArrays = await Promise.all(teamsPromises);
+        const allTeams = teamsArrays.flat();
+        res.json(allTeams);
+      } else {
+        // Non-contractor: fetch teams from their organization
+        const org = await storage.getUserOrganization(userId);
+        if (!org) return res.status(404).json({ message: "Organization not found" });
+        
+        const teams = await storage.getTeams(org.id);
+        res.json(teams);
+      }
     } catch (error) {
       console.error("Error fetching teams:", error);
       res.status(500).json({ message: "Failed to fetch teams" });

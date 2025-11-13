@@ -169,6 +169,7 @@ export default function Maintenance() {
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
   const [showCaseDialog, setShowCaseDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilterKey>("all");
+  const [teamFilter, setTeamFilter] = useState<string>("all");
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -255,6 +256,13 @@ export default function Maintenance() {
   // Fetch contractor's own profile if they're a contractor
   const { data: contractorProfile } = useQuery<any>({
     queryKey: ["/api/contractors/me"],
+    enabled: role === "contractor",
+    retry: false,
+  });
+
+  // Fetch teams for the current contractor
+  const { data: teams = [] } = useQuery<any[]>({
+    queryKey: ["/api/teams"],
     enabled: role === "contractor",
     retry: false,
   });
@@ -836,7 +844,14 @@ export default function Maintenance() {
     const propertyMatch = propertyFilter === "all" || smartCase.propertyId === propertyFilter;
     const categoryMatch = categoryFilter === "all" || smartCase.category === categoryFilter;
     const unitMatch = unitFilter.length === 0 || (smartCase.unitId && unitFilter.includes(smartCase.unitId)) || (unitFilter.includes("common") && !smartCase.unitId);
-    return propertyMatch && categoryMatch && unitMatch;
+    
+    // Team filter - only show work orders assigned to the selected team
+    // Check both scheduledJobs array and case-level team assignment
+    const teamMatch = teamFilter === "all" || (
+      (smartCase as any).scheduledJobs?.some((job: any) => job.teamId === teamFilter)
+    );
+    
+    return propertyMatch && categoryMatch && unitMatch && teamMatch;
   });
 
   // Debug logging
@@ -1270,21 +1285,36 @@ export default function Maintenance() {
                 </Button>
               )}
               
-              {/* Entity Filter */}
-              <Select value={entityFilter} onValueChange={(value) => {
-                setEntityFilter(value);
-                if (value !== "all") {
-                  setPropertyFilter("all");
-                }
-              }}>
-                <SelectTrigger className="w-44" data-testid="select-entity-filter">
-                  <SelectValue placeholder="All Entities" />
+              {/* Teams Filter - only for contractors with teams */}
+              {role === "contractor" && teams && teams.length > 0 && (
+                <Select value={teamFilter} onValueChange={setTeamFilter}>
+                  <SelectTrigger className="w-44" data-testid="select-team-filter">
+                    <SelectValue placeholder="All Teams" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Teams</SelectItem>
+                    {teams.map((team: any) => (
+                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Status Filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40" data-testid="select-status-filter">
+                  <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Entities</SelectItem>
-                  {entities.map((entity) => (
-                    <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
-                  ))}
+                  <SelectItem value="active">Active Work</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="New">New</SelectItem>
+                  <SelectItem value="In Review">In Review</SelectItem>
+                  <SelectItem value="Scheduled">Scheduled</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="On Hold">On Hold</SelectItem>
+                  <SelectItem value="Resolved">Resolved</SelectItem>
+                  <SelectItem value="Closed">Closed</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1367,21 +1397,21 @@ export default function Maintenance() {
                 </SelectContent>
               </Select>
 
-              {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40" data-testid="select-status-filter">
-                  <SelectValue placeholder="All Status" />
+              {/* Entity Filter */}
+              <Select value={entityFilter} onValueChange={(value) => {
+                setEntityFilter(value);
+                if (value !== "all") {
+                  setPropertyFilter("all");
+                }
+              }}>
+                <SelectTrigger className="w-44" data-testid="select-entity-filter">
+                  <SelectValue placeholder="All Entities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active Work</SelectItem>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="New">New</SelectItem>
-                  <SelectItem value="In Review">In Review</SelectItem>
-                  <SelectItem value="Scheduled">Scheduled</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="On Hold">On Hold</SelectItem>
-                  <SelectItem value="Resolved">Resolved</SelectItem>
-                  <SelectItem value="Closed">Closed</SelectItem>
+                  <SelectItem value="all">All Entities</SelectItem>
+                  {entities.map((entity) => (
+                    <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
