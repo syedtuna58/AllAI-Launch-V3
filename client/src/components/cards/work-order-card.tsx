@@ -40,6 +40,12 @@ type WorkOrderCardProps = {
   };
   properties?: Property[];
   units?: Unit[];
+  teams?: Array<{
+    id: string;
+    name: string;
+    color: string;
+    specialty?: string;
+  }>;
   userRole?: string;
   onStatusChange?: (id: string, status: string) => void;
   onEdit?: (workOrder: any) => void;
@@ -49,12 +55,14 @@ type WorkOrderCardProps = {
   onReviewCounter?: (job: any) => void;
   index?: number;
   showActions?: boolean;
+  variant?: "default" | "compact";
 };
 
 export default function WorkOrderCard({
   workOrder,
   properties = [],
   units = [],
+  teams = [],
   userRole,
   onStatusChange,
   onEdit,
@@ -64,6 +72,7 @@ export default function WorkOrderCard({
   onReviewCounter,
   index = 0,
   showActions = true,
+  variant = "default",
 }: WorkOrderCardProps) {
   const getStatusIcon = (status: string | null) => {
     switch (status) {
@@ -138,19 +147,21 @@ export default function WorkOrderCard({
   const scheduledEndTime = scheduledEndAt ? format(new Date(scheduledEndAt), 'h:mm a') : null;
   const durationDays = teamInfo?.durationDays;
 
+  const isCompact = variant === "compact";
+
   return (
     <Card 
-      className={`group hover:shadow-lg transition-all duration-200 border border-transparent border-l-4 ${getPriorityBorderClass(workOrder.priority)}`}
+      className={`group hover:shadow-lg transition-all duration-200 border border-transparent border-l-4 ${getPriorityBorderClass(workOrder.priority)} ${isCompact ? 'shadow-sm' : ''}`}
       data-testid={`card-case-${index}`}
     >
-      <CardHeader className="pb-3">
+      <CardHeader className={isCompact ? "p-3 pb-2" : "pb-3"}>
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3 flex-1">
-            <div className={`w-10 h-10 ${getPriorityCircleColor(workOrder.priority)} rounded-full flex items-center justify-center flex-shrink-0`}>
+            <div className={`${isCompact ? 'w-7 h-7' : 'w-10 h-10'} ${getPriorityCircleColor(workOrder.priority)} rounded-full flex items-center justify-center flex-shrink-0`}>
               {getStatusIcon(workOrder.status)}
             </div>
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-base font-semibold leading-tight mb-1" data-testid={`text-case-title-${index}`}>
+              <CardTitle className={`${isCompact ? 'text-sm' : 'text-base'} font-semibold leading-tight mb-1`} data-testid={`text-case-title-${index}`}>
                 {workOrder.title}
               </CardTitle>
               {workOrder.category && (
@@ -175,35 +186,37 @@ export default function WorkOrderCard({
             </div>
           </div>
           <div className="flex flex-col items-end space-y-1 flex-shrink-0">
-            {getPriorityBadge(workOrder.priority)}
+            {!isCompact && getPriorityBadge(workOrder.priority)}
             {getStatusBadge(workOrder.status)}
             {/* Team Badge */}
             {teamInfo?.teamName && (
               <div 
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-medium"
+                className={`flex items-center gap-1 ${isCompact ? 'px-1.5 py-0.5' : 'px-2 py-0.5'} rounded-full text-white ${isCompact ? 'text-[10px]' : 'text-xs'} font-medium`}
                 style={{ backgroundColor: teamInfo.teamColor || '#6b7280' }}
               >
-                <Users className="h-3 w-3" />
+                <Users className={isCompact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />
                 <span>{teamInfo.teamName}</span>
               </div>
             )}
             {/* Counter-Proposal Badge */}
-            {hasCounterProposal && (
+            {hasCounterProposal && !isCompact && (
               <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full animate-pulse">
                 <CalendarClock className="h-3 w-3" />
                 <span className="text-xs font-medium">Counter-Proposal</span>
               </div>
             )}
-            <div className="text-xs text-muted-foreground">
-              {workOrder.createdAt ? new Date(workOrder.createdAt).toLocaleDateString() : 'Unknown'}
-            </div>
+            {!isCompact && (
+              <div className="text-xs text-muted-foreground">
+                {workOrder.createdAt ? new Date(workOrder.createdAt).toLocaleDateString() : 'Unknown'}
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
+      <CardContent className={isCompact ? "p-3 pt-0" : "pt-0"}>
         {/* Description */}
-        {workOrder.description && (
+        {workOrder.description && !isCompact && (
           <div className="mb-3">
             <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`text-case-description-${index}`}>
               {workOrder.description}
@@ -212,7 +225,7 @@ export default function WorkOrderCard({
         )}
         
         {/* AI Assessment if available */}
-        {workOrder.aiReasoningNotes && (
+        {workOrder.aiReasoningNotes && !isCompact && (
           <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-950 rounded border border-blue-200 dark:border-blue-800">
             <p className="text-xs text-blue-800 dark:text-blue-200 line-clamp-2">
               <strong>AI Assessment:</strong> {workOrder.aiReasoningNotes}
@@ -220,7 +233,7 @@ export default function WorkOrderCard({
           </div>
         )}
 
-        {showActions && (
+        {showActions && !isCompact && (
           <div className="flex items-center space-x-2">
             {/* Status Dropdown */}
             {onStatusChange && (

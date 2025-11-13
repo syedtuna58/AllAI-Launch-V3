@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
+import WorkOrderCard from "@/components/cards/work-order-card";
+import { formatWorkOrderLocation } from "@/lib/formatters";
 import { format, addDays, startOfWeek, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths } from "date-fns";
 import { fromZonedTime, toZonedTime, formatInTimeZone } from "date-fns-tz";
 import {
@@ -206,14 +208,15 @@ export default function AdminCalendarPage() {
     enabled: showReminderForm && !!user,
   });
 
+  // Only fetch properties/units when viewing cases (not reminders-only mode)
   const { data: properties = [] } = useQuery<any[]>({
     queryKey: ['/api/properties'],
-    enabled: showReminderForm && !!user,
+    enabled: !!user && filterMode !== 'reminders',
   });
 
   const { data: units = [] } = useQuery<any[]>({
     queryKey: ['/api/units'],
-    enabled: showReminderForm && !!user,
+    enabled: !!user && filterMode !== 'reminders',
   });
 
   // Handler functions for reminder actions
@@ -488,8 +491,8 @@ export default function AdminCalendarPage() {
                     <div className="py-12 text-center text-gray-500">Loading...</div>
                   ) : (
                     <>
-                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
-                      {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} />}
+                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
+                      {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
                     </>
                   )}
                   <DragOverlay>
@@ -583,37 +586,21 @@ export default function AdminCalendarPage() {
                           key={caseItem.id}
                           id={`case:${caseItem.id}`}
                           disabled={!canReschedule}
-                          className={cn(
-                            "p-3 rounded border-l-4 text-xs hover:shadow-md transition-shadow group",
-                            (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open).bg,
-                            (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open).border
-                          )}
                         >
-                          <div data-testid={`unscheduled-case-${caseItem.id}`}>
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <div className="font-semibold truncate flex-1">{caseItem.title}</div>
-                              <div className="flex items-center gap-1">
-                                <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                {caseItem.scheduledJobs?.[0]?.teamName && (
-                                  <div 
-                                    className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium"
-                                    style={{ backgroundColor: caseItem.scheduledJobs[0].teamColor || '#6b7280' }}
-                                  >
-                                    {caseItem.scheduledJobs[0].teamName}
-                                  </div>
-                                )}
-                                {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
-                                  <Badge variant="destructive" className="text-[10px] px-1 py-0">
-                                    {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
-                            {caseItem.description && (
-                              <div className="text-xs opacity-60 mt-1 line-clamp-2">{caseItem.description}</div>
-                            )}
-                          </div>
+                          <WorkOrderCard
+                            workOrder={caseItem}
+                            userRole={role}
+                            properties={properties}
+                            units={units}
+                            teams={teams}
+                            variant="compact"
+                            showActions={false}
+                            onEdit={handleEditCase}
+                            onReminder={() => {}}
+                            onDelete={deleteMutation.mutate}
+                            onAccept={acceptJobMutation.mutate}
+                            onReviewCounter={() => {}}
+                          />
                         </DraggableCalendarItem>
                       ))}
                     </div>
@@ -743,10 +730,12 @@ export default function AdminCalendarPage() {
   );
 }
 
-function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditReminder, onCompleteReminder, onCancelReminder }: {
+function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], onEditReminder, onCompleteReminder, onCancelReminder }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
   hideWeekends?: boolean;
+  properties?: any[];
+  units?: any[];
   onEditReminder: (reminder: Reminder) => void;
   onCompleteReminder: (id: string) => void;
   onCancelReminder: (id: string) => void;
@@ -882,6 +871,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                       } else {
                         const caseItem = item as MaintenanceCase;
                         const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
+                        const locationLabel = formatWorkOrderLocation(caseItem.propertyId, caseItem.unitId, properties, units);
                         return (
                           <DraggableCalendarItem
                             key={`allday-case-${caseItem.id}`}
@@ -914,6 +904,11 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                                   )}
                                 </div>
                               </div>
+                              {locationLabel && (
+                                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate mt-0.5">
+                                  {locationLabel}
+                                </div>
+                              )}
                             </div>
                           </DraggableCalendarItem>
                         );
@@ -991,6 +986,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                       } else {
                         const caseItem = item as MaintenanceCase;
                         const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
+                        const locationLabel = formatWorkOrderLocation(caseItem.propertyId, caseItem.unitId, properties, units);
                         return (
                           <DraggableCalendarItem
                             key={`timed-case-${caseItem.id}`}
@@ -1023,6 +1019,9 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                                   )}
                                 </div>
                               </div>
+                              {locationLabel && (
+                                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate">{locationLabel}</div>
+                              )}
                               <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
                               <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
                             </div>
@@ -1041,9 +1040,11 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
   );
 }
 
-function MonthView({ currentDate, getItemsForDate }: {
+function MonthView({ currentDate, getItemsForDate, properties = [], units = [] }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
+  properties?: any[];
+  units?: any[];
 }) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -1104,19 +1105,28 @@ function MonthView({ currentDate, getItemsForDate }: {
                   />
                   );
                 })}
-                {cases.slice(0, 2).map(caseItem => (
-                  <div
-                    key={caseItem.id}
-                    className={cn(
-                      "w-full h-1 rounded",
-                      caseItem.status === 'open' && "bg-yellow-500",
-                      caseItem.status === 'in_progress' && "bg-blue-500",
-                      caseItem.status === 'on_hold' && "bg-gray-500",
-                      caseItem.status === 'resolved' && "bg-green-500"
-                    )}
-                    title={caseItem.title}
-                  />
-                ))}
+                {cases.slice(0, 2).map(caseItem => {
+                  const locationLabel = formatWorkOrderLocation(caseItem.propertyId, caseItem.unitId, properties, units);
+                  const tooltipParts = [
+                    caseItem.title,
+                    locationLabel,
+                    caseItem.category,
+                    caseItem.status
+                  ].filter(Boolean);
+                  return (
+                    <div
+                      key={caseItem.id}
+                      className={cn(
+                        "w-full h-1 rounded",
+                        caseItem.status === 'open' && "bg-yellow-500",
+                        caseItem.status === 'in_progress' && "bg-blue-500",
+                        caseItem.status === 'on_hold' && "bg-gray-500",
+                        caseItem.status === 'resolved' && "bg-green-500"
+                      )}
+                      title={tooltipParts.join(' • ')}
+                    />
+                  );
+                })}
                 {(reminders.length + cases.length > 4) && (
                   <div className="text-xs text-gray-500">+{reminders.length + cases.length - 4} more</div>
                 )}

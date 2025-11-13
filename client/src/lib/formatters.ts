@@ -65,3 +65,29 @@ export function handleFinancialBlur(e: React.FocusEvent<HTMLInputElement>, value
 export function getFinancialDisplayValue(value: number | undefined): string {
   return value !== undefined ? String(value) : '';
 }
+
+/**
+ * Formats work order location (property + unit) for display
+ * @param propertyId - The property ID
+ * @param unitId - The unit ID
+ * @param properties - Array of properties
+ * @param units - Array of units
+ * @returns Formatted location string or null
+ */
+export function formatWorkOrderLocation(
+  propertyId: string | null | undefined,
+  unitId: string | null | undefined,
+  properties: Array<{ id: string; name?: string; street?: string; city?: string }> = [],
+  units: Array<{ id: string; label?: string }> = []
+): string | null {
+  const property = propertyId ? properties.find(p => p.id === propertyId) : null;
+  const unit = unitId ? units.find(u => u.id === unitId) : null;
+  
+  const propertyName = property ? (property.name || property.street) : null;
+  const unitLabel = unit?.label;
+  
+  if (propertyName && unitLabel) return `${propertyName} - ${unitLabel}`;
+  if (propertyName) return propertyName;
+  if (unitLabel) return `Unit ${unitLabel}`;
+  return null;
+}
