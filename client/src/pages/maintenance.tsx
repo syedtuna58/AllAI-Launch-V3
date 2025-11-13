@@ -2343,12 +2343,13 @@ export default function Maintenance() {
           )}
 
           {/* Maya AI Assistant - placed below work orders */}
-          <PropertyAssistant 
-            key="maintenance"
-            context="maintenance"
-            exampleQuestions={[
-              "What maintenance is overdue or urgent?",
-              "Which property needs the most attention?",
+          <div className="mt-6">
+            <PropertyAssistant 
+              key="maintenance"
+              context="maintenance"
+              exampleQuestions={[
+                "What maintenance is overdue or urgent?",
+                "Which property needs the most attention?",
               "Any recurring maintenance patterns I should address?",
               "What repairs are costing me the most?"
             ]}
@@ -2441,6 +2442,7 @@ export default function Maintenance() {
               });
             }}
           />
+          </div>
       
       {/* Case Detail Dialog */}
       <Dialog open={showCaseDialog} onOpenChange={setShowCaseDialog}>
