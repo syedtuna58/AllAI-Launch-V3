@@ -620,7 +620,7 @@ export default function ContractorDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedTab("cases")} data-testid="card-my-cases">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">My Cases</CardTitle>
+                  <CardTitle className="text-sm font-medium">My Work</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold" data-testid="text-my-cases-count">
@@ -644,7 +644,7 @@ export default function ContractorDashboard() {
 
               <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedTab("new")} data-testid="card-new-cases">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">New Cases</CardTitle>
+                  <CardTitle className="text-sm font-medium">New Work Orders</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600" data-testid="text-new-cases-count">
@@ -674,10 +674,10 @@ export default function ContractorDashboard() {
                 <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="cases" data-testid="tab-my-cases">
-                      My Cases ({myCases.length})
+                      My Work ({myCases.length})
                     </TabsTrigger>
                     <TabsTrigger value="new" data-testid="tab-new-cases">
-                      New Cases ({newCases.length})
+                      New Work Orders ({newCases.length})
                     </TabsTrigger>
                     <TabsTrigger value="active" data-testid="tab-active">
                       Active ({activeCases.length})
@@ -689,7 +689,7 @@ export default function ContractorDashboard() {
                   <div className="text-center py-8">Loading cases...</div>
                 ) : myCases.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
-                    No cases assigned to you. Check the "New Cases" tab to accept new work.
+                    No work assigned to you. Check the "New Work Orders" tab to accept new work.
                   </div>
                 ) : (
                   myCases.map((case_) => (
