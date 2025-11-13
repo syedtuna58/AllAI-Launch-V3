@@ -1271,20 +1271,6 @@ export default function Maintenance() {
               {/* Filters Row */}
               <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
                 <div className="flex items-center gap-3 flex-wrap">
-              {/* Contractor Availability Button */}
-              {role === "contractor" && contractorProfile && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAvailabilityCalendar(true)}
-                  className="flex items-center gap-2"
-                  data-testid="button-open-availability"
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  My Availability
-                </Button>
-              )}
-              
               {/* Teams Filter - only for contractors with teams */}
               {role === "contractor" && teams && teams.length > 0 && (
                 <Select value={teamFilter} onValueChange={setTeamFilter}>
@@ -1294,7 +1280,15 @@ export default function Maintenance() {
                   <SelectContent>
                     <SelectItem value="all">All Teams</SelectItem>
                     {teams.map((team: any) => (
-                      <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                      <SelectItem key={team.id} value={team.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: team.color || '#6b7280' }}
+                          />
+                          <span>{team.name}</span>
+                        </div>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

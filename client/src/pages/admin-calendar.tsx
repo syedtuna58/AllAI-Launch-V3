@@ -36,6 +36,7 @@ import { HourlyGrid } from "@/components/calendar/HourlyGrid";
 import { calculateTimePosition, isTimeInRange } from "@/lib/calendarUtils";
 import { REMINDER_TYPE_COLORS, STATUS_COLORS, CASE_STATUS_COLORS, getReminderStatus, getStatusBadgeClasses, type ReminderType, type CaseStatus } from "@/lib/colorTokens";
 import type { Reminder } from "@shared/schema";
+import AvailabilityCalendar from "@/components/contractor/availability-calendar";
 
 type MaintenanceCase = {
   id: string;
@@ -67,15 +68,18 @@ function DraggableCalendarItem({
   id, 
   children, 
   className,
-  style 
+  style,
+  disabled = false
 }: { 
   id: string; 
   children: React.ReactNode; 
   className?: string;
   style?: React.CSSProperties;
+  disabled?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id,
+    disabled,
   });
 
   const dragStyle = transform
@@ -89,9 +93,9 @@ function DraggableCalendarItem({
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={cn("cursor-grab active:cursor-grabbing", className)}
+      {...(disabled ? {} : listeners)}
+      {...(disabled ? {} : attributes)}
+      className={cn(disabled ? "cursor-default" : "cursor-grab active:cursor-grabbing", className)}
       style={{ ...style, ...dragStyle }}
     >
       {children}
@@ -101,6 +105,7 @@ function DraggableCalendarItem({
 
 export default function AdminCalendarPage() {
   const { user } = useAuth();
+  const role = user?.primaryRole;
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(() => toZonedTime(new Date(), ORG_TIMEZONE));
   const [view, setView] = useState<'week' | 'month'>('week');
@@ -111,6 +116,7 @@ export default function AdminCalendarPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [showReminderForm, setShowReminderForm] = useState(false);
+  const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
 
   // Fetch reminders
   const { data: reminders = [], isLoading: remindersLoading } = useQuery<Reminder[]>({
@@ -118,9 +124,17 @@ export default function AdminCalendarPage() {
     enabled: !!user,
   });
 
-  // Fetch maintenance cases
+  // Fetch contractor profile if needed
+  const { data: contractorProfile } = useQuery<any>({
+    queryKey: ["/api/contractors/me"],
+    enabled: role === "contractor",
+    retry: false,
+  });
+
+  // Fetch maintenance cases - use contractor endpoint for contractors
+  const casesEndpoint = role === 'contractor' ? '/api/contractor/cases' : '/api/cases';
   const { data: cases = [], isLoading: casesLoading } = useQuery<MaintenanceCase[]>({
-    queryKey: ['/api/cases'],
+    queryKey: [casesEndpoint],
     enabled: !!user,
   });
 
@@ -140,13 +154,17 @@ export default function AdminCalendarPage() {
     },
   });
 
-  // Mutation to update case date
+  // Mutation to update case date - only allow for non-contractors
+  const canReschedule = role !== 'contractor';
   const updateCaseMutation = useMutation({
     mutationFn: async ({ id, scheduledDate }: { id: string; scheduledDate: string }) => {
+      if (!canReschedule) {
+        throw new Error("Contractors cannot reschedule work orders directly");
+      }
       return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledDate });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/cases'] });
+      queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
       toast({ title: "Work order updated successfully" });
     },
     onError: () => {
@@ -368,6 +386,20 @@ export default function AdminCalendarPage() {
 
                   {/* View and Filters */}
                   <div className="flex flex-wrap items-center gap-3">
+                    {/* Contractor Availability Button */}
+                    {role === "contractor" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAvailabilityCalendar(true)}
+                        className="flex items-center gap-2"
+                        data-testid="button-open-availability"
+                      >
+                        <Calendar className="h-4 w-4" />
+                        My Availability
+                      </Button>
+                    )}
+                    
                     <Select value={view} onValueChange={(v: any) => setView(v)}>
                       <SelectTrigger className="w-32">
                         <SelectValue />
@@ -498,6 +530,7 @@ export default function AdminCalendarPage() {
                           <DraggableCalendarItem
                             key={reminder.id}
                             id={`reminder:${reminder.id}`}
+                            disabled={!canReschedule}
                             className={cn(
                               "p-3 rounded text-xs hover:shadow-md transition-shadow group",
                               "bg-yellow-50 dark:bg-yellow-950/20"
@@ -549,6 +582,7 @@ export default function AdminCalendarPage() {
                         <DraggableCalendarItem
                           key={caseItem.id}
                           id={`case:${caseItem.id}`}
+                          disabled={!canReschedule}
                           className={cn(
                             "p-3 rounded border-l-4 text-xs hover:shadow-md transition-shadow group",
                             (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open).bg,
@@ -690,6 +724,21 @@ export default function AdminCalendarPage() {
         />
       </DialogContent>
     </Dialog>
+    
+    {/* Contractor Availability Calendar Dialog */}
+    {role === "contractor" && contractorProfile && (
+      <Dialog open={showAvailabilityCalendar} onOpenChange={setShowAvailabilityCalendar}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" data-testid="dialog-availability-calendar">
+          <DialogHeader>
+            <DialogTitle>Manage My Availability</DialogTitle>
+          </DialogHeader>
+          <AvailabilityCalendar 
+            contractorId={contractorProfile.id}
+            onReviewCounterProposal={() => {}}
+          />
+        </DialogContent>
+      </Dialog>
+    )}
     </>
   );
 }
@@ -784,6 +833,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                           <DraggableCalendarItem
                             key={`allday-reminder-${reminder.id}`}
                             id={`reminder:${reminder.id}`}
+                            disabled={!canReschedule}
                             className={cn(
                               "absolute left-1 right-1 p-1.5 rounded text-xs hover:shadow-md transition-shadow z-10 group",
                               "bg-yellow-50 dark:bg-yellow-950/20"
@@ -836,6 +886,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                           <DraggableCalendarItem
                             key={`allday-case-${caseItem.id}`}
                             id={`case:${caseItem.id}`}
+                            disabled={!canReschedule}
                             className={cn(
                               "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
                               caseColors.bg,
@@ -889,6 +940,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                           <DraggableCalendarItem
                             key={`timed-reminder-${reminder.id}`}
                             id={`reminder:${reminder.id}`}
+                            disabled={!canReschedule}
                             className={cn(
                               "absolute left-1 right-1 p-2 rounded text-xs hover:shadow-md transition-shadow z-10 group",
                               "bg-yellow-50 dark:bg-yellow-950/20"
@@ -943,6 +995,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                           <DraggableCalendarItem
                             key={`timed-case-${caseItem.id}`}
                             id={`case:${caseItem.id}`}
+                            disabled={!canReschedule}
                             className={cn(
                               "absolute left-1 right-1 p-2 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
                               caseColors.bg,
