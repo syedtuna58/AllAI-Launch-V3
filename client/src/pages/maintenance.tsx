@@ -23,7 +23,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign, Settings, GripVertical } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign, Settings, GripVertical, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
@@ -1705,6 +1705,16 @@ export default function Maintenance() {
                       <div className="flex flex-col items-end space-y-1 flex-shrink-0">
                         {getPriorityBadge(smartCase.priority)}
                         {getStatusBadge(smartCase.status)}
+                        {/* Team Badge */}
+                        {smartCase.scheduledJobs && smartCase.scheduledJobs.length > 0 && smartCase.scheduledJobs[0].teamName && (
+                          <div 
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-white text-xs font-medium"
+                            style={{ backgroundColor: smartCase.scheduledJobs[0].teamColor || '#6b7280' }}
+                          >
+                            <Users className="h-3 w-3" />
+                            <span>{smartCase.scheduledJobs[0].teamName}</span>
+                          </div>
+                        )}
                         {/* Counter-Proposal Badge */}
                         {role === 'contractor' && smartCase.scheduledJobs && smartCase.scheduledJobs.some((job: any) => job.status === 'Needs Review') && (
                           <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full animate-pulse">

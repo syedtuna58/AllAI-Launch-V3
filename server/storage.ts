@@ -3748,8 +3748,12 @@ export class DatabaseStorage implements IStorage {
     let query = db.select({
       ...scheduledJobs,
       caseStatus: smartCases.status,
+      teamName: teams.name,
+      teamColor: teams.color,
+      teamSpecialty: teams.specialty,
     }).from(scheduledJobs)
       .leftJoin(smartCases, eq(scheduledJobs.caseId, smartCases.id))
+      .leftJoin(teams, eq(scheduledJobs.teamId, teams.id))
       .where(eq(scheduledJobs.orgId, orgId));
     
     if (filters?.teamId) {

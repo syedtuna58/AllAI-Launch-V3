@@ -4289,16 +4289,20 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
       // Filter to cases assigned to any of this contractor's vendor IDs
       const contractorCases = allCases.filter((c: any) => vendorIds.includes(c.assignedContractorId));
 
-      // Enrich with property/unit details
+      // Enrich with property/unit details and scheduled jobs
       const enrichedCases = await Promise.all(contractorCases.map(async (case_: any) => {
         const property = case_.propertyId ? await storage.getProperty(case_.propertyId) : null;
         const unit = case_.unitId ? await storage.getUnit(case_.unitId) : null;
+        
+        // Get scheduled jobs for this case (includes team assignments)
+        const jobs = await storage.getScheduledJobs(case_.orgId, { caseId: case_.id });
         
         return {
           ...case_,
           buildingName: property?.name,
           roomNumber: unit?.label,
-          locationText: property ? `${property.street}, ${property.city}` : undefined
+          locationText: property ? `${property.street}, ${property.city}` : undefined,
+          scheduledJobs: jobs
         };
       }));
 

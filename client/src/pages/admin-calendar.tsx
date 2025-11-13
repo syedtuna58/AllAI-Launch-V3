@@ -51,6 +51,13 @@ type MaintenanceCase = {
   orgId: string;
   createdAt: string;
   updatedAt: string;
+  scheduledJobs?: Array<{
+    id: string;
+    teamId?: string | null;
+    teamName?: string | null;
+    teamColor?: string | null;
+    teamSpecialty?: string | null;
+  }>;
 };
 
 const ORG_TIMEZONE = 'America/New_York';
@@ -553,6 +560,14 @@ export default function AdminCalendarPage() {
                               <div className="font-semibold truncate flex-1">{caseItem.title}</div>
                               <div className="flex items-center gap-1">
                                 <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                {caseItem.scheduledJobs?.[0]?.teamName && (
+                                  <div 
+                                    className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium"
+                                    style={{ backgroundColor: caseItem.scheduledJobs[0].teamColor || '#6b7280' }}
+                                  >
+                                    {caseItem.scheduledJobs[0].teamName}
+                                  </div>
+                                )}
                                 {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
                                   <Badge variant="destructive" className="text-[10px] px-1 py-0">
                                     {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
@@ -833,6 +848,14 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                                 <div className="font-semibold truncate flex-1">{caseItem.title}</div>
                                 <div className="flex items-center gap-1">
                                   <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                  {caseItem.scheduledJobs?.[0]?.teamName && (
+                                    <div 
+                                      className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium"
+                                      style={{ backgroundColor: caseItem.scheduledJobs[0].teamColor || '#6b7280' }}
+                                    >
+                                      {caseItem.scheduledJobs[0].teamName}
+                                    </div>
+                                  )}
                                   {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
                                     <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
                                       {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
@@ -932,6 +955,14 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, onEditRe
                                 <div className="font-semibold truncate flex-1">{caseItem.title}</div>
                                 <div className="flex items-center gap-1">
                                   <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                  {caseItem.scheduledJobs?.[0]?.teamName && (
+                                    <div 
+                                      className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium"
+                                      style={{ backgroundColor: caseItem.scheduledJobs[0].teamColor || '#6b7280' }}
+                                    >
+                                      {caseItem.scheduledJobs[0].teamName}
+                                    </div>
+                                  )}
                                   {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
                                     <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
                                       {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
