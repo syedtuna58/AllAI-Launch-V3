@@ -168,7 +168,8 @@ export default function Maintenance() {
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
   const [showCaseDialog, setShowCaseDialog] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>("active");
+  // Default to "all" for contractors so they see all their assigned work
+  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>(user?.userType === 'contractor' ? "all" : "active");
   const [entityFilter, setEntityFilter] = useState<string>("all");
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -1204,55 +1205,17 @@ export default function Maintenance() {
         <Header title="Work Orders" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-6">
-                  <div>
-                    <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Work Orders</h1>
-                    <p className="text-muted-foreground">Track and manage work order requests</p>
-                  </div>
-                  
-                  {/* View Toggle Buttons */}
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant={currentView === "cards" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentView("cards")}
-                      data-testid="button-view-cards"
-                    >
-                      <LayoutGrid className="h-4 w-4 mr-1" />
-                      Cards
-                    </Button>
-                    <Button
-                      variant={currentView === "list" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentView("list")}
-                      data-testid="button-view-list"
-                    >
-                      <List className="h-4 w-4 mr-1" />
-                      List
-                    </Button>
-                    <Button
-                      variant={currentView === "heat-map" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentView("heat-map")}
-                      data-testid="button-view-heat-map"
-                    >
-                      <Map className="h-4 w-4 mr-1" />
-                      Heat Map
-                    </Button>
-                    <Button
-                      variant={currentView === "kanban" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setCurrentView("kanban")}
-                      data-testid="button-view-kanban"
-                    >
-                      <BarChart3 className="h-4 w-4 mr-1" />
-                      Kanban
-                    </Button>
-                  </div>
+              {/* Header */}
+              <div className="mb-6">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Work Orders</h1>
+                  <p className="text-muted-foreground">Track and manage work order requests</p>
                 </div>
-            
-            <div className="flex items-center space-x-3">
+              </div>
+
+              {/* Filters Row */}
+              <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap">
               {/* Contractor Availability Button */}
               {role === "contractor" && contractorProfile && (
                 <Button
@@ -1382,13 +1345,15 @@ export default function Maintenance() {
                 </SelectContent>
               </Select>
 
-              <Dialog open={showCaseForm} onOpenChange={handleDialogChange}>
-                <DialogTrigger asChild>
-                  <Button data-testid="button-add-case">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add a Work Order
-                  </Button>
-                </DialogTrigger>
+                </div>
+                
+                <Dialog open={showCaseForm} onOpenChange={handleDialogChange}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-add-case">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add a Work Order
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>{editingCase ? "Edit Work Order" : "Add a Work Order"}</DialogTitle>
@@ -1608,50 +1573,47 @@ export default function Maintenance() {
                   </Form>
                 </DialogContent>
               </Dialog>
-            </div>
-          </div>
+              </div>
 
-          {/* Summary Bar */}
-          <div className="bg-background border rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              {filteredCases.length > 0 ? (
-                <div className="flex items-center space-x-6">
-                  <div className="text-sm">
-                    <span className="font-semibold text-foreground" data-testid="text-total-cases">{filteredCases.length}</span>
-                    <span className="text-muted-foreground ml-1">Total Cases</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-semibold text-red-600" data-testid="text-urgent-cases">
-                      {filteredCases.filter(c => c.priority === "Urgent").length}
-                    </span>
-                    <span className="text-muted-foreground ml-1">Urgent</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-semibold text-orange-600" data-testid="text-high-cases">
-                      {filteredCases.filter(c => c.priority === "High").length}
-                    </span>
-                    <span className="text-muted-foreground ml-1">High</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-semibold text-yellow-600" data-testid="text-medium-cases">
-                      {filteredCases.filter(c => c.priority === "Medium").length}
-                    </span>
-                    <span className="text-muted-foreground ml-1">Medium</span>
-                  </div>
-                  <div className="text-sm">
-                    <span className="font-semibold text-green-600" data-testid="text-open-cases">
-                      {filteredCases.filter(c => c.status === "New" || c.status === "In Progress" || c.status === "Scheduled").length}
-                    </span>
-                    <span className="text-muted-foreground ml-1">Active</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Ready to track work orders
-                </div>
-              )}
-            </div>
-          </div>
+              {/* View Toggle Row */}
+              <div className="flex items-center gap-2 mb-6">
+                <Button
+                  variant={currentView === "cards" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("cards")}
+                  data-testid="button-view-cards"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" />
+                  Cards
+                </Button>
+                <Button
+                  variant={currentView === "list" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("list")}
+                  data-testid="button-view-list"
+                >
+                  <List className="h-4 w-4 mr-1" />
+                  List
+                </Button>
+                <Button
+                  variant={currentView === "heat-map" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("heat-map")}
+                  data-testid="button-view-heat-map"
+                >
+                  <Map className="h-4 w-4 mr-1" />
+                  Heat Map
+                </Button>
+                <Button
+                  variant={currentView === "kanban" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCurrentView("kanban")}
+                  data-testid="button-view-kanban"
+                >
+                  <BarChart3 className="h-4 w-4 mr-1" />
+                  Kanban
+                </Button>
+              </div>
 
           {casesLoading ? (
             <div className="grid grid-cols-1 gap-6">
