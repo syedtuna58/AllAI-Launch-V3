@@ -53,12 +53,15 @@ function QuarterSlot({ day, hour, minute, quarterHeight, isLastQuarter }: Quarte
       {/* Visual guide line at TOP of slot when hovering */}
       {isOver && (
         <>
-          <div className="absolute top-0 left-0 right-0 h-0.5 border-t-2 border-dashed border-blue-500 dark:border-blue-400 z-50">
-            <div className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+          {/* Dashed line at the exact top edge */}
+          <div className="absolute -top-px left-0 right-0 z-50">
+            <div className="border-t-[3px] border-dashed border-blue-500 dark:border-blue-400"></div>
+            <div className="absolute -top-1.5 -left-1 w-3 h-3 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+            <div className="absolute -top-1.5 -right-1 w-3 h-3 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
           </div>
           {/* Time indicator on the left */}
-          <div className="absolute top-0 -left-16 z-50">
-            <div className="bg-blue-500 dark:bg-blue-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap">
+          <div className="absolute -top-3 -left-20 z-50">
+            <div className="bg-blue-500 dark:bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded shadow-lg whitespace-nowrap">
               {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
             </div>
           </div>
