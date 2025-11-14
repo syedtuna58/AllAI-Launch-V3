@@ -1225,7 +1225,8 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   scrollRef?: React.RefObject<HTMLDivElement>;
 }) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday start
-  const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  // Show current week + next week (14 days total) to allow dragging to future dates
+  const allWeekDays = Array.from({ length: 14 }, (_, i) => addDays(weekStart, i));
   
   // Filter out weekends if hideWeekends is true (5 = Saturday, 6 = Sunday in Monday-start week)
   const weekDays = hideWeekends 
@@ -1267,9 +1268,11 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
 
   return (
     <div className="border rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
-      {/* Vertical scroll container - all days fit in viewport */}
-      <div className="overflow-y-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
-        <div className="grid" style={{ gridTemplateColumns: `80px repeat(${weekDays.length}, 1fr)` }}>
+      {/* Horizontal scroll container - allows scrolling to next week */}
+      <div className="overflow-x-auto overflow-y-hidden">
+        {/* Vertical scroll container - allows scrolling through hours */}
+        <div className="overflow-y-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
+          <div className="grid" style={{ gridTemplateColumns: `80px repeat(${weekDays.length}, minmax(200px, 1fr))` }}>
             {/* Time labels column - sticky on left */}
             <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
               <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
@@ -1523,6 +1526,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
           );
         })}
         </div>
+      </div>
       </div>
     </div>
   );
