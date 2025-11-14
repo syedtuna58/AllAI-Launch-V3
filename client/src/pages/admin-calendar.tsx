@@ -992,9 +992,11 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   const HOUR_HEIGHT = 60; // pixels
 
   return (
-    <div className="grid grid-cols-[80px_1fr] gap-0 border rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+    <div className="grid grid-cols-[80px_1fr] gap-0 border rounded-lg overflow-auto max-h-[calc(100vh-16rem)] bg-white dark:bg-gray-800">
       {/* Time labels column */}
-      <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
+      <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
+        <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
+      </div>
       
       {/* Week grid */}
       <div className={cn("grid", weekDays.length === 5 ? "grid-cols-5" : "grid-cols-7")}>
