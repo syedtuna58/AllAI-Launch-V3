@@ -314,7 +314,7 @@ export default function AdminCalendarPage() {
       const caseItem = cases.find(c => c.id === itemId);
       if (!caseItem) return;
 
-      updateCaseMutation.mutate({ id: itemId, scheduledDate: utcDate.toISOString() });
+      updateCaseMutation.mutate({ id: itemId, scheduledStartAt: utcDate.toISOString() });
     }
   };
 
@@ -331,8 +331,8 @@ export default function AdminCalendarPage() {
     }) : [];
 
     const dayCases = filterMode !== 'reminders' ? filteredCases.filter(c => {
-      if (!c.scheduledDate) return false;
-      const schedDate = new Date(c.scheduledDate);
+      if (!c.scheduledStartAt) return false;
+      const schedDate = new Date(c.scheduledStartAt);
       return schedDate >= dayStart && schedDate <= dayEnd;
     }) : [];
 
@@ -519,7 +519,7 @@ export default function AdminCalendarPage() {
                 ? filteredReminders.filter(r => !r.dueAt) 
                 : [];
               const unscheduledCases = filterMode !== 'reminders'
-                ? filteredCases.filter(c => !c.scheduledDate)
+                ? filteredCases.filter(c => !c.scheduledStartAt)
                 : [];
               
               if (unscheduledReminders.length === 0 && unscheduledCases.length === 0) {
