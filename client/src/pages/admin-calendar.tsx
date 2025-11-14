@@ -23,7 +23,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import WorkOrderCard from "@/components/cards/work-order-card";
 import { formatWorkOrderLocation } from "@/lib/formatters";
-import { format, addDays, startOfWeek, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths } from "date-fns";
+import { format, addDays, startOfWeek, addWeeks, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, getDay } from "date-fns";
 import { fromZonedTime, toZonedTime, formatInTimeZone } from "date-fns-tz";
 import {
   Select,
@@ -808,33 +808,49 @@ export default function AdminCalendarPage() {
                         {(() => {
                           const monthStart = startOfMonth(currentDate);
                           const monthEnd = endOfMonth(currentDate);
-                          const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday start
-                          const calendarEnd = addDays(startOfWeek(monthEnd, { weekStartsOn: 1 }), 41); // 6 weeks
-                          const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+                          const firstDayOfWeek = getDay(monthStart);
+                          const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
                           const today = new Date();
+                          
+                          // Adjust for Monday start (getDay returns 0 for Sunday, we want Monday=0)
+                          const offset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+                          
+                          // Get dates with scheduled work orders
+                          const datesWithWorkOrders = new Set(
+                            filteredCases
+                              .filter(c => c.scheduledStartAt)
+                              .map(c => format(new Date(c.scheduledStartAt!), 'yyyy-MM-dd'))
+                          );
                           
                           return (
                             <div className="grid grid-cols-7 gap-0.5">
-                              {calendarDays.map((day, idx) => {
+                              {/* Empty cells for offset */}
+                              {Array.from({ length: offset }).map((_, idx) => (
+                                <div key={`empty-${idx}`} className="aspect-square" />
+                              ))}
+                              {/* Days of the month */}
+                              {daysInMonth.map((day, idx) => {
                                 const isToday = isSameDay(day, today);
-                                const isCurrentMonth = isSameMonth(day, currentDate);
                                 const isSelected = isSameDay(day, currentDate);
+                                const dateKey = format(day, 'yyyy-MM-dd');
+                                const hasWorkOrders = datesWithWorkOrders.has(dateKey);
                                 
                                 return (
                                   <button
                                     key={idx}
                                     onClick={() => setCurrentDate(day)}
-                                    data-testid={`mini-cal-day-${format(day, 'yyyy-MM-dd')}`}
+                                    data-testid={`mini-cal-day-${dateKey}`}
                                     className={cn(
-                                      "aspect-square text-[10px] rounded transition-colors",
-                                      isCurrentMonth 
-                                        ? "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" 
-                                        : "text-gray-400 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800",
+                                      "aspect-square text-[10px] rounded transition-colors relative",
+                                      "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700",
                                       isToday && "font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
                                       isSelected && !isToday && "bg-gray-200 dark:bg-gray-700"
                                     )}
                                   >
                                     {format(day, 'd')}
+                                    {hasWorkOrders && (
+                                      <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-500 dark:bg-blue-400" />
+                                    )}
                                   </button>
                                 );
                               })}
