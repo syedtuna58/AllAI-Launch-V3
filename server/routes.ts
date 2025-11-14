@@ -2395,7 +2395,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/cases/:id', isAuthenticated, async (req: any, res) => {
     try {
       const oldCase = await storage.getSmartCase(req.params.id);
-      const smartCase = await storage.updateSmartCase(req.params.id, req.body);
+      
+      // Convert date strings to Date objects (or keep null values)
+      const updateData = { ...req.body };
+      if ('scheduledStartAt' in updateData) {
+        updateData.scheduledStartAt = updateData.scheduledStartAt ? new Date(updateData.scheduledStartAt) : null;
+      }
+      if ('scheduledEndAt' in updateData) {
+        updateData.scheduledEndAt = updateData.scheduledEndAt ? new Date(updateData.scheduledEndAt) : null;
+      }
+      
+      const smartCase = await storage.updateSmartCase(req.params.id, updateData);
       
       // Notify if status changed
       if (oldCase && req.body.status && oldCase.status !== req.body.status) {
