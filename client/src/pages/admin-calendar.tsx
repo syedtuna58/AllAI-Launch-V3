@@ -835,54 +835,8 @@ export default function AdminCalendarPage() {
               </div>
               
               <DragOverlay>
-                {activeId ? (() => {
-                  // Get the item being dragged to show its team color
-                  const [itemType, itemId] = activeId.split(':');
-                  let teamColor = "#6B7280"; // default gray
-                  
-                  if (itemType === 'case') {
-                    const caseItem = cases.find(c => c.id === itemId);
-                    if (caseItem) {
-                      const firstJob = caseItem.scheduledJobs?.[0];
-                      const team = firstJob?.teamId ? teams.find((t: any) => t.id === firstJob.teamId) : undefined;
-                      if (team) teamColor = team.color;
-                    }
-                  }
-                  
-                  // Convert to pastel (same logic as CompactCalendarCard)
-                  const hexToPastel = (hex: string): string => {
-                    hex = hex.replace('#', '');
-                    const r = parseInt(hex.substring(0, 2), 16);
-                    const g = parseInt(hex.substring(2, 4), 16);
-                    const b = parseInt(hex.substring(4, 6), 16);
-                    const lighten = 0.75;
-                    const newR = Math.round(r + (255 - r) * lighten);
-                    const newG = Math.round(g + (255 - g) * lighten);
-                    const newB = Math.round(b + (255 - b) * lighten);
-                    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
-                  };
-                  
-                  const pastelColor = hexToPastel(teamColor);
-                  
-                  return (
-                    <div className="relative">
-                      {/* Time preview above the card */}
-                      {getPreviewTime(dragOverId) && (
-                        <div className="absolute -top-8 left-0 right-0 text-center z-50">
-                          <div className="inline-block px-3 py-1.5 bg-blue-500 dark:bg-blue-600 text-white text-xs font-semibold rounded-md shadow-lg">
-                            Starts: {getPreviewTime(dragOverId)}
-                          </div>
-                        </div>
-                      )}
-                      <div 
-                        className="w-48 h-16 p-2 shadow-xl border-2 border-blue-400 cursor-grabbing"
-                        style={{ backgroundColor: pastelColor }}
-                      >
-                        <div className="text-xs font-semibold text-gray-800">Dragging...</div>
-                      </div>
-                    </div>
-                  );
-                })() : null}
+                {/* Empty overlay - keep original card visible */}
+                {null}
               </DragOverlay>
             </DndContext>
 
