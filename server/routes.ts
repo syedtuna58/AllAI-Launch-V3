@@ -2408,16 +2408,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.scheduledEndAt = updateData.scheduledEndAt ? new Date(updateData.scheduledEndAt) : null;
       }
       
-      console.log('📤 Update data after conversion:', { scheduledStartAt: updateData.scheduledStartAt, scheduledEndAt: updateData.scheduledEndAt });
+      // Auto-determine status based on schedule changes (unless explicitly set in request)
+      if ('scheduledStartAt' in updateData && !('status' in req.body)) {
+        const wasScheduled = oldCase && oldCase.scheduledStartAt;
+        const isNowScheduled = updateData.scheduledStartAt !== null;
+        
+        // Unscheduling: set to "On Hold"
+        if (wasScheduled && !isNowScheduled) {
+          updateData.status = 'On Hold';
+          console.log('🔄 Auto-setting status to "On Hold" (unscheduled)');
+        }
+        // Rescheduling from unscheduled: set to "In Review"
+        else if (!wasScheduled && isNowScheduled) {
+          updateData.status = 'In Review';
+          console.log('🔄 Auto-setting status to "In Review" (rescheduled from unscheduled)');
+        }
+      }
+      
+      console.log('📤 Update data after conversion:', { scheduledStartAt: updateData.scheduledStartAt, scheduledEndAt: updateData.scheduledEndAt, status: updateData.status });
       
       const smartCase = await storage.updateSmartCase(req.params.id, updateData);
       
-      // Notify if status changed
-      if (oldCase && req.body.status && oldCase.status !== req.body.status) {
+      // Notify if status changed (check updateData.status which includes auto-determined status)
+      if (oldCase && updateData.status && oldCase.status !== updateData.status) {
         const { notificationService } = await import('./notificationService');
         
-        // Special handling for completion statuses
-        const isCompleted = req.body.status === 'Resolved' || req.body.status === 'Closed';
+        // Special handling for different status types
+        const isCompleted = updateData.status === 'Resolved' || updateData.status === 'Closed';
+        const isOnHold = updateData.status === 'On Hold';
+        const isInReview = updateData.status === 'In Review';
         const notificationType = isCompleted ? 'case_completed' : 'case_updated';
         
         // Get approval policy to check involvement mode
@@ -2425,18 +2444,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const adminPolicy = policies.find(p => p.isActive);
         const involvementMode = adminPolicy?.involvementMode || 'hands-on';
         
-        // In hands-off mode: only notify admin for completion, not for in-progress updates
-        // In hands-on/balanced modes: notify admin for all status changes
-        const shouldNotifyAdmin = involvementMode !== 'hands-off' || isCompleted;
+        // Notification rules:
+        // - hands-off: only notify for completion, On Hold, and In Review transitions
+        // - hands-on/balanced: notify for all status changes
+        const isHighSignalEvent = isCompleted || isOnHold || isInReview;
+        const shouldNotifyAdmin = involvementMode !== 'hands-off' || isHighSignalEvent;
         
         if (shouldNotifyAdmin) {
+          let adminMessage = `Case "${smartCase.title}" status changed from ${oldCase.status} to ${updateData.status}`;
+          if (isCompleted) {
+            adminMessage = `Maintenance case "${smartCase.title}" has been completed!`;
+          } else if (isOnHold) {
+            adminMessage = `Work order "${smartCase.title}" has been placed on hold (unscheduled).`;
+          } else if (isInReview) {
+            adminMessage = `Work order "${smartCase.title}" has been rescheduled and is now in review.`;
+          }
+          
           await notificationService.notifyAdmins({
-            message: isCompleted 
-              ? `Maintenance case "${smartCase.title}" has been completed!`
-              : `Case "${smartCase.title}" status changed from ${oldCase.status} to ${req.body.status}`,
+            message: adminMessage,
             type: notificationType,
-            title: isCompleted ? 'Case Completed' : 'Case Status Updated',
-            subject: isCompleted ? 'Maintenance Case Completed' : 'Maintenance Case Status Updated',
+            title: isCompleted ? 'Case Completed' : isOnHold ? 'Case On Hold' : isInReview ? 'Case Rescheduled' : 'Case Status Updated',
+            subject: isCompleted ? 'Maintenance Case Completed' : isOnHold ? 'Work Order On Hold' : isInReview ? 'Work Order Rescheduled' : 'Maintenance Case Status Updated',
             caseId: smartCase.id,
             orgId: smartCase.orgId
           }, smartCase.orgId);
@@ -2447,18 +2475,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const reporterUser = await storage.getUser(smartCase.reporterUserId);
           if (reporterUser?.email) {
             // Customize message based on status
-            let tenantMessage = `Your maintenance request "${smartCase.title}" status changed to: ${req.body.status}`;
+            let tenantMessage = `Your maintenance request "${smartCase.title}" status changed to: ${updateData.status}`;
             if (isCompleted) {
               tenantMessage = `Great news! Your maintenance request "${smartCase.title}" has been completed.`;
-            } else if (req.body.status === 'In Progress') {
+            } else if (updateData.status === 'In Progress') {
               tenantMessage = `Good news! The contractor has started working on your maintenance request "${smartCase.title}".`;
+            } else if (isOnHold) {
+              tenantMessage = `Your maintenance request "${smartCase.title}" is currently on hold. We'll notify you when it's rescheduled.`;
+            } else if (isInReview) {
+              tenantMessage = `Your maintenance request "${smartCase.title}" has been rescheduled and is being reviewed.`;
             }
             
             await notificationService.notifyTenant({
               message: tenantMessage,
               type: notificationType,
-              title: isCompleted ? 'Work Completed' : 'Request Updated',
-              subject: isCompleted ? 'Maintenance Request Completed' : 'Maintenance Request Status Update',
+              title: isCompleted ? 'Work Completed' : isOnHold ? 'Work On Hold' : isInReview ? 'Work Rescheduled' : 'Request Updated',
+              subject: isCompleted ? 'Maintenance Request Completed' : isOnHold ? 'Maintenance Request On Hold' : isInReview ? 'Maintenance Request Rescheduled' : 'Maintenance Request Status Update',
               caseId: smartCase.id,
               orgId: smartCase.orgId
             }, reporterUser.email, smartCase.reporterUserId, smartCase.orgId);

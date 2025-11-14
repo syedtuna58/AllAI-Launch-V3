@@ -243,22 +243,18 @@ export default function AdminCalendarPage() {
   // Mutation to update case date with optimistic updates
   const canReschedule = true; // Allow all users to reschedule via drag and drop
   const updateCaseMutation = useMutation({
-    mutationFn: async ({ id, scheduledStartAt, scheduledEndAt, status }: { id: string; scheduledStartAt: string | null; scheduledEndAt?: string | null; status?: string }) => {
-      console.log('🚀 Frontend mutation called with:', { id, scheduledStartAt, scheduledEndAt, status });
-      const payload: any = { scheduledStartAt, scheduledEndAt };
-      if (status !== undefined) {
-        payload.status = status;
-      }
-      return await apiRequest('PATCH', `/api/cases/${id}`, payload);
+    mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string | null; scheduledEndAt?: string | null }) => {
+      console.log('🚀 Frontend mutation called with:', { id, scheduledStartAt, scheduledEndAt });
+      return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledStartAt, scheduledEndAt });
     },
-    onMutate: async ({ id, scheduledStartAt, scheduledEndAt, status }) => {
+    onMutate: async ({ id, scheduledStartAt, scheduledEndAt }) => {
       // Cancel any outgoing refetches to avoid overwriting optimistic update
       await queryClient.cancelQueries({ queryKey: [casesEndpoint] });
       
       // Snapshot the previous value
       const previousCases = queryClient.getQueryData<MaintenanceCase[]>([casesEndpoint]);
       
-      // Optimistically update the cache
+      // Optimistically update the cache (schedule only, backend will set status)
       if (previousCases) {
         queryClient.setQueryData<MaintenanceCase[]>([casesEndpoint], (old) => 
           old?.map(caseItem => 
@@ -266,8 +262,7 @@ export default function AdminCalendarPage() {
               ? { 
                   ...caseItem, 
                   scheduledStartAt: scheduledStartAt || null,
-                  scheduledEndAt: scheduledEndAt !== undefined ? (scheduledEndAt || null) : caseItem.scheduledEndAt,
-                  status: status !== undefined ? status : caseItem.status
+                  scheduledEndAt: scheduledEndAt !== undefined ? (scheduledEndAt || null) : caseItem.scheduledEndAt
                 }
               : caseItem
           ) || []
@@ -412,12 +407,11 @@ export default function AdminCalendarPage() {
       if (itemType === 'reminder') {
         updateReminderMutation.mutate({ id: itemId, dueAt: null });
       } else if (itemType === 'case') {
-        console.log('📍 Calling mutation to unschedule case and set status to On Hold');
+        console.log('📍 Calling mutation to unschedule case (backend will auto-set status to On Hold)');
         updateCaseMutation.mutate({ 
           id: itemId, 
           scheduledStartAt: null, 
-          scheduledEndAt: null,
-          status: 'On Hold'
+          scheduledEndAt: null
         });
       }
       return;
