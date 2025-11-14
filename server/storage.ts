@@ -2100,11 +2100,34 @@ export class DatabaseStorage implements IStorage {
 
   // Reminder operations
   async getReminders(orgId: string): Promise<Reminder[]> {
-    return await db
-      .select()
+    const results = await db
+      .select({
+        id: reminders.id,
+        orgId: reminders.orgId,
+        scope: reminders.scope,
+        scopeId: reminders.scopeId,
+        entityId: reminders.entityId,
+        title: reminders.title,
+        type: reminders.type,
+        dueAt: reminders.dueAt,
+        leadDays: reminders.leadDays,
+        channels: reminders.channels,
+        payloadJson: reminders.payloadJson,
+        status: reminders.status,
+        sentAt: reminders.sentAt,
+        completedAt: reminders.completedAt,
+        isRecurring: reminders.isRecurring,
+        recurringFrequency: reminders.recurringFrequency,
+        recurringInterval: reminders.recurringInterval,
+        recurringEndDate: reminders.recurringEndDate,
+        parentRecurringId: reminders.parentRecurringId,
+        isBulkEntry: reminders.isBulkEntry,
+        createdAt: reminders.createdAt,
+      })
       .from(reminders)
       .where(eq(reminders.orgId, orgId))
-      .orderBy(sql`${reminders.dueAt} IS NULL, ${reminders.dueAt} ASC`);
+      .orderBy(asc(reminders.dueAt));
+    return results as Reminder[];
   }
 
   async getDueReminders(): Promise<Reminder[]> {

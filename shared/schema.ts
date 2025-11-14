@@ -820,7 +820,7 @@ export const reminders = pgTable("reminders", {
   entityId: varchar("entity_id").references(() => ownershipEntities.id),
   title: varchar("title").notNull(),
   type: reminderTypeEnum("type"),
-  dueAt: timestamp("due_at").notNull(),
+  dueAt: timestamp("due_at"),
   leadDays: integer("lead_days").default(0),
   channels: reminderChannelEnum("channels").array().default(sql`ARRAY['inapp']::reminder_channel[]`),
   payloadJson: jsonb("payload_json"),

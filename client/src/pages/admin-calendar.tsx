@@ -6,7 +6,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X, Plus } from "lucide-react";
+import CompactCalendarCard from "@/components/calendar/CompactCalendarCard";
 import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ReminderForm from "@/components/forms/reminder-form";
@@ -155,8 +156,7 @@ export default function AdminCalendarPage() {
   const [currentDate, setCurrentDate] = useState(() => toZonedTime(new Date(), ORG_TIMEZONE));
   const [view, setView] = useState<'week' | 'month'>('week');
   const [filterMode, setFilterMode] = useState<'all' | 'reminders' | 'cases'>('all');
-  const [reminderTypeFilter, setReminderTypeFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilterKey>('active');
+  const [teamFilter, setTeamFilter] = useState<string>('all');
   const [hideWeekends, setHideWeekends] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -186,10 +186,10 @@ export default function AdminCalendarPage() {
     retry: false,
   });
 
-  // Fetch teams for the current contractor
+  // Fetch teams for all users
   const { data: teams = [] } = useQuery<any[]>({
     queryKey: ["/api/teams"],
-    enabled: role === "contractor",
+    enabled: !!user,
     retry: false,
   });
 
@@ -326,6 +326,20 @@ export default function AdminCalendarPage() {
     },
   });
 
+  // Mutation to update team assignment
+  const updateJobTeamMutation = useMutation({
+    mutationFn: async ({ jobId, teamId }: { jobId: string; teamId: string }) => {
+      return await apiRequest('PATCH', `/api/scheduled-jobs/${jobId}`, { teamId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
+      toast({ title: "Team updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update team", variant: "destructive" });
+    },
+  });
+
   // Supporting queries for ReminderForm (loaded when dialog opens)
   const { data: entities = [] } = useQuery<any[]>({
     queryKey: ['/api/entities'],
@@ -362,13 +376,15 @@ export default function AdminCalendarPage() {
     navigate(`/maintenance?caseId=${caseId}`);
   };
 
-  // Filter reminders by type
-  const filteredReminders = reminderTypeFilter === 'all' 
-    ? reminders 
-    : reminders.filter(r => r.type === reminderTypeFilter);
-  
-  // Filter cases by status using shared utility
-  const filteredCases = filterCasesByStatus(cases, statusFilter);
+  // Handler function for case double-click
+  const handleCaseDoubleClick = (caseId: string) => {
+    navigate(`/maintenance?caseId=${caseId}`);
+  };
+
+  // Filter cases by team
+  const filteredCases = teamFilter === 'all' 
+    ? cases 
+    : cases.filter(c => c.scheduledJobs?.some(j => j.teamId === teamFilter));
 
   // Navigation handlers
   const goToPrevious = () => {
@@ -483,7 +499,7 @@ export default function AdminCalendarPage() {
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
 
-    const dayReminders = filterMode !== 'cases' ? filteredReminders.filter(r => {
+    const dayReminders = filterMode !== 'cases' ? reminders.filter(r => {
       const dueDate = new Date(r.dueAt);
       return dueDate >= dayStart && dueDate <= dayEnd;
     }) : [];
@@ -530,6 +546,10 @@ export default function AdminCalendarPage() {
                   View and manage reminders and work orders
                 </p>
               </div>
+              <Button onClick={() => navigate('/maintenance')} data-testid="button-quick-add">
+                <Plus className="h-4 w-4 mr-2" />
+                Quick Add
+              </Button>
             </div>
 
             {/* Main Grid: Calendar + Unscheduled Sidebar */}
@@ -595,42 +615,18 @@ export default function AdminCalendarPage() {
                       </SelectContent>
                     </Select>
 
-                    {filterMode !== 'cases' && (
-                      <Select value={reminderTypeFilter} onValueChange={setReminderTypeFilter}>
-                        <SelectTrigger className="w-48">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Types</SelectItem>
-                          <SelectItem value="rent">Rent</SelectItem>
-                          <SelectItem value="lease">Lease</SelectItem>
-                          <SelectItem value="mortgage">Mortgage</SelectItem>
-                          <SelectItem value="insurance">Insurance</SelectItem>
-                          <SelectItem value="property_tax">Property Tax</SelectItem>
-                          <SelectItem value="hoa">HOA</SelectItem>
-                          <SelectItem value="permit">Permit</SelectItem>
-                          <SelectItem value="maintenance">Maintenance</SelectItem>
-                          <SelectItem value="regulatory">Regulatory</SelectItem>
-                          <SelectItem value="custom">Custom</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    
                     {filterMode !== 'reminders' && (
-                      <Select value={statusFilter} onValueChange={(v: StatusFilterKey) => setStatusFilter(v)}>
+                      <Select value={teamFilter} onValueChange={setTeamFilter}>
                         <SelectTrigger className="w-40">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="active">Active Work</SelectItem>
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="New">New</SelectItem>
-                          <SelectItem value="In Review">In Review</SelectItem>
-                          <SelectItem value="Scheduled">Scheduled</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="On Hold">On Hold</SelectItem>
-                          <SelectItem value="Resolved">Resolved</SelectItem>
-                          <SelectItem value="Closed">Closed</SelectItem>
+                          <SelectItem value="all">All Teams</SelectItem>
+                          {teams.map((team: any) => (
+                            <SelectItem key={team.id} value={team.id}>
+                              {team.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     )}
@@ -657,7 +653,7 @@ export default function AdminCalendarPage() {
                   <div className="py-12 text-center text-gray-500">Loading...</div>
                 ) : (
                   <>
-                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
+                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} />}
                     {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
                   </>
                 )}
@@ -739,28 +735,32 @@ export default function AdminCalendarPage() {
                         );
                       })}
                       
-                      {unscheduledCases.map(caseItem => (
-                        <DraggableCalendarItem
-                          key={caseItem.id}
-                          id={`case:${caseItem.id}`}
-                          disabled={!canReschedule}
-                        >
-                          <WorkOrderCard
-                            workOrder={caseItem}
-                            userRole={role}
-                            properties={properties}
-                            units={units}
-                            teams={teams}
-                            variant="compact"
-                            showActions={false}
-                            onEdit={() => {}}
-                            onReminder={() => {}}
-                            onDelete={() => {}}
-                            onAccept={() => {}}
-                            onReviewCounter={() => {}}
-                          />
-                        </DraggableCalendarItem>
-                      ))}
+                      {unscheduledCases.map(caseItem => {
+                        const firstJob = caseItem.scheduledJobs?.[0];
+                        const team = firstJob?.teamId ? teams.find((t: any) => t.id === firstJob.teamId) : undefined;
+                        const tenantName = caseItem.reporter 
+                          ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
+                          : undefined;
+                        
+                        return (
+                          <DraggableCalendarItem
+                            key={caseItem.id}
+                            id={`case:${caseItem.id}`}
+                            disabled={!canReschedule}
+                          >
+                            <div data-testid={`unscheduled-case-${caseItem.id}`}>
+                              <CompactCalendarCard
+                                workOrder={caseItem}
+                                team={team}
+                                teams={teams}
+                                tenantName={tenantName}
+                                onDoubleClick={() => handleCaseDoubleClick(caseItem.id)}
+                                onTeamChange={firstJob ? (teamId) => updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId }) : undefined}
+                              />
+                            </div>
+                          </DraggableCalendarItem>
+                        );
+                      })}
                     </UnscheduledDropZone>
                   </CardContent>
                 </Card>
@@ -897,16 +897,19 @@ export default function AdminCalendarPage() {
   );
 }
 
-function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], canReschedule, onEditReminder, onCompleteReminder, onCancelReminder }: {
+function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], teams = [], canReschedule, onEditReminder, onCompleteReminder, onCancelReminder, onCaseDoubleClick, onTeamChange }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
   hideWeekends?: boolean;
   properties?: any[];
   units?: any[];
+  teams?: any[];
   canReschedule: boolean;
   onEditReminder: (reminder: Reminder) => void;
   onCompleteReminder: (id: string) => void;
   onCancelReminder: (id: string) => void;
+  onCaseDoubleClick?: (caseId: string) => void;
+  onTeamChange?: (jobId: string, teamId: string) => void;
 }) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -1038,73 +1041,29 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
-                        const locationLabel = formatWorkOrderLocation(caseItem.propertyId, caseItem.unitId, properties, units);
-                        const teamColor = caseItem.scheduledJobs?.[0]?.teamColor;
-                        // Validate and convert team color to rgba
-                        const isValidHex = teamColor && /^#[0-9A-F]{6}$/i.test(teamColor);
-                        const teamBgColor = isValidHex ? `${teamColor}20` : undefined;
-                        const teamBorderColor = isValidHex ? teamColor : undefined;
-                        // Fallback to status colors if no valid team color
-                        const caseColors = !isValidHex ? (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.New) : null;
+                        const firstJob = caseItem.scheduledJobs?.[0];
+                        const team = firstJob?.teamId ? teams.find((t: any) => t.id === firstJob.teamId) : undefined;
+                        const tenantName = caseItem.reporter 
+                          ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
+                          : undefined;
                         
                         return (
                           <DraggableCalendarItem
                             key={`allday-case-${caseItem.id}`}
                             id={`case:${caseItem.id}`}
                             disabled={!canReschedule}
-                            className={cn(
-                              "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
-                              caseColors?.bg,
-                              caseColors?.border
-                            )}
-                            style={isValidHex ? { 
-                              top: `${2 + stackIndex * 36}px`, 
-                              minHeight: '32px',
-                              backgroundColor: teamBgColor,
-                              borderLeftColor: teamBorderColor
-                            } : { 
-                              top: `${2 + stackIndex * 36}px`, 
-                              minHeight: '32px'
-                            }}
+                            className="absolute left-1 right-1 z-10"
+                            style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
                           >
                             <div data-testid={`case-${caseItem.id}`}>
-                              <div className="flex items-center justify-between gap-1">
-                                <div className="font-semibold truncate flex-1">{caseItem.title}</div>
-                                <div className="flex items-center gap-1">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
-                                    onClick={(e) => { e.stopPropagation(); handleEditCase(caseItem.id); }}
-                                    data-testid={`button-edit-case-${caseItem.id}`}
-                                  >
-                                    <Edit2 className="h-3 w-3" data-testid={`edit-case-${caseItem.id}`} />
-                                  </Button>
-                                  {caseItem.scheduledJobs?.[0]?.teamName && (
-                                    <div 
-                                      className="text-[10px] px-1.5 py-0.5 rounded font-medium border"
-                                      style={isValidHex ? { 
-                                        color: teamColor,
-                                        borderColor: teamColor,
-                                        fontWeight: '600'
-                                      } : undefined}
-                                      data-testid={`badge-team-${caseItem.id}`}
-                                    >
-                                      {caseItem.scheduledJobs[0].teamName}
-                                    </div>
-                                  )}
-                                  {(caseItem.priority === 'High' || caseItem.priority === 'Urgent') && (
-                                    <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
-                                      {caseItem.priority}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              {locationLabel && (
-                                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate mt-0.5">
-                                  {locationLabel}
-                                </div>
-                              )}
+                              <CompactCalendarCard
+                                workOrder={caseItem}
+                                team={team}
+                                teams={teams}
+                                tenantName={tenantName}
+                                onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
+                                onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
+                              />
                             </div>
                           </DraggableCalendarItem>
                         );
@@ -1181,73 +1140,29 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
-                        const locationLabel = formatWorkOrderLocation(caseItem.propertyId, caseItem.unitId, properties, units);
-                        const teamColor = caseItem.scheduledJobs?.[0]?.teamColor;
-                        // Validate and convert team color to rgba
-                        const isValidHex = teamColor && /^#[0-9A-F]{6}$/i.test(teamColor);
-                        const teamBgColor = isValidHex ? `${teamColor}20` : undefined;
-                        const teamBorderColor = isValidHex ? teamColor : undefined;
-                        // Fallback to status colors if no valid team color
-                        const caseColors = !isValidHex ? (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.New) : null;
+                        const firstJob = caseItem.scheduledJobs?.[0];
+                        const team = firstJob?.teamId ? teams.find((t: any) => t.id === firstJob.teamId) : undefined;
+                        const tenantName = caseItem.reporter 
+                          ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
+                          : undefined;
                         
                         return (
                           <DraggableCalendarItem
                             key={`timed-case-${caseItem.id}`}
                             id={`case:${caseItem.id}`}
                             disabled={!canReschedule}
-                            className={cn(
-                              "absolute left-1 right-1 p-2 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
-                              caseColors?.bg,
-                              caseColors?.border
-                            )}
-                            style={isValidHex ? { 
-                              top: `${topPosition}px`, 
-                              minHeight: '50px',
-                              backgroundColor: teamBgColor,
-                              borderLeftColor: teamBorderColor
-                            } : { 
-                              top: `${topPosition}px`, 
-                              minHeight: '50px'
-                            }}
+                            className="absolute left-1 right-1 z-10"
+                            style={{ top: `${topPosition}px`, minHeight: '50px' }}
                           >
                             <div data-testid={`case-${caseItem.id}`}>
-                              <div className="flex items-center justify-between gap-1 mb-1">
-                                <div className="font-semibold truncate flex-1">{caseItem.title}</div>
-                                <div className="flex items-center gap-1">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
-                                    onClick={(e) => { e.stopPropagation(); handleEditCase(caseItem.id); }}
-                                    data-testid={`button-edit-case-${caseItem.id}`}
-                                  >
-                                    <Edit2 className="h-3 w-3" data-testid={`edit-case-${caseItem.id}`} />
-                                  </Button>
-                                  {caseItem.scheduledJobs?.[0]?.teamName && (
-                                    <div 
-                                      className="text-[10px] px-1.5 py-0.5 rounded font-medium border"
-                                      style={isValidHex ? { 
-                                        color: teamColor,
-                                        borderColor: teamColor,
-                                        fontWeight: '600'
-                                      } : undefined}
-                                      data-testid={`badge-team-${caseItem.id}`}
-                                    >
-                                      {caseItem.scheduledJobs[0].teamName}
-                                    </div>
-                                  )}
-                                  {(caseItem.priority === 'High' || caseItem.priority === 'Urgent') && (
-                                    <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
-                                      {caseItem.priority}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              {locationLabel && (
-                                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate">{locationLabel}</div>
-                              )}
-                              <div className="text-xs opacity-75">{format(time, 'h:mm a')}</div>
-                              <div className="text-xs opacity-75 capitalize">{caseItem.status}</div>
+                              <CompactCalendarCard
+                                workOrder={caseItem}
+                                team={team}
+                                teams={teams}
+                                tenantName={tenantName}
+                                onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
+                                onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
+                              />
                             </div>
                           </DraggableCalendarItem>
                         );
