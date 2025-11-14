@@ -2461,6 +2461,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Notify if schedule changed (rescheduled or unscheduled)
+      const scheduleChanged = oldCase && (
+        (oldCase.scheduledStartAt !== smartCase.scheduledStartAt) ||
+        (oldCase.scheduledEndAt !== smartCase.scheduledEndAt)
+      );
+      
+      if (scheduleChanged) {
+        const { notificationService } = await import('./notificationService');
+        const { format } = await import('date-fns');
+        
+        // Get scheduled jobs to notify assigned contractors
+        const scheduledJobs = await storage.getScheduledJobsByCase(smartCase.id);
+        
+        // Notify each assigned contractor about the schedule change
+        for (const job of scheduledJobs) {
+          if (job.contractorId) {
+            const contractor = await storage.getContractor(job.contractorId);
+            if (contractor?.userId) {
+              const contractorUser = await storage.getUser(contractor.userId);
+              if (contractorUser?.email) {
+                let scheduleMessage = '';
+                if (!smartCase.scheduledStartAt) {
+                  scheduleMessage = `Work order "${smartCase.title}" has been unscheduled.`;
+                } else if (!oldCase.scheduledStartAt) {
+                  const scheduledDate = format(new Date(smartCase.scheduledStartAt), 'MMM d, yyyy \'at\' h:mm a');
+                  scheduleMessage = `Work order "${smartCase.title}" has been scheduled for ${scheduledDate}.`;
+                } else {
+                  const newDate = format(new Date(smartCase.scheduledStartAt), 'MMM d, yyyy \'at\' h:mm a');
+                  scheduleMessage = `Work order "${smartCase.title}" has been rescheduled to ${newDate}.`;
+                }
+                
+                await notificationService.notifyContractor({
+                  message: scheduleMessage,
+                  type: 'case_updated',
+                  title: 'Schedule Updated',
+                  subject: 'Work Order Schedule Changed',
+                  caseId: smartCase.id,
+                  orgId: smartCase.orgId
+                }, contractorUser.email, contractor.userId, smartCase.orgId);
+              }
+            }
+          }
+        }
+        
+        // Notify tenant about schedule change
+        if (smartCase.reporterUserId) {
+          const reporterUser = await storage.getUser(smartCase.reporterUserId);
+          if (reporterUser?.email) {
+            let tenantScheduleMessage = '';
+            if (!smartCase.scheduledStartAt) {
+              tenantScheduleMessage = `The scheduled date for your maintenance request "${smartCase.title}" has been removed. We'll notify you when it's rescheduled.`;
+            } else if (!oldCase.scheduledStartAt) {
+              const scheduledDate = format(new Date(smartCase.scheduledStartAt), 'EEEE, MMMM d \'at\' h:mm a');
+              tenantScheduleMessage = `Great news! Your maintenance request "${smartCase.title}" has been scheduled for ${scheduledDate}.`;
+            } else {
+              const newDate = format(new Date(smartCase.scheduledStartAt), 'EEEE, MMMM d \'at\' h:mm a');
+              tenantScheduleMessage = `Your maintenance request "${smartCase.title}" has been rescheduled to ${newDate}.`;
+            }
+            
+            await notificationService.notifyTenant({
+              message: tenantScheduleMessage,
+              type: 'case_updated',
+              title: 'Schedule Updated',
+              subject: 'Maintenance Request Schedule Changed',
+              caseId: smartCase.id,
+              orgId: smartCase.orgId
+            }, reporterUser.email, smartCase.reporterUserId, smartCase.orgId);
+          }
+        }
+      }
+      
       res.json(smartCase);
     } catch (error) {
       console.error("Error updating case:", error);
