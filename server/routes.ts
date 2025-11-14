@@ -2472,7 +2472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { format } = await import('date-fns');
         
         // Get scheduled jobs to notify assigned contractors
-        const scheduledJobs = await storage.getScheduledJobsByCase(smartCase.id);
+        const scheduledJobs = await storage.getScheduledJobs(smartCase.orgId, { caseId: smartCase.id });
         
         // Notify each assigned contractor about the schedule change
         for (const job of scheduledJobs) {
