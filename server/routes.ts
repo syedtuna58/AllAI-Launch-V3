@@ -2396,6 +2396,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const oldCase = await storage.getSmartCase(req.params.id);
       
+      // Debug logging
+      console.log('📥 PATCH request body:', req.body);
+      
       // Convert date strings to Date objects (or keep null values)
       const updateData = { ...req.body };
       if ('scheduledStartAt' in updateData) {
@@ -2404,6 +2407,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if ('scheduledEndAt' in updateData) {
         updateData.scheduledEndAt = updateData.scheduledEndAt ? new Date(updateData.scheduledEndAt) : null;
       }
+      
+      console.log('📤 Update data after conversion:', { scheduledStartAt: updateData.scheduledStartAt, scheduledEndAt: updateData.scheduledEndAt });
       
       const smartCase = await storage.updateSmartCase(req.params.id, updateData);
       
