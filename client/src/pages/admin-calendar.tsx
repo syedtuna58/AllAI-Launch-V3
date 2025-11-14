@@ -1052,10 +1052,10 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                             key={`allday-case-${caseItem.id}`}
                             id={`case:${caseItem.id}`}
                             disabled={!canReschedule}
-                            className="absolute left-1 right-1 z-10"
-                            style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
+                            className="absolute left-0 right-0 z-10"
+                            style={{ top: `${2 + stackIndex * 36}px`, height: '34px' }}
                           >
-                            <div data-testid={`case-${caseItem.id}`}>
+                            <div data-testid={`case-${caseItem.id}`} className="h-full">
                               <CompactCalendarCard
                                 workOrder={caseItem}
                                 team={team}
@@ -1151,10 +1151,10 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                             key={`timed-case-${caseItem.id}`}
                             id={`case:${caseItem.id}`}
                             disabled={!canReschedule}
-                            className="absolute left-1 right-1 z-10"
-                            style={{ top: `${topPosition}px`, minHeight: '50px' }}
+                            className="absolute left-0 right-0 z-10"
+                            style={{ top: `${topPosition}px`, height: `${HOUR_HEIGHT}px` }}
                           >
-                            <div data-testid={`case-${caseItem.id}`}>
+                            <div data-testid={`case-${caseItem.id}`} className="h-full">
                               <CompactCalendarCard
                                 workOrder={caseItem}
                                 team={team}

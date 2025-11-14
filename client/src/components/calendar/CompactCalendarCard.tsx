@@ -22,6 +22,26 @@ type CompactCalendarCardProps = {
   onTeamChange?: (teamId: string) => void;
 };
 
+// Convert hex to pastel by lightening it
+function hexToPastel(hex: string): string {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  
+  // Convert to RGB
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  // Lighten by mixing with white (increase brightness)
+  const lighten = 0.75; // Higher = lighter
+  const newR = Math.round(r + (255 - r) * lighten);
+  const newG = Math.round(g + (255 - g) * lighten);
+  const newB = Math.round(b + (255 - b) * lighten);
+  
+  // Convert back to hex
+  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+}
+
 export default function CompactCalendarCard({
   workOrder,
   team,
@@ -32,8 +52,9 @@ export default function CompactCalendarCard({
 }: CompactCalendarCardProps) {
   const [teamPopoverOpen, setTeamPopoverOpen] = useState(false);
 
-  // Get team color or default
-  const teamColor = team?.color || "#6B7280";
+  // Get team color or default, then convert to pastel
+  const originalColor = team?.color || "#6B7280";
+  const pastelColor = hexToPastel(originalColor);
   
   // Determine urgency styling
   const isUrgent = workOrder.priority === "Urgent";
@@ -41,9 +62,9 @@ export default function CompactCalendarCard({
   
   let leftBorderClass = "";
   if (isUrgent) {
-    leftBorderClass = "border-l-4 border-l-red-500";
+    leftBorderClass = "border-l-4 border-l-red-400";
   } else if (isHigh) {
-    leftBorderClass = "border-l-4 border-l-orange-500";
+    leftBorderClass = "border-l-4 border-l-orange-400";
   }
 
   // Create tooltip content with full details
@@ -86,22 +107,21 @@ export default function CompactCalendarCard({
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <div
-            className={`relative rounded-md p-2 cursor-pointer shadow-sm hover:shadow-md transition-shadow ${leftBorderClass}`}
+            className={`relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
             style={{
-              backgroundColor: teamColor,
-              opacity: 0.95,
+              backgroundColor: pastelColor,
             }}
             onDoubleClick={onDoubleClick}
           >
             {/* Title with team icon */}
-            <div className="flex items-start justify-between gap-1 mb-1">
+            <div className="flex items-start justify-between gap-1 mb-0.5">
               <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-semibold text-white truncate">
+                <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-900 truncate leading-tight">
                   {workOrder.title}
                 </h4>
               </div>
               {isUrgent && (
-                <Badge className="bg-red-600 text-white text-[10px] px-1 py-0 h-4">
+                <Badge className="bg-red-500 text-white text-[10px] px-1 py-0 h-4">
                   Urgent
                 </Badge>
               )}
@@ -109,14 +129,14 @@ export default function CompactCalendarCard({
 
             {/* Tenant name if available */}
             {tenantName && (
-              <p className="text-[10px] text-white/90 truncate mb-1">
+              <p className="text-[10px] text-gray-700 dark:text-gray-800 truncate mb-0.5 leading-tight">
                 {tenantName}
               </p>
             )}
 
             {/* Time display for scheduled items */}
             {workOrder.scheduledStartAt && (
-              <p className="text-[10px] text-white/80 truncate">
+              <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate leading-tight">
                 {format(new Date(workOrder.scheduledStartAt), "h:mm a")}
               </p>
             )}
@@ -126,8 +146,8 @@ export default function CompactCalendarCard({
               <Popover open={teamPopoverOpen} onOpenChange={setTeamPopoverOpen}>
                 <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <button
-                    className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm hover:scale-110 transition-transform"
-                    style={{ backgroundColor: teamColor }}
+                    className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-gray-600 shadow-sm hover:scale-110 transition-transform"
+                    style={{ backgroundColor: originalColor }}
                     data-testid={`button-team-selector-${workOrder.id}`}
                   />
                 </PopoverTrigger>
