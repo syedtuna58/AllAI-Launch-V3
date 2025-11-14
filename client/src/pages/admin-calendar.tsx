@@ -49,7 +49,8 @@ type MaintenanceCase = {
   propertyId: string | null;
   unitId: string | null;
   category: string | null;
-  scheduledDate: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
   completedDate: string | null;
   orgId: string;
   createdAt: string;
@@ -166,11 +167,11 @@ export default function AdminCalendarPage() {
   // Mutation to update case date - only allow for non-contractors
   const canReschedule = role !== 'contractor';
   const updateCaseMutation = useMutation({
-    mutationFn: async ({ id, scheduledDate }: { id: string; scheduledDate: string }) => {
+    mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string; scheduledEndAt?: string }) => {
       if (!canReschedule) {
         throw new Error("Contractors cannot reschedule work orders directly");
       }
-      return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledDate });
+      return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledStartAt, scheduledEndAt });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
@@ -314,7 +315,17 @@ export default function AdminCalendarPage() {
       const caseItem = cases.find(c => c.id === itemId);
       if (!caseItem) return;
 
-      updateCaseMutation.mutate({ id: itemId, scheduledDate: utcDate.toISOString() });
+      // Calculate duration if scheduledEndAt exists, preserve it when rescheduling
+      let scheduledEndAt: string | undefined;
+      if (caseItem.scheduledStartAt && caseItem.scheduledEndAt) {
+        const originalStart = new Date(caseItem.scheduledStartAt);
+        const originalEnd = new Date(caseItem.scheduledEndAt);
+        const durationMs = originalEnd.getTime() - originalStart.getTime();
+        const newEnd = new Date(utcDate.getTime() + durationMs);
+        scheduledEndAt = newEnd.toISOString();
+      }
+
+      updateCaseMutation.mutate({ id: itemId, scheduledStartAt: utcDate.toISOString(), scheduledEndAt });
     }
   };
 
@@ -331,8 +342,8 @@ export default function AdminCalendarPage() {
     }) : [];
 
     const dayCases = filterMode !== 'reminders' ? filteredCases.filter(c => {
-      if (!c.scheduledDate) return false;
-      const schedDate = new Date(c.scheduledDate);
+      if (!c.scheduledStartAt) return false;
+      const schedDate = new Date(c.scheduledStartAt);
       return schedDate >= dayStart && schedDate <= dayEnd;
     }) : [];
 
@@ -498,7 +509,7 @@ export default function AdminCalendarPage() {
                     <div className="py-12 text-center text-gray-500">Loading...</div>
                   ) : (
                     <>
-                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
+                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
                       {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
                     </>
                   )}
@@ -519,7 +530,7 @@ export default function AdminCalendarPage() {
                 ? filteredReminders.filter(r => !r.dueAt) 
                 : [];
               const unscheduledCases = filterMode !== 'reminders'
-                ? filteredCases.filter(c => !c.scheduledDate)
+                ? filteredCases.filter(c => !c.scheduledStartAt)
                 : [];
               
               if (unscheduledReminders.length === 0 && unscheduledCases.length === 0) {
@@ -737,12 +748,13 @@ export default function AdminCalendarPage() {
   );
 }
 
-function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], onEditReminder, onCompleteReminder, onCancelReminder }: {
+function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], canReschedule, onEditReminder, onCompleteReminder, onCancelReminder }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
   hideWeekends?: boolean;
   properties?: any[];
   units?: any[];
+  canReschedule: boolean;
   onEditReminder: (reminder: Reminder) => void;
   onCompleteReminder: (id: string) => void;
   onCancelReminder: (id: string) => void;
@@ -804,8 +816,8 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                 });
                 
                 cases.forEach(caseItem => {
-                  if (!caseItem.scheduledDate) return;
-                  const schedDate = new Date(caseItem.scheduledDate);
+                  if (!caseItem.scheduledStartAt) return;
+                  const schedDate = new Date(caseItem.scheduledStartAt);
                   const hours = schedDate.getHours();
                   const minutes = schedDate.getMinutes();
                   
