@@ -1238,7 +1238,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   const today = new Date();
   
   const START_HOUR = 6;  // 6 AM
-  const END_HOUR = 20;   // 8 PM
+  const END_HOUR = 25;   // 1 AM next day (allows scheduling until midnight)
   const HOUR_HEIGHT = 60; // pixels
 
   // Use provided ref or create new one
