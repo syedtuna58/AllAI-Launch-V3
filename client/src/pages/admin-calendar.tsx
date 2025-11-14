@@ -604,8 +604,8 @@ export default function AdminCalendarPage() {
                             showActions={false}
                             onEdit={() => {}}
                             onReminder={() => {}}
-                            onDelete={deleteMutation.mutate}
-                            onAccept={acceptJobMutation.mutate}
+                            onDelete={() => {}}
+                            onAccept={() => {}}
                             onReviewCounter={() => {}}
                           />
                         </DraggableCalendarItem>
