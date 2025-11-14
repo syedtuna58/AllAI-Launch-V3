@@ -609,51 +609,47 @@ export default function AdminCalendarPage() {
 
   if (!user) {
     return (
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header title="Admin Calendar" />
-          <main className="flex-1 overflow-y-auto p-8">
-            <p>Please log in to view the admin calendar.</p>
-          </main>
-        </div>
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900 items-center justify-center">
+        <p>Please log in to view the admin calendar.</p>
       </div>
     );
   }
 
   return (
     <>
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Admin Calendar" />
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Calendar className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                  Admin Calendar
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  View and manage reminders and work orders
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={() => navigate('/maintenance')} data-testid="button-quick-add">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Quick Add
-                </Button>
-                <Button variant="outline" onClick={() => setShowTeamDialog(true)} data-testid="button-manage-teams">
-                  <Users className="h-4 w-4 mr-2" />
-                  Manage Teams
-                </Button>
-              </div>
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Top Navigation Bar */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} data-testid="button-back-dashboard">
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Dashboard
+            </Button>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                Admin Calendar
+              </h1>
             </div>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => navigate('/maintenance')} data-testid="button-quick-add">
+              <Plus className="h-4 w-4 mr-2" />
+              Quick Add
+            </Button>
+            <Button variant="outline" onClick={() => setShowTeamDialog(true)} data-testid="button-manage-teams">
+              <Users className="h-4 w-4 mr-2" />
+              Manage Teams
+            </Button>
+          </div>
+        </div>
+      </div>
 
-            {/* Main Grid: Calendar + Unscheduled Sidebar */}
-            <DndContext
+      {/* Main Content: Grid with Unscheduled Left, Calendar Right */}
+      <div className="flex-1 overflow-hidden">
+        <DndContext
               sensors={sensors}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
@@ -665,9 +661,194 @@ export default function AdminCalendarPage() {
                 },
               }}
             >
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                {/* Calendar Card */}
-                <Card>
+              <div className="grid h-full" style={{ gridTemplateColumns: '260px 1fr' }}>
+                {/* Left Sidebar: Unscheduled Items + Mini Calendar */}
+                {(() => {
+                  const unscheduledReminders = filterMode !== 'cases' 
+                    ? reminders.filter(r => !r.dueAt) 
+                    : [];
+                  const unscheduledCases = filterMode !== 'reminders'
+                    ? filteredCases.filter(c => !c.scheduledStartAt)
+                    : [];
+                  
+                  return (
+                    <div className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
+                      {/* Unscheduled Items - Scrollable */}
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <div className="mb-2">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Unscheduled Items</h3>
+                          <p className="text-xs text-muted-foreground">Drag to schedule</p>
+                        </div>
+                        <UnscheduledDropZone>
+                          {unscheduledReminders.map(reminder => {
+                            const effectiveStatus = reminder.status || (reminder.dueAt && new Date(reminder.dueAt) < new Date() ? 'Overdue' : null);
+                            return (
+                              <DraggableCalendarItem
+                                key={reminder.id}
+                                id={`reminder:${reminder.id}`}
+                                disabled={!canReschedule}
+                                className={cn(
+                                  "p-3 rounded text-xs hover:shadow-md transition-shadow group mb-3",
+                                  "bg-yellow-50 dark:bg-yellow-950/20"
+                                )}
+                              >
+                                <div data-testid={`unscheduled-reminder-${reminder.id}`}>
+                                  <div className="flex items-center justify-between gap-2 mb-2">
+                                    <div className="font-semibold truncate flex-1">{reminder.title}</div>
+                                    <div className="flex items-center gap-1">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`menu-reminder-${reminder.id}`}>
+                                            <Edit2 className="h-3 w-3" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditReminder(reminder); }} data-testid={`edit-reminder-${reminder.id}`}>
+                                            <Edit2 className="h-3 w-3 mr-2" />
+                                            Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCompleteReminder(reminder.id); }} data-testid={`complete-reminder-${reminder.id}`}>
+                                            <Check className="h-3 w-3 mr-2" />
+                                            Complete
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCancelReminder(reminder.id); }} data-testid={`cancel-reminder-${reminder.id}`}>
+                                            <X className="h-3 w-3 mr-2" />
+                                            Cancel
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                      {effectiveStatus && (
+                                        <Badge className={cn("text-[10px] px-1 py-0", 
+                                          effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
+                                          effectiveStatus === 'Completed' && "bg-green-100 text-green-800",
+                                          effectiveStatus === 'Cancelled' && "bg-gray-100 text-gray-800"
+                                        )} data-testid={`badge-${effectiveStatus}`}>
+                                          {effectiveStatus}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-xs opacity-75 capitalize">{reminder.type?.replace(/_/g, ' ')}</div>
+                                </div>
+                              </DraggableCalendarItem>
+                            );
+                          })}
+                          
+                          {unscheduledCases.map(caseItem => {
+                            const firstJob = caseItem.scheduledJobs?.[0];
+                            const team = firstJob?.teamId ? teams.find((t: any) => t.id === firstJob.teamId) : undefined;
+                            const tenantName = caseItem.reporter 
+                              ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
+                              : undefined;
+                            const property = caseItem.propertyId ? properties.find((p: any) => p.id === caseItem.propertyId) : undefined;
+                            const propertyStreet = property?.street;
+                            
+                            return (
+                              <DraggableCalendarItem
+                                key={caseItem.id}
+                                id={`case:${caseItem.id}`}
+                                disabled={!canReschedule}
+                                className="mb-3"
+                              >
+                                <div data-testid={`unscheduled-case-${caseItem.id}`}>
+                                  <CompactCalendarCard
+                                    workOrder={caseItem}
+                                    team={team}
+                                    teams={teams}
+                                    tenantName={tenantName}
+                                    propertyStreet={propertyStreet}
+                                    onDoubleClick={() => handleCaseDoubleClick(caseItem.id)}
+                                    onTeamChange={firstJob ? (teamId) => updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId }) : undefined}
+                                  />
+                                </div>
+                              </DraggableCalendarItem>
+                            );
+                          })}
+                          
+                          {unscheduledReminders.length === 0 && unscheduledCases.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-4">No unscheduled items</p>
+                          )}
+                        </UnscheduledDropZone>
+                      </div>
+                      
+                      {/* Mini Calendar at Bottom */}
+                      <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-xs font-semibold text-gray-900 dark:text-white">{format(currentDate, 'MMMM yyyy')}</h3>
+                          <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0"
+                              onClick={() => setCurrentDate(addMonths(currentDate, -1))}
+                              data-testid="button-prev-month"
+                            >
+                              <ChevronLeft className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 w-6 p-0"
+                              onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+                              data-testid="button-next-month"
+                            >
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {/* Day headers */}
+                        <div className="grid grid-cols-7 gap-0.5 mb-1">
+                          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
+                            <div key={idx} className="text-center text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                              {day}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Calendar grid */}
+                        {(() => {
+                          const monthStart = startOfMonth(currentDate);
+                          const monthEnd = endOfMonth(currentDate);
+                          const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday start
+                          const calendarEnd = addDays(startOfWeek(monthEnd, { weekStartsOn: 1 }), 41); // 6 weeks
+                          const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+                          const today = new Date();
+                          
+                          return (
+                            <div className="grid grid-cols-7 gap-0.5">
+                              {calendarDays.map((day, idx) => {
+                                const isToday = isSameDay(day, today);
+                                const isCurrentMonth = isSameMonth(day, currentDate);
+                                const isSelected = isSameDay(day, currentDate);
+                                
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={() => setCurrentDate(day)}
+                                    data-testid={`mini-cal-day-${format(day, 'yyyy-MM-dd')}`}
+                                    className={cn(
+                                      "aspect-square text-[10px] rounded transition-colors",
+                                      isCurrentMonth 
+                                        ? "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700" 
+                                        : "text-gray-400 dark:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800",
+                                      isToday && "font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400",
+                                      isSelected && !isToday && "bg-gray-200 dark:bg-gray-700"
+                                    )}
+                                  >
+                                    {format(day, 'd')}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Right Side: Calendar */}
+                <div className="overflow-hidden flex flex-col">
+                  <Card className="flex-1 flex flex-col m-4">
                 <CardHeader className="pb-3">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                   {/* Navigation */}
@@ -765,116 +946,7 @@ export default function AdminCalendarPage() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Unscheduled Items Sidebar */}
-            {(() => {
-              const unscheduledReminders = filterMode !== 'cases' 
-                ? reminders.filter(r => !r.dueAt) 
-                : [];
-              const unscheduledCases = filterMode !== 'reminders'
-                ? filteredCases.filter(c => !c.scheduledStartAt)
-                : [];
-              
-              if (unscheduledReminders.length === 0 && unscheduledCases.length === 0) {
-                return null;
-              }
-              
-              return (
-                <Card className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
-                  <CardHeader>
-                    <CardTitle className="text-sm">Unscheduled Items</CardTitle>
-                    <p className="text-xs text-muted-foreground">Drag items here to unschedule, or drag from here to schedule</p>
-                  </CardHeader>
-                  <CardContent>
-                    <UnscheduledDropZone>
-                      {unscheduledReminders.map(reminder => {
-                        const effectiveStatus = reminder.status || (reminder.dueAt && new Date(reminder.dueAt) < new Date() ? 'Overdue' : null);
-                        return (
-                          <DraggableCalendarItem
-                            key={reminder.id}
-                            id={`reminder:${reminder.id}`}
-                            disabled={!canReschedule}
-                            className={cn(
-                              "p-3 rounded text-xs hover:shadow-md transition-shadow group",
-                              "bg-yellow-50 dark:bg-yellow-950/20"
-                            )}
-                          >
-                            <div data-testid={`unscheduled-reminder-${reminder.id}`}>
-                              <div className="flex items-center justify-between gap-2 mb-2">
-                                <div className="font-semibold truncate flex-1">{reminder.title}</div>
-                                <div className="flex items-center gap-1">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`menu-reminder-${reminder.id}`}>
-                                        <Edit2 className="h-3 w-3" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditReminder(reminder); }} data-testid={`edit-reminder-${reminder.id}`}>
-                                        <Edit2 className="h-3 w-3 mr-2" />
-                                        Edit
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCompleteReminder(reminder.id); }} data-testid={`complete-reminder-${reminder.id}`}>
-                                        <Check className="h-3 w-3 mr-2" />
-                                        Complete
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleCancelReminder(reminder.id); }} data-testid={`cancel-reminder-${reminder.id}`}>
-                                        <X className="h-3 w-3 mr-2" />
-                                        Cancel
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                  {effectiveStatus && (
-                                    <Badge className={cn("text-[10px] px-1 py-0", 
-                                      effectiveStatus === 'Overdue' && "bg-red-100 text-red-800",
-                                      effectiveStatus === 'Completed' && "bg-green-100 text-green-800",
-                                      effectiveStatus === 'Cancelled' && "bg-gray-100 text-gray-800"
-                                    )} data-testid={`badge-${effectiveStatus}`}>
-                                      {effectiveStatus}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-xs opacity-75 capitalize">{reminder.type?.replace(/_/g, ' ')}</div>
-                            </div>
-                          </DraggableCalendarItem>
-                        );
-                      })}
-                      
-                      {unscheduledCases.map(caseItem => {
-                        const firstJob = caseItem.scheduledJobs?.[0];
-                        const team = firstJob?.teamId ? teams.find((t: any) => t.id === firstJob.teamId) : undefined;
-                        const tenantName = caseItem.reporter 
-                          ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
-                          : undefined;
-                        const property = caseItem.propertyId ? properties.find((p: any) => p.id === caseItem.propertyId) : undefined;
-                        const propertyStreet = property?.street;
-                        
-                        return (
-                          <DraggableCalendarItem
-                            key={caseItem.id}
-                            id={`case:${caseItem.id}`}
-                            disabled={!canReschedule}
-                          >
-                            <div data-testid={`unscheduled-case-${caseItem.id}`}>
-                              <CompactCalendarCard
-                                workOrder={caseItem}
-                                team={team}
-                                teams={teams}
-                                tenantName={tenantName}
-                                propertyStreet={propertyStreet}
-                                onDoubleClick={() => handleCaseDoubleClick(caseItem.id)}
-                                onTeamChange={firstJob ? (teamId) => updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId }) : undefined}
-                              />
-                            </div>
-                          </DraggableCalendarItem>
-                        );
-                      })}
-                    </UnscheduledDropZone>
-                  </CardContent>
-                </Card>
-              );
-            })()}
+                </div>
               </div>
               
               <DragOverlay>
@@ -882,76 +954,6 @@ export default function AdminCalendarPage() {
                 {null}
               </DragOverlay>
             </DndContext>
-
-            {/* Legend */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Calendar Visual System</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">
-                  All reminders use yellow backgrounds • Status badges show Overdue/Completed/Cancelled
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold">Reminder Status</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-4 bg-yellow-100 dark:bg-yellow-900/30 rounded"></div>
-                      <span className="text-xs">Active (no badge)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-red-100 text-red-800 text-[10px]">Overdue</Badge>
-                      <span className="text-xs">Past due date</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-green-100 text-green-800 text-[10px]">Completed</Badge>
-                      <span className="text-xs">Task completed</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-gray-100 text-gray-800 text-[10px]">Cancelled</Badge>
-                      <span className="text-xs">Task cancelled</span>
-                    </div>
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-xs font-semibold mb-2">Month View Indicators</p>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-1.5 bg-yellow-500 rounded"></div>
-                        <span className="text-xs">Active</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-1.5 bg-red-500 rounded"></div>
-                        <span className="text-xs">Overdue</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-1.5 bg-green-500 rounded"></div>
-                        <span className="text-xs">Completed</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm font-semibold">Case Status (Background)</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-yellow-100 border border-yellow-500 rounded"></div>
-                      <span className="text-xs">Open</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-blue-100 border border-blue-500 rounded"></div>
-                      <span className="text-xs">In Progress</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-gray-100 border border-gray-500 rounded"></div>
-                      <span className="text-xs">On Hold</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 bg-green-100 border border-green-500 rounded"></div>
-                      <span className="text-xs">Resolved / Closed</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
       </div>
     </div>
 
