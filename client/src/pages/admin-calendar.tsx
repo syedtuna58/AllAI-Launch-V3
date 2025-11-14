@@ -195,13 +195,10 @@ export default function AdminCalendarPage() {
     },
   });
 
-  // Mutation to update case date - only allow for non-contractors
-  const canReschedule = role !== 'contractor';
+  // Mutation to update case date
+  const canReschedule = true; // Allow all users to reschedule via drag and drop
   const updateCaseMutation = useMutation({
     mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string | null; scheduledEndAt?: string | null }) => {
-      if (!canReschedule) {
-        throw new Error("Contractors cannot reschedule work orders directly");
-      }
       return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledStartAt, scheduledEndAt });
     },
     onSuccess: () => {
