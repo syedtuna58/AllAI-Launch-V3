@@ -181,32 +181,86 @@ export default function AdminCalendarPage() {
 
   const isLoading = remindersLoading || casesLoading;
 
-  // Mutation to update reminder date
+  // Mutation to update reminder date with optimistic updates
   const updateReminderMutation = useMutation({
     mutationFn: async ({ id, dueAt }: { id: string; dueAt: string | null }) => {
       return await apiRequest('PATCH', `/api/reminders/${id}`, { dueAt });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
-      toast({ title: "Reminder updated successfully" });
+    onMutate: async ({ id, dueAt }) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: ['/api/reminders'] });
+      
+      // Snapshot the previous value
+      const previousReminders = queryClient.getQueryData<Reminder[]>(['/api/reminders']);
+      
+      // Optimistically update the cache
+      if (previousReminders) {
+        queryClient.setQueryData<Reminder[]>(['/api/reminders'], (old) => 
+          old?.map(reminder => 
+            reminder.id === id 
+              ? { ...reminder, dueAt: dueAt || null }
+              : reminder
+          ) || []
+        );
+      }
+      
+      // Return context with snapshot for rollback
+      return { previousReminders };
     },
-    onError: () => {
+    onError: (err, variables, context) => {
+      // Rollback to previous state on error
+      if (context?.previousReminders) {
+        queryClient.setQueryData(['/api/reminders'], context.previousReminders);
+      }
       toast({ title: "Failed to update reminder", variant: "destructive" });
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
     },
   });
 
-  // Mutation to update case date
+  // Mutation to update case date with optimistic updates
   const canReschedule = true; // Allow all users to reschedule via drag and drop
   const updateCaseMutation = useMutation({
     mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string | null; scheduledEndAt?: string | null }) => {
       return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledStartAt, scheduledEndAt });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
-      toast({ title: "Work order updated successfully" });
+    onMutate: async ({ id, scheduledStartAt, scheduledEndAt }) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: [casesEndpoint] });
+      
+      // Snapshot the previous value
+      const previousCases = queryClient.getQueryData<MaintenanceCase[]>([casesEndpoint]);
+      
+      // Optimistically update the cache
+      if (previousCases) {
+        queryClient.setQueryData<MaintenanceCase[]>([casesEndpoint], (old) => 
+          old?.map(caseItem => 
+            caseItem.id === id 
+              ? { 
+                  ...caseItem, 
+                  scheduledStartAt: scheduledStartAt || null,
+                  scheduledEndAt: scheduledEndAt !== undefined ? (scheduledEndAt || null) : caseItem.scheduledEndAt
+                }
+              : caseItem
+          ) || []
+        );
+      }
+      
+      // Return context with snapshot for rollback
+      return { previousCases };
     },
-    onError: () => {
+    onError: (err, variables, context) => {
+      // Rollback to previous state on error
+      if (context?.previousCases) {
+        queryClient.setQueryData([casesEndpoint], context.previousCases);
+      }
       toast({ title: "Failed to update work order", variant: "destructive" });
+    },
+    onSettled: () => {
+      // Always refetch to ensure consistency
+      queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
     },
   });
 
