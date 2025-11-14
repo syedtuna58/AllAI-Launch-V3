@@ -10,6 +10,7 @@ import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X } from "lu
 import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ReminderForm from "@/components/forms/reminder-form";
+import { useLocation } from "wouter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,6 +111,7 @@ export default function AdminCalendarPage() {
   const { user } = useAuth();
   const role = user?.primaryRole;
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [currentDate, setCurrentDate] = useState(() => toZonedTime(new Date(), ORG_TIMEZONE));
   const [view, setView] = useState<'week' | 'month'>('week');
   const [filterMode, setFilterMode] = useState<'all' | 'reminders' | 'cases'>('all');
@@ -239,6 +241,11 @@ export default function AdminCalendarPage() {
 
   const handleCancelReminder = (id: string) => {
     cancelReminderMutation.mutate(id);
+  };
+
+  // Handler function for case/work order edit
+  const handleEditCase = (caseId: string) => {
+    navigate(`/maintenance?caseId=${caseId}`);
   };
 
   // Filter reminders by type
@@ -889,8 +896,15 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
-                        const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
                         const locationLabel = formatWorkOrderLocation(caseItem.propertyId, caseItem.unitId, properties, units);
+                        const teamColor = caseItem.scheduledJobs?.[0]?.teamColor;
+                        // Validate and convert team color to rgba
+                        const isValidHex = teamColor && /^#[0-9A-F]{6}$/i.test(teamColor);
+                        const teamBgColor = isValidHex ? `${teamColor}20` : undefined;
+                        const teamBorderColor = isValidHex ? teamColor : undefined;
+                        // Fallback to status colors if no valid team color
+                        const caseColors = !isValidHex ? (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.New) : null;
+                        
                         return (
                           <DraggableCalendarItem
                             key={`allday-case-${caseItem.id}`}
@@ -898,27 +912,48 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                             disabled={!canReschedule}
                             className={cn(
                               "absolute left-1 right-1 p-1.5 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
-                              caseColors.bg,
-                              caseColors.border
+                              caseColors?.bg,
+                              caseColors?.border
                             )}
-                            style={{ top: `${2 + stackIndex * 36}px`, minHeight: '32px' }}
+                            style={isValidHex ? { 
+                              top: `${2 + stackIndex * 36}px`, 
+                              minHeight: '32px',
+                              backgroundColor: teamBgColor,
+                              borderLeftColor: teamBorderColor
+                            } : { 
+                              top: `${2 + stackIndex * 36}px`, 
+                              minHeight: '32px'
+                            }}
                           >
                             <div data-testid={`case-${caseItem.id}`}>
                               <div className="flex items-center justify-between gap-1">
                                 <div className="font-semibold truncate flex-1">{caseItem.title}</div>
                                 <div className="flex items-center gap-1">
-                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                    onClick={(e) => { e.stopPropagation(); handleEditCase(caseItem.id); }}
+                                    data-testid={`button-edit-case-${caseItem.id}`}
+                                  >
+                                    <Edit2 className="h-3 w-3" data-testid={`edit-case-${caseItem.id}`} />
+                                  </Button>
                                   {caseItem.scheduledJobs?.[0]?.teamName && (
                                     <div 
-                                      className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium"
-                                      style={{ backgroundColor: caseItem.scheduledJobs[0].teamColor || '#6b7280' }}
+                                      className="text-[10px] px-1.5 py-0.5 rounded font-medium border"
+                                      style={isValidHex ? { 
+                                        color: teamColor,
+                                        borderColor: teamColor,
+                                        fontWeight: '600'
+                                      } : undefined}
+                                      data-testid={`badge-team-${caseItem.id}`}
                                     >
                                       {caseItem.scheduledJobs[0].teamName}
                                     </div>
                                   )}
-                                  {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                  {(caseItem.priority === 'High' || caseItem.priority === 'Urgent') && (
                                     <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
-                                      {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                      {caseItem.priority}
                                     </Badge>
                                   )}
                                 </div>
@@ -1004,8 +1039,15 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                         );
                       } else {
                         const caseItem = item as MaintenanceCase;
-                        const caseColors = CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.open;
                         const locationLabel = formatWorkOrderLocation(caseItem.propertyId, caseItem.unitId, properties, units);
+                        const teamColor = caseItem.scheduledJobs?.[0]?.teamColor;
+                        // Validate and convert team color to rgba
+                        const isValidHex = teamColor && /^#[0-9A-F]{6}$/i.test(teamColor);
+                        const teamBgColor = isValidHex ? `${teamColor}20` : undefined;
+                        const teamBorderColor = isValidHex ? teamColor : undefined;
+                        // Fallback to status colors if no valid team color
+                        const caseColors = !isValidHex ? (CASE_STATUS_COLORS[caseItem.status] || CASE_STATUS_COLORS.New) : null;
+                        
                         return (
                           <DraggableCalendarItem
                             key={`timed-case-${caseItem.id}`}
@@ -1013,27 +1055,48 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                             disabled={!canReschedule}
                             className={cn(
                               "absolute left-1 right-1 p-2 rounded border-l-4 text-xs hover:shadow-md transition-shadow z-10 group",
-                              caseColors.bg,
-                              caseColors.border
+                              caseColors?.bg,
+                              caseColors?.border
                             )}
-                            style={{ top: `${topPosition}px`, minHeight: '50px' }}
+                            style={isValidHex ? { 
+                              top: `${topPosition}px`, 
+                              minHeight: '50px',
+                              backgroundColor: teamBgColor,
+                              borderLeftColor: teamBorderColor
+                            } : { 
+                              top: `${topPosition}px`, 
+                              minHeight: '50px'
+                            }}
                           >
                             <div data-testid={`case-${caseItem.id}`}>
                               <div className="flex items-center justify-between gap-1 mb-1">
                                 <div className="font-semibold truncate flex-1">{caseItem.title}</div>
                                 <div className="flex items-center gap-1">
-                                  <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`edit-case-${caseItem.id}`} />
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
+                                    onClick={(e) => { e.stopPropagation(); handleEditCase(caseItem.id); }}
+                                    data-testid={`button-edit-case-${caseItem.id}`}
+                                  >
+                                    <Edit2 className="h-3 w-3" data-testid={`edit-case-${caseItem.id}`} />
+                                  </Button>
                                   {caseItem.scheduledJobs?.[0]?.teamName && (
                                     <div 
-                                      className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium"
-                                      style={{ backgroundColor: caseItem.scheduledJobs[0].teamColor || '#6b7280' }}
+                                      className="text-[10px] px-1.5 py-0.5 rounded font-medium border"
+                                      style={isValidHex ? { 
+                                        color: teamColor,
+                                        borderColor: teamColor,
+                                        fontWeight: '600'
+                                      } : undefined}
+                                      data-testid={`badge-team-${caseItem.id}`}
                                     >
                                       {caseItem.scheduledJobs[0].teamName}
                                     </div>
                                   )}
-                                  {(caseItem.priority === 'high' || caseItem.priority === 'urgent') && (
+                                  {(caseItem.priority === 'High' || caseItem.priority === 'Urgent') && (
                                     <Badge variant="destructive" className="text-[10px] px-1 py-0" data-testid={`badge-${caseItem.priority}`}>
-                                      {caseItem.priority === 'urgent' ? 'Urgent' : 'High'}
+                                      {caseItem.priority}
                                     </Badge>
                                   )}
                                 </div>
