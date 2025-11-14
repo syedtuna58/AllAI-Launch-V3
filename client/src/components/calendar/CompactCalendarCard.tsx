@@ -18,6 +18,7 @@ type CompactCalendarCardProps = {
   team?: Team;
   teams?: Team[];
   tenantName?: string;
+  propertyStreet?: string;
   onDoubleClick?: () => void;
   onTeamChange?: (teamId: string) => void;
 };
@@ -47,6 +48,7 @@ export default function CompactCalendarCard({
   team,
   teams = [],
   tenantName,
+  propertyStreet,
   onDoubleClick,
   onTeamChange,
 }: CompactCalendarCardProps) {
@@ -107,13 +109,13 @@ export default function CompactCalendarCard({
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <div
-            className={`relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
+            className={`group relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
             style={{
               backgroundColor: pastelColor,
             }}
             onDoubleClick={onDoubleClick}
           >
-            {/* Title with team icon */}
+            {/* Title with urgency badge */}
             <div className="flex items-start justify-between gap-1 mb-0.5">
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-semibold text-gray-800 dark:text-gray-900 truncate leading-tight">
@@ -134,6 +136,13 @@ export default function CompactCalendarCard({
               </p>
             )}
 
+            {/* Property street address if available */}
+            {propertyStreet && (
+              <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate mb-0.5 leading-tight">
+                {propertyStreet}
+              </p>
+            )}
+
             {/* Time display for scheduled items */}
             {workOrder.scheduledStartAt && (
               <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate leading-tight">
@@ -141,12 +150,12 @@ export default function CompactCalendarCard({
               </p>
             )}
 
-            {/* Team selector circle in bottom right */}
+            {/* Team selector circle in bottom right - subtle, visible on hover */}
             {onTeamChange && teams.length > 0 && (
               <Popover open={teamPopoverOpen} onOpenChange={setTeamPopoverOpen}>
                 <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <button
-                    className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-gray-600 shadow-sm hover:scale-110 transition-transform"
+                    className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-gray-400 opacity-20 group-hover:opacity-60 hover:!opacity-100 hover:scale-125 transition-all"
                     style={{ backgroundColor: originalColor }}
                     data-testid={`button-team-selector-${workOrder.id}`}
                   />

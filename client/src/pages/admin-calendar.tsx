@@ -741,6 +741,8 @@ export default function AdminCalendarPage() {
                         const tenantName = caseItem.reporter 
                           ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
                           : undefined;
+                        const property = caseItem.propertyId ? properties.find((p: any) => p.id === caseItem.propertyId) : undefined;
+                        const propertyStreet = property?.street;
                         
                         return (
                           <DraggableCalendarItem
@@ -754,6 +756,7 @@ export default function AdminCalendarPage() {
                                 team={team}
                                 teams={teams}
                                 tenantName={tenantName}
+                                propertyStreet={propertyStreet}
                                 onDoubleClick={() => handleCaseDoubleClick(caseItem.id)}
                                 onTeamChange={firstJob ? (teamId) => updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId }) : undefined}
                               />
@@ -1046,6 +1049,8 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                         const tenantName = caseItem.reporter 
                           ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
                           : undefined;
+                        const property = caseItem.propertyId ? properties.find((p: any) => p.id === caseItem.propertyId) : undefined;
+                        const propertyStreet = property?.street;
                         
                         return (
                           <DraggableCalendarItem
@@ -1061,6 +1066,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                                 team={team}
                                 teams={teams}
                                 tenantName={tenantName}
+                                propertyStreet={propertyStreet}
                                 onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
                                 onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
                               />
@@ -1145,6 +1151,8 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                         const tenantName = caseItem.reporter 
                           ? `${caseItem.reporter.firstName || ''} ${caseItem.reporter.lastName || ''}`.trim() || caseItem.reporter.email
                           : undefined;
+                        const property = caseItem.propertyId ? properties.find((p: any) => p.id === caseItem.propertyId) : undefined;
+                        const propertyStreet = property?.street;
                         
                         return (
                           <DraggableCalendarItem
@@ -1160,6 +1168,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                                 team={team}
                                 teams={teams}
                                 tenantName={tenantName}
+                                propertyStreet={propertyStreet}
                                 onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
                                 onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
                               />
