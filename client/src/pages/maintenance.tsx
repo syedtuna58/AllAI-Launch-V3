@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { filterCasesByStatus, type StatusFilterKey } from "@/lib/work-order-filters";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -164,9 +164,10 @@ export default function Maintenance() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const role = user?.primaryRole;
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [showCaseForm, setShowCaseForm] = useState(false);
   const [editingCase, setEditingCase] = useState<SmartCase | null>(null);
+  const handledCaseIdRef = useRef<string | null>(null);
   const [selectedCase, setSelectedCase] = useState<SmartCase | null>(null);
   const [showCaseDialog, setShowCaseDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilterKey>("all");
@@ -301,6 +302,53 @@ export default function Maintenance() {
       setSelectedPropertyId("");
     }
   }, [editingCase]);
+
+  // Handle caseId query parameter for deep linking from calendar
+  useEffect(() => {
+    // Parse query parameters from location
+    const searchParams = new URLSearchParams(location.split('?')[1] ?? '');
+    const caseId = searchParams.get('caseId');
+    
+    // Only proceed if we have a caseId that we haven't already handled
+    if (!caseId || handledCaseIdRef.current === caseId) {
+      return;
+    }
+    
+    // Wait for smartCases to load
+    if (casesLoading || !smartCases) {
+      return;
+    }
+    
+    // Find the case by ID
+    const targetCase = smartCases.find(c => c.id === caseId);
+    
+    if (targetCase) {
+      // Mark this case ID as handled
+      handledCaseIdRef.current = caseId;
+      
+      // Open edit dialog
+      handleEditCase(targetCase);
+      
+      // Clear caseId from URL while preserving other query params
+      searchParams.delete('caseId');
+      const newSearch = searchParams.toString();
+      const newPath = newSearch ? `/maintenance?${newSearch}` : '/maintenance';
+      navigate(newPath, { replace: true });
+    } else {
+      // Case not found - warn but don't block future attempts
+      console.warn(`Work order with ID ${caseId} not found`);
+      toast({
+        title: "Work Order Not Found",
+        description: "The requested work order could not be found or you don't have access to it.",
+        variant: "destructive",
+      });
+      // Clear caseId but allow retry in case data loads later
+      searchParams.delete('caseId');
+      const newSearch = searchParams.toString();
+      const newPath = newSearch ? `/maintenance?${newSearch}` : '/maintenance';
+      navigate(newPath, { replace: true });
+    }
+  }, [location, smartCases, casesLoading, navigate, toast]);
 
   // Mutation for creating reminders
   const createReminderMutation = useMutation({
@@ -923,6 +971,7 @@ export default function Maintenance() {
     if (!open) {
       setEditingCase(null);
       form.reset();
+      handledCaseIdRef.current = null; // Reset to allow re-opening same case from calendar
     }
   };
 
