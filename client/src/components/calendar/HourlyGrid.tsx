@@ -43,7 +43,7 @@ function QuarterSlot({ day, hour, minute, quarterHeight, isLastQuarter }: Quarte
       ref={setNodeRef}
       className={cn(
         "relative transition-colors",
-        isLastQuarter ? "border-b border-border/50 dark:border-gray-700/50" : "border-b border-border/20 dark:border-gray-700/20",
+        isLastQuarter && "border-b border-border/50 dark:border-gray-700/50",
         isOver && "bg-blue-100 dark:bg-blue-800/20"
       )}
       style={{ height: `${quarterHeight}px` }}
