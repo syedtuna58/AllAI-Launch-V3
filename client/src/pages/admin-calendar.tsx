@@ -1267,13 +1267,15 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
 
   return (
     <div className="border rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
-      {/* Vertical scroll container - week fits without horizontal scroll */}
-      <div className="overflow-y-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
-        <div className="grid" style={{ gridTemplateColumns: `80px repeat(${weekDays.length}, 1fr)` }}>
-          {/* Time labels column - sticky on left */}
-          <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
-            <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
-          </div>
+      {/* Horizontal scroll container - allows scrolling across days */}
+      <div className="overflow-x-auto overflow-y-hidden">
+        {/* Vertical scroll container - allows scrolling through hours */}
+        <div className="overflow-y-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
+          <div className="grid" style={{ gridTemplateColumns: `80px repeat(${weekDays.length}, 240px)` }}>
+            {/* Time labels column - sticky on left */}
+            <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
+              <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
+            </div>
           
           {/* Week grid - all days visible */}
         {weekDays.map((day, idx) => {
@@ -1523,6 +1525,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
           );
         })}
         </div>
+      </div>
       </div>
     </div>
   );
