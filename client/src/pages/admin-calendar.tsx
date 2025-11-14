@@ -382,6 +382,8 @@ export default function AdminCalendarPage() {
     const { active, over } = event;
     setActiveId(null);
 
+    console.log('🎯 Drag ended - over.id:', over?.id, 'active.id:', active.id);
+
     if (!over) return;
 
     // Parse the dragged item ID (format: "reminder:id" or "case:id")
