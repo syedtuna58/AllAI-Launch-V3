@@ -1272,7 +1272,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
       <div className="overflow-x-auto overflow-y-hidden">
         {/* Vertical scroll container - allows scrolling through hours */}
         <div className="overflow-y-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
-          <div className="grid" style={{ gridTemplateColumns: `80px repeat(${weekDays.length}, minmax(200px, 1fr))` }}>
+          <div className="grid" style={{ gridTemplateColumns: `80px repeat(${weekDays.length}, 180px)` }}>
             {/* Time labels column - sticky on left */}
             <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
               <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
