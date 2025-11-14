@@ -230,6 +230,7 @@ export default function AdminCalendarPage() {
   const canReschedule = true; // Allow all users to reschedule via drag and drop
   const updateCaseMutation = useMutation({
     mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string | null; scheduledEndAt?: string | null }) => {
+      console.log('🚀 Frontend mutation called with:', { id, scheduledStartAt, scheduledEndAt });
       return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledStartAt, scheduledEndAt });
     },
     onMutate: async ({ id, scheduledStartAt, scheduledEndAt }) => {
@@ -388,9 +389,11 @@ export default function AdminCalendarPage() {
     
     // Handle drop to unscheduled section (removes schedule)
     if (over.id === 'unscheduled') {
+      console.log('📍 Dropping to unscheduled, itemType:', itemType, 'itemId:', itemId);
       if (itemType === 'reminder') {
         updateReminderMutation.mutate({ id: itemId, dueAt: null });
       } else if (itemType === 'case') {
+        console.log('📍 Calling mutation to unschedule case');
         updateCaseMutation.mutate({ id: itemId, scheduledStartAt: null, scheduledEndAt: null });
       }
       return;
