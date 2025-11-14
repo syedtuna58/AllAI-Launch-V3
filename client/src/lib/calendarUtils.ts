@@ -54,11 +54,11 @@ export function snapToQuarterHour(date: Date): Date {
 
 /**
  * Format hour number to 12-hour time string
- * @param hour - Hour in 24-hour format (0-23)
+ * @param hour - Hour in 24-hour format (0-24, where 24 = midnight next day)
  * @returns Formatted time string (e.g., "6 AM", "12 PM", "8 PM")
  */
 export function formatHourLabel(hour: number): string {
-  if (hour === 0) return '12 AM';
+  if (hour === 0 || hour === 24) return '12 AM';
   if (hour === 12) return '12 PM';
   if (hour < 12) return `${hour} AM`;
   return `${hour - 12} PM`;

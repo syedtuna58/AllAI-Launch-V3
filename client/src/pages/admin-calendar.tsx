@@ -1237,8 +1237,8 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   
   const today = new Date();
   
-  const START_HOUR = 6;  // 6 AM
-  const END_HOUR = 25;   // 1 AM next day (allows scheduling until midnight)
+  const START_HOUR = 0;  // Midnight (12 AM)
+  const END_HOUR = 24;   // Midnight next day (full 24-hour day)
   const HOUR_HEIGHT = 60; // pixels
 
   // Use provided ref or create new one
@@ -1253,11 +1253,11 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
     const nowHour = now.getHours();
     const nowMinute = now.getMinutes();
     
-    if (nowHour >= START_HOUR && nowHour <= END_HOUR) {
+    if (nowHour >= START_HOUR && nowHour < END_HOUR) {
       const offset = ((nowHour - START_HOUR) * HOUR_HEIGHT) + (nowMinute * HOUR_HEIGHT / 60);
       const containerHeight = timeScrollRef.current.clientHeight;
-      // Position current time at 1/3 from top (not centered)
-      const scrollTop = Math.max(0, offset - containerHeight / 3);
+      // Position current time near the top (10% from top)
+      const scrollTop = Math.max(0, offset - containerHeight * 0.1);
       
       setTimeout(() => {
         timeScrollRef.current?.scrollTo({ top: scrollTop, behavior: 'smooth' });
