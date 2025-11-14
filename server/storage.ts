@@ -2104,7 +2104,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(reminders)
       .where(eq(reminders.orgId, orgId))
-      .orderBy(asc(reminders.dueAt));
+      .orderBy(sql`${reminders.dueAt} IS NULL, ${reminders.dueAt} ASC`);
   }
 
   async getDueReminders(): Promise<Reminder[]> {
