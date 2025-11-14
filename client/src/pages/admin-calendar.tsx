@@ -116,12 +116,26 @@ function UnscheduledDropZone({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={setNodeRef}
+      data-testid="unscheduled-drop-zone"
       className={cn(
         "space-y-3 min-h-[100px] p-2 rounded transition-colors",
         isOver && "bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500"
       )}
+      style={{ position: 'relative', zIndex: 1 }}
     >
       {children}
+      {/* Invisible overlay to catch drops over draggable children */}
+      <div 
+        style={{ 
+          position: 'absolute', 
+          top: 0, 
+          left: 0, 
+          right: 0, 
+          bottom: 0,
+          pointerEvents: 'none',
+          zIndex: -1
+        }} 
+      />
     </div>
   );
 }
@@ -384,13 +398,11 @@ export default function AdminCalendarPage() {
 
     console.log('🎯 Drag ended - over.id:', over?.id, 'active.id:', active.id);
 
-    if (!over) return;
-
     // Parse the dragged item ID (format: "reminder:id" or "case:id")
     const [itemType, itemId] = active.id.split(':');
-    
+
     // Handle drop to unscheduled section (removes schedule)
-    if (over.id === 'unscheduled') {
+    if (over && over.id === 'unscheduled') {
       console.log('📍 Dropping to unscheduled, itemType:', itemType, 'itemId:', itemId);
       if (itemType === 'reminder') {
         updateReminderMutation.mutate({ id: itemId, dueAt: null });
@@ -401,8 +413,18 @@ export default function AdminCalendarPage() {
       return;
     }
     
+    // If dropped outside any valid area, do nothing
+    if (!over) return;
+    
     // Parse the drop target ID (format: "day:timestamp" or "hour:timestamp:hour")
-    const dropData = over.id.split(':');
+    const dropData = over.id.toString().split(':');
+    
+    // Check if it's a valid time slot (starts with "day:" or "hour:")
+    if (dropData[0] !== 'day' && dropData[0] !== 'hour') {
+      console.log('⚠️ Invalid drop target:', over.id);
+      return;
+    }
+    
     const targetTimestamp = parseInt(dropData[1]);
     
     // Get date string in org timezone (YYYY-MM-DD)
@@ -500,10 +522,16 @@ export default function AdminCalendarPage() {
             </div>
 
             {/* Main Grid: Calendar + Unscheduled Sidebar */}
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-              {/* Calendar Card */}
-              <Card>
-              <CardHeader className="pb-3">
+            <DndContext
+              sensors={sensors}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              collisionDetection={closestCenter}
+            >
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+                {/* Calendar Card */}
+                <Card>
+                <CardHeader className="pb-3">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                   {/* Navigation */}
                   <div className="flex items-center gap-3">
@@ -614,28 +642,14 @@ export default function AdminCalendarPage() {
               </CardHeader>
 
               <CardContent>
-                <DndContext
-                  sensors={sensors}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  collisionDetection={closestCenter}
-                >
-                  {isLoading ? (
-                    <div className="py-12 text-center text-gray-500">Loading...</div>
-                  ) : (
-                    <>
-                      {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
-                      {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
-                    </>
-                  )}
-                  <DragOverlay>
-                    {activeId ? (
-                      <div className="p-2 bg-white dark:bg-gray-800 rounded shadow-lg border-2 border-blue-500 opacity-90 cursor-grabbing">
-                        <div className="text-xs font-semibold">Moving item...</div>
-                      </div>
-                    ) : null}
-                  </DragOverlay>
-                </DndContext>
+                {isLoading ? (
+                  <div className="py-12 text-center text-gray-500">Loading...</div>
+                ) : (
+                  <>
+                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} />}
+                    {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -741,7 +755,16 @@ export default function AdminCalendarPage() {
                 </Card>
               );
             })()}
-            </div>
+              </div>
+              
+              <DragOverlay>
+                {activeId ? (
+                  <div className="p-2 bg-white dark:bg-gray-800 rounded shadow-lg border-2 border-blue-500 opacity-90 cursor-grabbing">
+                    <div className="text-xs font-semibold">Moving item...</div>
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
 
             {/* Legend */}
             <Card>
