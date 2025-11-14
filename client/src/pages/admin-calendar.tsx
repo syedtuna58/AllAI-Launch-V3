@@ -1137,10 +1137,11 @@ function MonthView({ currentDate, getItemsForDate, properties = [], units = [] }
                       key={caseItem.id}
                       className={cn(
                         "w-full h-1 rounded",
-                        caseItem.status === 'open' && "bg-yellow-500",
-                        caseItem.status === 'in_progress' && "bg-blue-500",
-                        caseItem.status === 'on_hold' && "bg-gray-500",
-                        caseItem.status === 'resolved' && "bg-green-500"
+                        caseItem.status === 'New' && "bg-yellow-500",
+                        caseItem.status === 'In Progress' && "bg-blue-500",
+                        caseItem.status === 'On Hold' && "bg-gray-500",
+                        caseItem.status === 'Resolved' && "bg-green-500",
+                        caseItem.status === 'Closed' && "bg-green-500"
                       )}
                       title={tooltipParts.join(' • ')}
                     />
