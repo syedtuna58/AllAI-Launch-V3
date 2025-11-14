@@ -602,7 +602,7 @@ export default function AdminCalendarPage() {
                             teams={teams}
                             variant="compact"
                             showActions={false}
-                            onEdit={handleEditCase}
+                            onEdit={() => {}}
                             onReminder={() => {}}
                             onDelete={deleteMutation.mutate}
                             onAccept={acceptJobMutation.mutate}
