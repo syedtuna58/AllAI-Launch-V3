@@ -53,15 +53,15 @@ function QuarterSlot({ day, hour, minute, quarterHeight, isLastQuarter }: Quarte
       {/* Visual guide line at TOP of slot when hovering */}
       {isOver && (
         <>
-          {/* Dashed line at the superior edge (top border) of this slot */}
-          <div className="absolute left-0 right-0 pointer-events-none" style={{ top: '-2px', zIndex: 100 }}>
-            <div className="border-t-[4px] border-dashed border-blue-600 dark:border-blue-400"></div>
-            <div className="absolute -top-[8px] left-0 w-4 h-4 bg-blue-600 dark:bg-blue-400 rounded-full"></div>
-            <div className="absolute -top-[8px] right-0 w-4 h-4 bg-blue-600 dark:bg-blue-400 rounded-full"></div>
+          {/* Dashed line at the superior edge (top border) within bounds */}
+          <div className="absolute left-0 right-0 top-0 pointer-events-none" style={{ zIndex: 100 }}>
+            <div className="border-t-[3px] border-dashed border-blue-600 dark:border-blue-400"></div>
+            <div className="absolute -top-1.5 left-0 w-3 h-3 bg-blue-600 dark:border-blue-400 rounded-full"></div>
+            <div className="absolute -top-1.5 right-0 w-3 h-3 bg-blue-600 dark:bg-blue-400 rounded-full"></div>
           </div>
-          {/* Time indicator on the left */}
-          <div className="absolute -left-24 pointer-events-none" style={{ top: '-14px', zIndex: 100 }}>
-            <div className="bg-blue-600 dark:bg-blue-500 text-white text-sm font-bold px-3 py-1.5 rounded-md shadow-lg whitespace-nowrap">
+          {/* Time indicator on the left within bounds */}
+          <div className="absolute -left-20 top-0 pointer-events-none" style={{ zIndex: 100 }}>
+            <div className="bg-blue-600 dark:bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded shadow-lg whitespace-nowrap -translate-y-1/2">
               {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
             </div>
           </div>

@@ -6,10 +6,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X, Plus } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X, Plus, Users, Star } from "lucide-react";
 import CompactCalendarCard from "@/components/calendar/CompactCalendarCard";
 import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import ReminderForm from "@/components/forms/reminder-form";
 import { useLocation } from "wouter";
 import {
@@ -34,7 +34,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useTeamManagement } from "@/hooks/useTeamManagement";
+import { Trash2 } from "lucide-react";
 import { TimeColumn } from "@/components/calendar/TimeColumn";
 import { HourlyGrid } from "@/components/calendar/HourlyGrid";
 import { calculateTimePosition, isTimeInRange } from "@/lib/calendarUtils";
@@ -162,6 +165,10 @@ export default function AdminCalendarPage() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
+  const [showTeamDialog, setShowTeamDialog] = useState(false);
+
+  // Team management hook
+  const teamManagement = useTeamManagement();
 
   // Configure drag and drop sensors
   const sensors = useSensors(
@@ -340,6 +347,7 @@ export default function AdminCalendarPage() {
     },
   });
 
+
   // Supporting queries for ReminderForm (loaded when dialog opens)
   const { data: entities = [] } = useQuery<any[]>({
     queryKey: ['/api/entities'],
@@ -356,6 +364,7 @@ export default function AdminCalendarPage() {
     queryKey: ['/api/units'],
     enabled: !!user && filterMode !== 'reminders',
   });
+
 
   // Handler functions for reminder actions
   const handleEditReminder = (reminder: Reminder) => {
@@ -608,10 +617,16 @@ export default function AdminCalendarPage() {
                   View and manage reminders and work orders
                 </p>
               </div>
-              <Button onClick={() => navigate('/maintenance')} data-testid="button-quick-add">
-                <Plus className="h-4 w-4 mr-2" />
-                Quick Add
-              </Button>
+              <div className="flex gap-2">
+                <Button onClick={() => navigate('/maintenance')} data-testid="button-quick-add">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Quick Add
+                </Button>
+                <Button variant="outline" onClick={() => setShowTeamDialog(true)} data-testid="button-manage-teams">
+                  <Users className="h-4 w-4 mr-2" />
+                  Manage Teams
+                </Button>
+              </div>
             </div>
 
             {/* Main Grid: Calendar + Unscheduled Sidebar */}
@@ -956,6 +971,212 @@ export default function AdminCalendarPage() {
         </DialogContent>
       </Dialog>
     )}
+
+    {/* Team Management Dialog */}
+    <Dialog open={showTeamDialog} onOpenChange={(open) => {
+      setShowTeamDialog(open);
+      if (!open) {
+        teamManagement.resetForm();
+      }
+    }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{teamManagement.editingTeam ? 'Edit Team' : 'Manage Teams'}</DialogTitle>
+          <DialogDescription>
+            {teamManagement.editingTeam ? 'Update team information.' : 'Create a new team or edit existing teams.'}
+          </DialogDescription>
+        </DialogHeader>
+        
+        {!teamManagement.editingTeam && !teamManagement.creatingNewTeam && teams.length > 0 && (
+          <div className="space-y-2 mb-4 p-4 bg-muted dark:bg-gray-800 rounded-lg">
+            <Label className="text-sm font-medium">Existing Teams</Label>
+            <div className="space-y-2">
+              {teams.map((team: any) => (
+                <div
+                  key={team.id}
+                  className="flex items-center justify-between p-2 bg-card dark:bg-gray-900 rounded border border-border dark:border-gray-700"
+                  data-testid={`team-item-${team.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: team.color }} />
+                    <div>
+                      <p className="text-sm font-medium">{team.name}</p>
+                      <p className="text-xs text-muted-foreground">{team.specialty}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => teamManagement.handleEditTeam(team)}
+                    data-testid={`button-edit-team-${team.id}`}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(teamManagement.editingTeam || teamManagement.creatingNewTeam || teams.length === 0) && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="team-name">Team Name</Label>
+              <Input
+                id="team-name"
+                value={teamManagement.teamFormData.name}
+                onChange={(e) => teamManagement.setTeamFormData({ ...teamManagement.teamFormData, name: e.target.value })}
+                placeholder="e.g., ABC Plumbing"
+                data-testid="input-team-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="team-specialty">Specialty</Label>
+              <Select
+                value={teamManagement.teamFormData.specialty}
+                onValueChange={(value: any) => {
+                  teamManagement.setTeamFormData({ ...teamManagement.teamFormData, specialty: value });
+                }}
+              >
+                <SelectTrigger id="team-specialty" data-testid="select-team-specialty">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const { favoriteSpecs, otherSpecs } = teamManagement.getSortedSpecialties();
+                    return (
+                      <>
+                        {favoriteSpecs.length > 0 && (
+                          <>
+                            {favoriteSpecs.map(spec => (
+                              <SelectItem key={spec} value={spec}>
+                                <div className="flex items-center gap-2">
+                                  <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                                  {spec}
+                                </div>
+                              </SelectItem>
+                            ))}
+                            <div className="h-px bg-border my-1" />
+                          </>
+                        )}
+                        {otherSpecs.map(spec => (
+                          <SelectItem key={spec} value={spec}>
+                            {spec}
+                          </SelectItem>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => teamManagement.toggleFavoriteSpecialty(teamManagement.teamFormData.specialty)}
+                className="mt-1"
+                data-testid="button-toggle-favorite-specialty"
+              >
+                <Star className={cn(
+                  "h-4 w-4 mr-1",
+                  teamManagement.getFavoriteSpecialties().includes(teamManagement.teamFormData.specialty)
+                    ? "fill-yellow-500 text-yellow-500"
+                    : "text-muted-foreground"
+                )} />
+                {teamManagement.getFavoriteSpecialties().includes(teamManagement.teamFormData.specialty) ? 'Remove from' : 'Add to'} favorites
+              </Button>
+            </div>
+            <div>
+              <Label htmlFor="team-color">Team Color</Label>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  {teamManagement.PRESET_COLORS.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      className={cn(
+                        "w-10 h-10 rounded-md border-2 transition-all",
+                        teamManagement.teamFormData.color === color.value
+                          ? "border-foreground dark:border-white scale-110"
+                          : "border-transparent hover:scale-105"
+                      )}
+                      style={{ backgroundColor: color.value }}
+                      onClick={() => teamManagement.setTeamFormData({ ...teamManagement.teamFormData, color: color.value })}
+                      title={color.name}
+                      data-testid={`color-preset-${color.name.toLowerCase()}`}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="team-color-custom" className="text-sm">Custom:</Label>
+                  <Input
+                    id="team-color-custom"
+                    type="color"
+                    value={teamManagement.teamFormData.color}
+                    onChange={(e) => teamManagement.setTeamFormData({ ...teamManagement.teamFormData, color: e.target.value })}
+                    className="w-20 h-8"
+                    data-testid="input-team-color"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {teamManagement.editingTeam && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    if (confirm('Are you sure you want to delete this team?')) {
+                      teamManagement.handleDeleteTeam(teamManagement.editingTeam.id);
+                    }
+                  }}
+                  disabled={teamManagement.deleteTeamMutation.isPending}
+                  data-testid="button-delete-team"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+              {(teamManagement.editingTeam || teamManagement.creatingNewTeam) && (
+                <Button
+                  variant="outline"
+                  onClick={() => teamManagement.resetForm()}
+                  className="flex-1"
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+              )}
+              <Button
+                onClick={teamManagement.handleCreateTeam}
+                disabled={!teamManagement.teamFormData.name || teamManagement.createTeamMutation.isPending || teamManagement.updateTeamMutation.isPending}
+                className="flex-1"
+                data-testid="button-submit-team"
+              >
+                {teamManagement.createTeamMutation.isPending || teamManagement.updateTeamMutation.isPending 
+                  ? 'Saving...' 
+                  : teamManagement.editingTeam 
+                    ? 'Update Team' 
+                    : 'Create Team'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!teamManagement.editingTeam && !teamManagement.creatingNewTeam && teams.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              teamManagement.setCreatingNewTeam(true);
+              teamManagement.setTeamFormData({ id: null, name: '', specialty: 'General', color: '#3b82f6', isActive: true });
+            }}
+            className="w-full"
+            data-testid="button-add-new-team"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add New Team
+          </Button>
+        )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
@@ -992,14 +1213,15 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   const HOUR_HEIGHT = 60; // pixels
 
   return (
-    <div className="grid grid-cols-[80px_1fr] gap-0 border rounded-lg overflow-auto max-h-[calc(100vh-16rem)] bg-white dark:bg-gray-800">
-      {/* Time labels column */}
-      <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
-        <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
-      </div>
-      
-      {/* Week grid */}
-      <div className={cn("grid", weekDays.length === 5 ? "grid-cols-5" : "grid-cols-7")}>
+    <div className="border rounded-lg overflow-auto max-h-[calc(100vh-16rem)] bg-white dark:bg-gray-800">
+      <div className="grid grid-cols-[80px_1fr] gap-0 min-w-max">
+        {/* Time labels column */}
+        <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
+          <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
+        </div>
+        
+        {/* Week grid */}
+        <div className={cn("grid", weekDays.length === 5 ? "grid-cols-5" : "grid-cols-7")}>
         {weekDays.map((day, idx) => {
           const { reminders, cases } = getItemsForDate(day);
           const isToday = isSameDay(day, today);
@@ -1245,6 +1467,7 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
             </HourlyGrid>
           );
         })}
+        </div>
       </div>
     </div>
   );
