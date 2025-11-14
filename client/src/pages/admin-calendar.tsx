@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X } from "lucide-react";
-import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import ReminderForm from "@/components/forms/reminder-form";
 import { useLocation } from "wouter";
@@ -107,6 +107,25 @@ function DraggableCalendarItem({
   );
 }
 
+// UnscheduledDropZone component - makes the unscheduled section droppable
+function UnscheduledDropZone({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'unscheduled',
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "space-y-3 min-h-[100px] p-2 rounded transition-colors",
+        isOver && "bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function AdminCalendarPage() {
   const { user } = useAuth();
   const role = user?.primaryRole;
@@ -122,6 +141,16 @@ export default function AdminCalendarPage() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
+
+  // Configure drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
 
   // Fetch reminders
   const { data: reminders = [], isLoading: remindersLoading } = useQuery<Reminder[]>({
@@ -154,7 +183,7 @@ export default function AdminCalendarPage() {
 
   // Mutation to update reminder date
   const updateReminderMutation = useMutation({
-    mutationFn: async ({ id, dueAt }: { id: string; dueAt: string }) => {
+    mutationFn: async ({ id, dueAt }: { id: string; dueAt: string | null }) => {
       return await apiRequest('PATCH', `/api/reminders/${id}`, { dueAt });
     },
     onSuccess: () => {
@@ -169,7 +198,7 @@ export default function AdminCalendarPage() {
   // Mutation to update case date - only allow for non-contractors
   const canReschedule = role !== 'contractor';
   const updateCaseMutation = useMutation({
-    mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string; scheduledEndAt?: string }) => {
+    mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string | null; scheduledEndAt?: string | null }) => {
       if (!canReschedule) {
         throw new Error("Contractors cannot reschedule work orders directly");
       }
@@ -293,6 +322,16 @@ export default function AdminCalendarPage() {
 
     // Parse the dragged item ID (format: "reminder:id" or "case:id")
     const [itemType, itemId] = active.id.split(':');
+    
+    // Handle drop to unscheduled section (removes schedule)
+    if (over.id === 'unscheduled') {
+      if (itemType === 'reminder') {
+        updateReminderMutation.mutate({ id: itemId, dueAt: null });
+      } else if (itemType === 'case') {
+        updateCaseMutation.mutate({ id: itemId, scheduledStartAt: null, scheduledEndAt: null });
+      }
+      return;
+    }
     
     // Parse the drop target ID (format: "day:timestamp" or "hour:timestamp:hour")
     const dropData = over.id.split(':');
@@ -508,6 +547,7 @@ export default function AdminCalendarPage() {
 
               <CardContent>
                 <DndContext
+                  sensors={sensors}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   collisionDetection={closestCenter}
@@ -548,10 +588,10 @@ export default function AdminCalendarPage() {
                 <Card className="lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
                   <CardHeader>
                     <CardTitle className="text-sm">Unscheduled Items</CardTitle>
-                    <p className="text-xs text-muted-foreground">Items without assigned dates</p>
+                    <p className="text-xs text-muted-foreground">Drag items here to unschedule, or drag from here to schedule</p>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
+                    <UnscheduledDropZone>
                       {unscheduledReminders.map(reminder => {
                         const effectiveStatus = reminder.status || (reminder.dueAt && new Date(reminder.dueAt) < new Date() ? 'Overdue' : null);
                         return (
@@ -628,7 +668,7 @@ export default function AdminCalendarPage() {
                           />
                         </DraggableCalendarItem>
                       ))}
-                    </div>
+                    </UnscheduledDropZone>
                   </CardContent>
                 </Card>
               );

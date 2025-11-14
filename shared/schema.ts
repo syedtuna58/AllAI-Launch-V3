@@ -1027,7 +1027,7 @@ export const insertSmartCaseSchema = createInsertSchema(smartCases).omit({ id: t
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, createdAt: true });
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, createdAt: true });
 export const insertReminderSchema = createInsertSchema(reminders).omit({ id: true, createdAt: true, parentRecurringId: true }).extend({
-  dueAt: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  dueAt: z.union([z.date(), z.string().transform((str) => new Date(str)), z.null()]),
   isRecurring: z.boolean().optional().default(false),
   recurringFrequency: z.enum(["days", "weeks", "months", "years"]).optional(),
   recurringInterval: z.number().min(1).optional().default(1),
