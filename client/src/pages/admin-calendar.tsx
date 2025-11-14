@@ -1244,11 +1244,11 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   // Use provided ref or create new one
   const timeScrollRef = scrollRef || useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to current time and today's column on mount
+  // Auto-scroll to current time on mount (1/3 from top)
   useEffect(() => {
     if (!timeScrollRef.current) return;
 
-    // Vertical scroll to current time
+    // Vertical scroll to current time - position at 1/3 from top
     const now = new Date();
     const nowHour = now.getHours();
     const nowMinute = now.getMinutes();
@@ -1256,46 +1256,32 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
     if (nowHour >= START_HOUR && nowHour <= END_HOUR) {
       const offset = ((nowHour - START_HOUR) * HOUR_HEIGHT) + (nowMinute * HOUR_HEIGHT / 60);
       const containerHeight = timeScrollRef.current.clientHeight;
-      const scrollTop = Math.max(0, offset - containerHeight / 2);
+      // Position current time at 1/3 from top (not centered)
+      const scrollTop = Math.max(0, offset - containerHeight / 3);
       
       setTimeout(() => {
         timeScrollRef.current?.scrollTo({ top: scrollTop, behavior: 'smooth' });
-      }, 100);
-    }
-
-    // Horizontal scroll to today's column
-    const todayIndex = weekDays.findIndex(day => isSameDay(day, today));
-    if (todayIndex >= 0 && timeScrollRef.current) {
-      const COLUMN_WIDTH = 200; // Matches minWidth in style
-      const TIME_COLUMN_WIDTH = 80; // TimeColumn width
-      const containerWidth = timeScrollRef.current.clientWidth;
-      const todayColumnOffset = TIME_COLUMN_WIDTH + (todayIndex * COLUMN_WIDTH);
-      const scrollLeft = Math.max(0, todayColumnOffset - containerWidth / 2 + COLUMN_WIDTH / 2);
-      
-      setTimeout(() => {
-        timeScrollRef.current?.scrollTo({ left: scrollLeft, behavior: 'smooth' });
       }, 100);
     }
   }, [currentDate, weekDays.length]);
 
   return (
     <div className="border rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
-      {/* Vertical and horizontal scroll container */}
-      <div className="overflow-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
-        <div className="flex" style={{ minWidth: 'max-content' }}>
+      {/* Vertical scroll container - week fits without horizontal scroll */}
+      <div className="overflow-y-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
+        <div className="grid" style={{ gridTemplateColumns: `80px repeat(${weekDays.length}, 1fr)` }}>
           {/* Time labels column - sticky on left */}
-          <div className="flex-none sticky left-0 z-30 bg-white dark:bg-gray-800">
+          <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
             <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
           </div>
           
-          {/* Week grid */}
-          <div className="flex" style={{ minWidth: 'max-content' }}>
+          {/* Week grid - all days visible */}
         {weekDays.map((day, idx) => {
           const { reminders, cases } = getItemsForDate(day);
           const isToday = isSameDay(day, today);
 
           return (
-            <div key={idx} data-day-column className="flex-none" style={{ minWidth: '200px' }}>
+            <div key={idx} data-day-column>
               <HourlyGrid
                 day={day}
                 dayIndex={idx}
@@ -1536,7 +1522,6 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
             </div>
           );
         })}
-          </div>
         </div>
       </div>
     </div>
