@@ -56,6 +56,13 @@ type MaintenanceCase = {
   orgId: string;
   createdAt: string;
   updatedAt: string;
+  reporterUserId?: string | null;
+  reporter?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
   scheduledJobs?: Array<{
     id: string;
     teamId?: string | null;

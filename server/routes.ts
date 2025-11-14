@@ -2026,16 +2026,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const cases = await storage.getSmartCases(org.id);
       
-      // Include scheduled jobs for each case
-      const casesWithJobs = await Promise.all(cases.map(async (smartCase) => {
+      // Include scheduled jobs and reporter info for each case
+      const casesWithExtras = await Promise.all(cases.map(async (smartCase) => {
+        // Get scheduled jobs with team info
         const jobs = await storage.getScheduledJobs(org.id, { caseId: smartCase.id });
+        
+        // Get reporter (tenant) info if available
+        let reporter = null;
+        if (smartCase.reporterUserId) {
+          try {
+            const user = await storage.getUser(smartCase.reporterUserId);
+            if (user) {
+              reporter = {
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email
+              };
+            }
+          } catch (error) {
+            console.error(`Error fetching reporter for case ${smartCase.id}:`, error);
+          }
+        }
+        
         return {
           ...smartCase,
-          scheduledJobs: jobs
+          scheduledJobs: jobs,
+          reporter
         };
       }));
       
-      res.json(casesWithJobs);
+      res.json(casesWithExtras);
     } catch (error) {
       console.error("Error fetching cases:", error);
       res.status(500).json({ message: "Failed to fetch cases" });
