@@ -44,12 +44,20 @@ function QuarterSlot({ day, hour, minute, quarterHeight, isLastQuarter }: Quarte
       className={cn(
         "relative transition-colors",
         isLastQuarter && "border-b border-border/50 dark:border-gray-700/50",
-        isOver && "bg-blue-100 dark:bg-blue-800/20"
+        isOver && "bg-blue-50 dark:bg-blue-900/10"
       )}
       style={{ height: `${quarterHeight}px` }}
       data-hour={hour}
       data-minute={minute}
-    />
+    >
+      {/* Visual guide line at TOP of slot when hovering */}
+      {isOver && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 dark:bg-blue-400 z-50">
+          <div className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+          <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full"></div>
+        </div>
+      )}
+    </div>
   );
 }
 

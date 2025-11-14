@@ -836,13 +836,18 @@ export default function AdminCalendarPage() {
               
               <DragOverlay>
                 {activeId ? (
-                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-blue-500 opacity-95 cursor-grabbing">
-                    <div className="text-sm font-semibold mb-1">Moving...</div>
+                  <div className="relative">
+                    {/* Time preview above the card */}
                     {getPreviewTime(dragOverId) && (
-                      <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                        📅 {getPreviewTime(dragOverId)}
+                      <div className="absolute -top-8 left-0 right-0 text-center z-50">
+                        <div className="inline-block px-3 py-1.5 bg-blue-500 dark:bg-blue-600 text-white text-xs font-semibold rounded-md shadow-lg">
+                          Starts: {getPreviewTime(dragOverId)}
+                        </div>
                       </div>
                     )}
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded shadow-lg border-2 border-blue-500 opacity-90 cursor-grabbing">
+                      <div className="text-xs font-semibold">Dragging...</div>
+                    </div>
                   </div>
                 ) : null}
               </DragOverlay>
