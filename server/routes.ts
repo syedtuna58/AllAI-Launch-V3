@@ -2532,6 +2532,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Debug logging
+      console.log('📅 Case update response:', { id: smartCase.id, scheduledStartAt: smartCase.scheduledStartAt, scheduledEndAt: smartCase.scheduledEndAt });
+      
       res.json(smartCase);
     } catch (error) {
       console.error("Error updating case:", error);
