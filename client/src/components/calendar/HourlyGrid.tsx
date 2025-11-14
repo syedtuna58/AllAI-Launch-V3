@@ -54,16 +54,13 @@ function QuarterSlot({ day, hour, minute, quarterHeight, isLastQuarter }: Quarte
       {isOver && (
         <>
           {/* Dashed line at the superior edge (top border) of this slot */}
-          <div className="absolute top-0 left-0 right-0 z-[100] pointer-events-none" style={{ transform: 'translateY(-1.5px)' }}>
-            <div className="h-[3px] bg-blue-600 dark:bg-blue-400" style={{ 
-              borderTop: '3px dashed currentColor',
-              color: 'inherit'
-            }}></div>
+          <div className="absolute left-0 right-0 z-[100] pointer-events-none" style={{ top: '0px', transform: 'translateY(-1.5px)' }}>
+            <div className="border-t-[3px] border-dashed border-blue-600 dark:border-blue-400"></div>
             <div className="absolute -top-[6px] left-0 w-3 h-3 bg-blue-600 dark:bg-blue-400 rounded-full"></div>
             <div className="absolute -top-[6px] right-0 w-3 h-3 bg-blue-600 dark:bg-blue-400 rounded-full"></div>
           </div>
           {/* Time indicator on the left */}
-          <div className="absolute top-0 -left-20 z-[100] pointer-events-none" style={{ transform: 'translateY(-12px)' }}>
+          <div className="absolute -left-20 z-[100] pointer-events-none" style={{ top: '0px', transform: 'translateY(-12px)' }}>
             <div className="bg-blue-600 dark:bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded shadow-lg whitespace-nowrap">
               {hour.toString().padStart(2, '0')}:{minute.toString().padStart(2, '0')}
             </div>
