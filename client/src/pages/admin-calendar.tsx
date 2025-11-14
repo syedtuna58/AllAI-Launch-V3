@@ -167,11 +167,11 @@ export default function AdminCalendarPage() {
   // Mutation to update case date - only allow for non-contractors
   const canReschedule = role !== 'contractor';
   const updateCaseMutation = useMutation({
-    mutationFn: async ({ id, scheduledStartAt }: { id: string; scheduledStartAt: string }) => {
+    mutationFn: async ({ id, scheduledStartAt, scheduledEndAt }: { id: string; scheduledStartAt: string; scheduledEndAt?: string }) => {
       if (!canReschedule) {
         throw new Error("Contractors cannot reschedule work orders directly");
       }
-      return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledStartAt });
+      return await apiRequest('PATCH', `/api/cases/${id}`, { scheduledStartAt, scheduledEndAt });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
@@ -315,7 +315,17 @@ export default function AdminCalendarPage() {
       const caseItem = cases.find(c => c.id === itemId);
       if (!caseItem) return;
 
-      updateCaseMutation.mutate({ id: itemId, scheduledStartAt: utcDate.toISOString() });
+      // Calculate duration if scheduledEndAt exists, preserve it when rescheduling
+      let scheduledEndAt: string | undefined;
+      if (caseItem.scheduledStartAt && caseItem.scheduledEndAt) {
+        const originalStart = new Date(caseItem.scheduledStartAt);
+        const originalEnd = new Date(caseItem.scheduledEndAt);
+        const durationMs = originalEnd.getTime() - originalStart.getTime();
+        const newEnd = new Date(utcDate.getTime() + durationMs);
+        scheduledEndAt = newEnd.toISOString();
+      }
+
+      updateCaseMutation.mutate({ id: itemId, scheduledStartAt: utcDate.toISOString(), scheduledEndAt });
     }
   };
 
