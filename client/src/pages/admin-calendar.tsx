@@ -207,15 +207,21 @@ export default function AdminCalendarPage() {
       // Return context with snapshot for rollback
       return { previousReminders };
     },
+    onSuccess: (data) => {
+      // Update cache with server response to ensure consistency
+      queryClient.setQueryData<Reminder[]>(['/api/reminders'], (old) => 
+        old?.map(reminder => 
+          reminder.id === data.id ? data : reminder
+        ) || []
+      );
+    },
     onError: (err, variables, context) => {
       // Rollback to previous state on error
       if (context?.previousReminders) {
         queryClient.setQueryData(['/api/reminders'], context.previousReminders);
       }
       toast({ title: "Failed to update reminder", variant: "destructive" });
-    },
-    onSettled: () => {
-      // Always refetch to ensure consistency
+      // Invalidate on error to refetch correct state
       queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
     },
   });
@@ -251,15 +257,21 @@ export default function AdminCalendarPage() {
       // Return context with snapshot for rollback
       return { previousCases };
     },
+    onSuccess: (data) => {
+      // Update cache with server response to ensure consistency
+      queryClient.setQueryData<MaintenanceCase[]>([casesEndpoint], (old) => 
+        old?.map(caseItem => 
+          caseItem.id === data.id ? data : caseItem
+        ) || []
+      );
+    },
     onError: (err, variables, context) => {
       // Rollback to previous state on error
       if (context?.previousCases) {
         queryClient.setQueryData([casesEndpoint], context.previousCases);
       }
       toast({ title: "Failed to update work order", variant: "destructive" });
-    },
-    onSettled: () => {
-      // Always refetch to ensure consistency
+      // Invalidate on error to refetch correct state
       queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
     },
   });
