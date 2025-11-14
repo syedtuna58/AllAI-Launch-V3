@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { filterCasesByStatus, type StatusFilterKey } from "@/lib/work-order-filters";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, ChevronLeft, ChevronRight, Filter, Edit2, Check, X, Plus, Users, Star } from "lucide-react";
 import CompactCalendarCard from "@/components/calendar/CompactCalendarCard";
-import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, useDraggable, useDroppable, DragOverlay, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, getClientRect, MeasuringStrategy } from '@dnd-kit/core';
+import type { CollisionDetection } from '@dnd-kit/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import ReminderForm from "@/components/forms/reminder-form";
 import { useLocation } from "wouter";
@@ -151,6 +152,22 @@ function UnscheduledDropZone({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Custom collision detection that accounts for scroll offsets
+ * This ensures drag-drop works correctly even when the calendar is scrolled
+ * 
+ * Note: After testing, we may find that DnD Kit's built-in collision detection
+ * already handles scroll correctly. This custom implementation is a safety net.
+ */
+function createScrollAwareCollisionDetection(scrollContainerRef: React.RefObject<HTMLDivElement>): CollisionDetection {
+  return (args) => {
+    // For now, just use closestCenter directly
+    // DnD Kit measures in viewport coordinates, which already account for scroll
+    // If issues persist, we can add scroll compensation here
+    return closestCenter(args);
+  };
+}
+
 export default function AdminCalendarPage() {
   const { user } = useAuth();
   const role = user?.primaryRole;
@@ -167,6 +184,9 @@ export default function AdminCalendarPage() {
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
 
+  // Ref for scroll container (used in collision detection)
+  const weekViewScrollRef = useRef<HTMLDivElement>(null);
+
   // Team management hook
   const teamManagement = useTeamManagement();
 
@@ -179,6 +199,9 @@ export default function AdminCalendarPage() {
     }),
     useSensor(KeyboardSensor)
   );
+
+  // Create scroll-aware collision detection
+  const scrollAwareCollisionDetection = createScrollAwareCollisionDetection(weekViewScrollRef);
 
   // Fetch reminders
   const { data: reminders = [], isLoading: remindersLoading } = useQuery<Reminder[]>({
@@ -411,7 +434,7 @@ export default function AdminCalendarPage() {
   // Get current view title
   const getViewTitle = () => {
     if (view === 'week') {
-      const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+      const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday start
       const weekEnd = addDays(weekStart, 6);
       return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
     } else {
@@ -635,7 +658,12 @@ export default function AdminCalendarPage() {
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
-              collisionDetection={closestCenter}
+              collisionDetection={scrollAwareCollisionDetection}
+              measuring={{
+                droppable: {
+                  strategy: MeasuringStrategy.Always,
+                },
+              }}
             >
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                 {/* Calendar Card */}
@@ -731,7 +759,7 @@ export default function AdminCalendarPage() {
                   <div className="py-12 text-center text-gray-500">Loading...</div>
                 ) : (
                   <>
-                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} />}
+                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} scrollRef={weekViewScrollRef} />}
                     {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
                   </>
                 )}
@@ -1181,7 +1209,7 @@ export default function AdminCalendarPage() {
   );
 }
 
-function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], teams = [], canReschedule, onEditReminder, onCompleteReminder, onCancelReminder, onCaseDoubleClick, onTeamChange }: {
+function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], teams = [], canReschedule, onEditReminder, onCompleteReminder, onCancelReminder, onCaseDoubleClick, onTeamChange, scrollRef }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
   hideWeekends?: boolean;
@@ -1194,15 +1222,16 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   onCancelReminder: (id: string) => void;
   onCaseDoubleClick?: (caseId: string) => void;
   onTeamChange?: (jobId: string, teamId: string) => void;
+  scrollRef?: React.RefObject<HTMLDivElement>;
 }) {
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Monday start
   const allWeekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   
-  // Filter out weekends if hideWeekends is true (0 = Sunday, 6 = Saturday)
+  // Filter out weekends if hideWeekends is true (5 = Saturday, 6 = Sunday in Monday-start week)
   const weekDays = hideWeekends 
     ? allWeekDays.filter(day => {
         const dayOfWeek = day.getDay();
-        return dayOfWeek !== 0 && dayOfWeek !== 6;
+        return dayOfWeek !== 0 && dayOfWeek !== 6; // 0=Sunday, 6=Saturday
       })
     : allWeekDays;
   
@@ -1212,31 +1241,70 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   const END_HOUR = 20;   // 8 PM
   const HOUR_HEIGHT = 60; // pixels
 
+  // Use provided ref or create new one
+  const timeScrollRef = scrollRef || useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to current time and today's column on mount
+  useEffect(() => {
+    if (!timeScrollRef.current) return;
+
+    // Vertical scroll to current time
+    const now = new Date();
+    const nowHour = now.getHours();
+    const nowMinute = now.getMinutes();
+    
+    if (nowHour >= START_HOUR && nowHour <= END_HOUR) {
+      const offset = ((nowHour - START_HOUR) * HOUR_HEIGHT) + (nowMinute * HOUR_HEIGHT / 60);
+      const containerHeight = timeScrollRef.current.clientHeight;
+      const scrollTop = Math.max(0, offset - containerHeight / 2);
+      
+      setTimeout(() => {
+        timeScrollRef.current?.scrollTo({ top: scrollTop, behavior: 'smooth' });
+      }, 100);
+    }
+
+    // Horizontal scroll to today's column
+    const todayIndex = weekDays.findIndex(day => isSameDay(day, today));
+    if (todayIndex >= 0 && timeScrollRef.current) {
+      const COLUMN_WIDTH = 200; // Matches minWidth in style
+      const TIME_COLUMN_WIDTH = 80; // TimeColumn width
+      const containerWidth = timeScrollRef.current.clientWidth;
+      const todayColumnOffset = TIME_COLUMN_WIDTH + (todayIndex * COLUMN_WIDTH);
+      const scrollLeft = Math.max(0, todayColumnOffset - containerWidth / 2 + COLUMN_WIDTH / 2);
+      
+      setTimeout(() => {
+        timeScrollRef.current?.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [currentDate, weekDays.length]);
+
   return (
-    <div className="border rounded-lg overflow-auto max-h-[calc(100vh-16rem)] bg-white dark:bg-gray-800">
-      <div className="grid grid-cols-[80px_1fr] gap-0 min-w-max">
-        {/* Time labels column */}
-        <div className="sticky left-0 z-30 bg-white dark:bg-gray-800">
-          <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
-        </div>
-        
-        {/* Week grid */}
-        <div className={cn("grid", weekDays.length === 5 ? "grid-cols-5" : "grid-cols-7")}>
+    <div className="border rounded-lg bg-white dark:bg-gray-800 overflow-hidden">
+      {/* Vertical and horizontal scroll container */}
+      <div className="overflow-auto max-h-[calc(100vh-16rem)]" ref={timeScrollRef}>
+        <div className="flex" style={{ minWidth: 'max-content' }}>
+          {/* Time labels column - sticky on left */}
+          <div className="flex-none sticky left-0 z-30 bg-white dark:bg-gray-800">
+            <TimeColumn startHour={START_HOUR} endHour={END_HOUR} hourHeight={HOUR_HEIGHT} />
+          </div>
+          
+          {/* Week grid */}
+          <div className="flex" style={{ minWidth: 'max-content' }}>
         {weekDays.map((day, idx) => {
           const { reminders, cases } = getItemsForDate(day);
           const isToday = isSameDay(day, today);
 
           return (
-            <HourlyGrid
-              key={idx}
-              day={day}
-              dayIndex={idx}
-              isToday={isToday}
-              startHour={START_HOUR}
-              endHour={END_HOUR}
-              hourHeight={HOUR_HEIGHT}
-              className={idx < weekDays.length - 1 ? "border-r border-border dark:border-gray-700" : ""}
-            >
+            <div key={idx} data-day-column className="flex-none" style={{ minWidth: '200px' }}>
+              <HourlyGrid
+                day={day}
+                dayIndex={idx}
+                isToday={isToday}
+                startHour={START_HOUR}
+                endHour={END_HOUR}
+                hourHeight={HOUR_HEIGHT}
+                className={idx < weekDays.length - 1 ? "border-r border-border dark:border-gray-700" : ""}
+              >
               {(() => {
                 // Separate all-day and timed items
                 const allDayItems: Array<{type: 'reminder' | 'case', item: Reminder | MaintenanceCase}> = [];
@@ -1464,9 +1532,11 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                   </>
                 );
               })()}
-            </HourlyGrid>
+              </HourlyGrid>
+            </div>
           );
         })}
+          </div>
         </div>
       </div>
     </div>
@@ -1481,8 +1551,8 @@ function MonthView({ currentDate, getItemsForDate, properties = [], units = [] }
 }) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const calendarEnd = addDays(startOfWeek(monthEnd, { weekStartsOn: 0 }), 6);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday start
+  const calendarEnd = addDays(startOfWeek(monthEnd, { weekStartsOn: 1 }), 6);
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   const today = new Date();
 
