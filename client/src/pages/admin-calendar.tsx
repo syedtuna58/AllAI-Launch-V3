@@ -410,14 +410,62 @@ export default function AdminCalendarPage() {
     }
   };
 
+  // Track drag over state for time preview
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  // Calculate preview time from drag over ID
+  const getPreviewTime = (overId: string | null): string | null => {
+    if (!overId) return null;
+    
+    const dropData = overId.toString().split(':');
+    
+    // Handle unscheduled drop
+    if (overId === 'unscheduled') {
+      return 'Unscheduled';
+    }
+    
+    // Parse time from drop target
+    if (dropData[0] === 'quarter' || dropData[0] === 'hour' || dropData[0] === 'day') {
+      const targetTimestamp = parseInt(dropData[1]);
+      const dateStr = formatInTimeZone(new Date(targetTimestamp), ORG_TIMEZONE, 'EEE, MMM d');
+      
+      let hour = 0;
+      let minute = 0;
+      
+      if (dropData[0] === 'quarter') {
+        hour = dropData[2] ? parseInt(dropData[2]) : 0;
+        minute = dropData[3] ? parseInt(dropData[3]) : 0;
+      } else if (dropData[0] === 'hour') {
+        hour = dropData[2] ? parseInt(dropData[2]) : 0;
+        minute = 0;
+      }
+      
+      const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const displayMinute = minute.toString().padStart(2, '0');
+      
+      return `${dateStr} at ${displayHour}:${displayMinute} ${period}`;
+    }
+    
+    return null;
+  };
+
   // Drag handlers
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id);
+    setDragOverId(null);
+  };
+
+  const handleDragOver = (event: any) => {
+    const { over } = event;
+    setDragOverId(over?.id || null);
   };
 
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
     setActiveId(null);
+    setDragOverId(null);
 
     console.log('🎯 Drag ended - over.id:', over?.id, 'active.id:', active.id);
 
@@ -570,6 +618,7 @@ export default function AdminCalendarPage() {
             <DndContext
               sensors={sensors}
               onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
               collisionDetection={closestCenter}
             >
@@ -787,8 +836,13 @@ export default function AdminCalendarPage() {
               
               <DragOverlay>
                 {activeId ? (
-                  <div className="p-2 bg-white dark:bg-gray-800 rounded shadow-lg border-2 border-blue-500 opacity-90 cursor-grabbing">
-                    <div className="text-xs font-semibold">Moving item...</div>
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border-2 border-blue-500 opacity-95 cursor-grabbing">
+                    <div className="text-sm font-semibold mb-1">Moving...</div>
+                    {getPreviewTime(dragOverId) && (
+                      <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                        📅 {getPreviewTime(dragOverId)}
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </DragOverlay>
