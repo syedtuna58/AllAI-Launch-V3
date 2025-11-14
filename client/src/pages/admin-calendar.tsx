@@ -443,11 +443,11 @@ export default function AdminCalendarPage() {
     // If dropped outside any valid area, do nothing
     if (!over) return;
     
-    // Parse the drop target ID (format: "day:timestamp" or "hour:timestamp:hour")
+    // Parse the drop target ID (format: "day:timestamp", "hour:timestamp:hour", or "quarter:timestamp:hour:minute")
     const dropData = over.id.toString().split(':');
     
-    // Check if it's a valid time slot (starts with "day:" or "hour:")
-    if (dropData[0] !== 'day' && dropData[0] !== 'hour') {
+    // Check if it's a valid time slot (starts with "day:", "hour:", or "quarter:")
+    if (dropData[0] !== 'day' && dropData[0] !== 'hour' && dropData[0] !== 'quarter') {
       console.log('⚠️ Invalid drop target:', over.id);
       return;
     }
@@ -457,12 +457,26 @@ export default function AdminCalendarPage() {
     // Get date string in org timezone (YYYY-MM-DD)
     const dateStr = formatInTimeZone(new Date(targetTimestamp), ORG_TIMEZONE, 'yyyy-MM-dd');
     
-    // Determine the hour (either from drop target or midnight)
-    const hour = (dropData[0] === 'hour' && dropData[2]) ? parseInt(dropData[2]) : 0;
-    const hourStr = hour.toString().padStart(2, '0');
+    // Determine the hour and minute based on drop target type
+    let hour = 0;
+    let minute = 0;
     
-    // Build ISO string in org timezone (e.g., "2025-11-09T14:00:00")
-    const dateTimeStr = `${dateStr}T${hourStr}:00:00`;
+    if (dropData[0] === 'quarter') {
+      // Quarter slots have format: "quarter:timestamp:hour:minute"
+      hour = dropData[2] ? parseInt(dropData[2]) : 0;
+      minute = dropData[3] ? parseInt(dropData[3]) : 0;
+    } else if (dropData[0] === 'hour') {
+      // Hour slots have format: "hour:timestamp:hour"
+      hour = dropData[2] ? parseInt(dropData[2]) : 0;
+      minute = 0;
+    }
+    // else day slot defaults to 00:00
+    
+    const hourStr = hour.toString().padStart(2, '0');
+    const minuteStr = minute.toString().padStart(2, '0');
+    
+    // Build ISO string in org timezone (e.g., "2025-11-09T14:15:00")
+    const dateTimeStr = `${dateStr}T${hourStr}:${minuteStr}:00`;
     
     // Convert from org timezone to UTC
     const utcDate = fromZonedTime(dateTimeStr, ORG_TIMEZONE);

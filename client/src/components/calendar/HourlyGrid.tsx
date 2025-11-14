@@ -21,25 +21,58 @@ interface HourSlotProps {
   hourHeight: number;
 }
 
+interface QuarterSlotProps {
+  day: Date;
+  hour: number;
+  minute: number;
+  quarterHeight: number;
+  isLastQuarter: boolean;
+}
+
 /**
- * Individual hour slot that is droppable
+ * Individual 15-minute slot that is droppable
  */
-function HourSlot({ day, hour, hourHeight }: HourSlotProps) {
+function QuarterSlot({ day, hour, minute, quarterHeight, isLastQuarter }: QuarterSlotProps) {
   const { setNodeRef, isOver } = useDroppable({
-    id: `hour:${day.getTime()}:${hour}`,
-    data: { date: day, hour },
+    id: `quarter:${day.getTime()}:${hour}:${minute}`,
+    data: { date: day, hour, minute },
   });
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "border-b border-border/50 dark:border-gray-700/50 relative transition-colors",
+        "relative transition-colors",
+        isLastQuarter ? "border-b border-border/50 dark:border-gray-700/50" : "border-b border-border/20 dark:border-gray-700/20",
         isOver && "bg-blue-100 dark:bg-blue-800/20"
       )}
-      style={{ height: `${hourHeight}px` }}
+      style={{ height: `${quarterHeight}px` }}
       data-hour={hour}
+      data-minute={minute}
     />
+  );
+}
+
+/**
+ * Individual hour slot with 15-minute subdivisions
+ */
+function HourSlot({ day, hour, hourHeight }: HourSlotProps) {
+  const quarterHeight = hourHeight / 4;
+  const quarters = [0, 15, 30, 45];
+
+  return (
+    <div className="relative">
+      {quarters.map((minute, idx) => (
+        <QuarterSlot
+          key={minute}
+          day={day}
+          hour={hour}
+          minute={minute}
+          quarterHeight={quarterHeight}
+          isLastQuarter={idx === 3}
+        />
+      ))}
+    </div>
   );
 }
 
