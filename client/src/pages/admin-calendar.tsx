@@ -663,7 +663,7 @@ export default function AdminCalendarPage() {
             {/* Unscheduled Items Sidebar */}
             {(() => {
               const unscheduledReminders = filterMode !== 'cases' 
-                ? filteredReminders.filter(r => !r.dueAt) 
+                ? reminders.filter(r => !r.dueAt) 
                 : [];
               const unscheduledCases = filterMode !== 'reminders'
                 ? filteredCases.filter(c => !c.scheduledStartAt)
