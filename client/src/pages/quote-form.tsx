@@ -506,6 +506,11 @@ export default function QuoteFormPage() {
                       onFocus={(e) => { try { e.target.select(); } catch {} }}
                       data-testid="input-item-price"
                     />
+                    {newItemQty > 0 && newItemPrice > 0 && editingIndex === null && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Item total: ${(newItemQty * newItemPrice).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div>
