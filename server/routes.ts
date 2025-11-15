@@ -2130,8 +2130,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const property = req.body.propertyId ? await storage.getProperty(req.body.propertyId) : null;
           const timezone = property?.timezone || org.timezone || 'America/New_York';
           
-          // Convert scheduled time to UTC using the org/property timezone
-          const scheduledStartAt = zonedTimeToUtc(new Date(req.body.scheduledStartAt), timezone);
+          // Frontend sends local datetime as "yyyy-MM-dd'T'HH:mm" format
+          // Parse it as a local time in the org/property timezone, then convert to UTC
+          const localDateTimeStr = req.body.scheduledStartAt; // e.g., "2025-11-15T14:30"
+          const [datePart, timePart] = localDateTimeStr.split('T');
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [hours, minutes] = timePart.split(':').map(Number);
+          
+          // Create a local date object
+          const localDate = new Date(year, month - 1, day, hours, minutes, 0);
+          
+          // Convert local time to UTC using the org/property timezone
+          const scheduledStartAt = zonedTimeToUtc(localDate, timezone);
           
           // Map case priority to job urgency (Low/High/Emergent)
           const urgencyMap: Record<string, string> = {

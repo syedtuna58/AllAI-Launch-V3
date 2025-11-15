@@ -1716,7 +1716,7 @@ export default function Maintenance() {
                                         const currentTime = field.value ? parseISO(field.value) : new Date();
                                         date.setHours(currentTime.getHours());
                                         date.setMinutes(currentTime.getMinutes());
-                                        field.onChange(date.toISOString());
+                                        field.onChange(format(date, "yyyy-MM-dd'T'HH:mm"));
                                       }
                                     }}
                                     disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
@@ -1727,7 +1727,7 @@ export default function Maintenance() {
                                       date={field.value ? parseISO(field.value) : undefined}
                                       setDate={(date) => {
                                         if (date) {
-                                          field.onChange(date.toISOString());
+                                          field.onChange(format(date, "yyyy-MM-dd'T'HH:mm"));
                                         }
                                       }}
                                     />
