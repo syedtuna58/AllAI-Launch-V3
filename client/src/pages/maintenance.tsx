@@ -1943,6 +1943,7 @@ export default function Maintenance() {
                       workOrder={smartCase}
                       properties={properties}
                       units={units}
+                      customers={customers}
                       userRole={role}
                       index={index}
                       onStatusChange={(id, status) => updateCaseStatusMutation.mutate({ id, status })}

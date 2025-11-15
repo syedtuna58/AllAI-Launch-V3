@@ -46,6 +46,14 @@ type WorkOrderCardProps = {
     color: string;
     specialty?: string;
   }>;
+  customers?: Array<{
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    companyName?: string;
+    email?: string;
+    orgId?: string;
+  }>;
   userRole?: string;
   onStatusChange?: (id: string, status: string) => void;
   onEdit?: (workOrder: any) => void;
@@ -63,6 +71,7 @@ export default function WorkOrderCard({
   properties = [],
   units = [],
   teams = [],
+  customers = [],
   userRole,
   onStatusChange,
   onEdit,
@@ -133,6 +142,16 @@ export default function WorkOrderCard({
   const propertyName = property ? (property.name || `${property.street}, ${property.city}`) : null;
   const unitLabel = unit?.label;
 
+  // Get customer information (for contractors)
+  const customer = userRole === 'contractor' && property ? 
+    customers.find(c => c.id === property.ownerId || c.orgId === property.orgId) : 
+    null;
+  const customerName = customer ? 
+    (customer.firstName && customer.lastName ? 
+      `${customer.firstName} ${customer.lastName}` : 
+      customer.companyName || customer.email) : 
+    null;
+
   // Get team information and schedule from scheduledJobs array
   const teamInfo = workOrder.scheduledJobs?.[0];
   const hasCounterProposal = userRole === 'contractor' && workOrder.scheduledJobs?.some((job: any) => job.status === 'Needs Review');
@@ -166,9 +185,15 @@ export default function WorkOrderCard({
                   {workOrder.category}
                 </p>
               )}
+              {/* Customer Name (for contractors) */}
+              {userRole === 'contractor' && customerName && (
+                <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mt-1 truncate" data-testid={`text-customer-name-${index}`}>
+                  Customer: {customerName}
+                </p>
+              )}
               {/* Property + Unit combined */}
               {(propertyName || unitLabel) && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1 truncate">
+                <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1 truncate" data-testid={`text-property-name-${index}`}>
                   {propertyName && unitLabel ? `${propertyName} - ${unitLabel}` : propertyName || `Unit ${unitLabel}`}
                 </p>
               )}
