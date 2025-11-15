@@ -26,6 +26,8 @@ type CompactCalendarCardProps = {
   teams?: Team[];
   tenantName?: string;
   propertyStreet?: string;
+  customerName?: string;
+  customerStreet?: string;
   onDoubleClick?: () => void;
   onTeamChange?: (teamId: string) => void;
   onEdit?: () => void;
@@ -59,6 +61,8 @@ export default function CompactCalendarCard({
   teams = [],
   tenantName,
   propertyStreet,
+  customerName,
+  customerStreet,
   onDoubleClick,
   onTeamChange,
   onEdit,
@@ -99,6 +103,16 @@ export default function CompactCalendarCard({
       {tenantName && (
         <div>
           <strong>Tenant:</strong> {tenantName}
+        </div>
+      )}
+      {customerName && (
+        <div>
+          <strong>Customer:</strong> {customerName}
+        </div>
+      )}
+      {customerStreet && (
+        <div>
+          <strong>Address:</strong> {customerStreet}
         </div>
       )}
       <div>
@@ -151,10 +165,24 @@ export default function CompactCalendarCard({
               </p>
             )}
 
+            {/* Customer name if available (for contractors) */}
+            {customerName && !tenantName && (
+              <p className="text-[10px] text-gray-700 dark:text-gray-800 truncate mb-0.5 leading-tight">
+                {customerName}
+              </p>
+            )}
+
             {/* Property street address if available */}
             {propertyStreet && (
               <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate mb-0.5 leading-tight">
                 {propertyStreet}
+              </p>
+            )}
+
+            {/* Customer street address if available (for contractors) */}
+            {customerStreet && !propertyStreet && (
+              <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate mb-0.5 leading-tight">
+                {customerStreet}
               </p>
             )}
 

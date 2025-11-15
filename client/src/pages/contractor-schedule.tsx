@@ -2600,8 +2600,13 @@ function JobCard({
           })()}
           
           {/* Customer name and address */}
+          {job.contactPerson && (
+            <p className="text-[10px] text-white/90 font-medium truncate">
+              {job.contactPerson}
+            </p>
+          )}
           {job.address && (
-            <p className="text-[11px] text-white/80 truncate">
+            <p className="text-[10px] text-white/80 truncate">
               {job.address}
             </p>
           )}
