@@ -156,7 +156,7 @@ export default function QuoteFormPage() {
       });
       setLocation('/quotes');
     },
-    onError: (error: any) {
+    onError: (error) => {
       toast({
         title: "Error",
         description: error.message || `Failed to ${isEditMode ? 'update' : 'create'} quote. Please try again.`,
