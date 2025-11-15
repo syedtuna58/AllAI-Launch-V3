@@ -139,6 +139,7 @@ const createCaseSchema = z.object({
   description: z.string().optional(),
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
+  customerId: z.string().optional(),
   priority: z.enum(["Normal", "High", "Urgent"]).default("Normal"),
   category: z.string().optional(),
   teamId: z.string().optional(),
@@ -1572,6 +1573,39 @@ export default function Maintenance() {
                           </FormItem>
                         )}
                       />
+
+                      {/* Customer field - only for contractors */}
+                      {role === 'contractor' && (
+                        <FormField
+                          control={form.control}
+                          name="customerId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Customer</FormLabel>
+                              <Select 
+                                onValueChange={field.onChange} 
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-case-customer">
+                                    <SelectValue placeholder="Select a customer" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {customers?.map((customer: any) => (
+                                    <SelectItem key={customer.id} value={customer.id}>
+                                      {customer.firstName && customer.lastName 
+                                        ? `${customer.firstName} ${customer.lastName}`
+                                        : customer.firstName || customer.lastName || customer.companyName || customer.email || 'Unnamed Customer'}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
                       {/* Property field - hidden for contractors */}
                       {role !== 'contractor' && (
