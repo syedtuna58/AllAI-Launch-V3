@@ -125,7 +125,7 @@ import {
   type InsertCounterProposal,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, asc, sql, gte, lte, count, like } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, gte, lte, count, like, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -3283,12 +3283,19 @@ export class DatabaseStorage implements IStorage {
   // Quote operations
   async getContractorQuotes(contractorId: string): Promise<Quote[]> {
     return db.select().from(quotes)
-      .where(eq(quotes.contractorId, contractorId))
+      .where(and(
+        eq(quotes.contractorId, contractorId),
+        isNull(quotes.archivedAt)
+      ))
       .orderBy(desc(quotes.createdAt));
   }
 
   async getQuote(id: string): Promise<Quote | undefined> {
-    const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
+    const [quote] = await db.select().from(quotes)
+      .where(and(
+        eq(quotes.id, id),
+        isNull(quotes.archivedAt)
+      ));
     return quote;
   }
 
@@ -3345,7 +3352,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteQuote(id: string): Promise<void> {
-    await db.delete(quotes).where(eq(quotes.id, id));
+    // Soft delete - set archivedAt timestamp instead of actually deleting
+    await db.update(quotes)
+      .set({ archivedAt: sql`NOW()` })
+      .where(eq(quotes.id, id));
   }
 
   async getQuoteLineItems(quoteId: string): Promise<QuoteLineItem[]> {

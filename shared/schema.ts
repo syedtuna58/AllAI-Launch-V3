@@ -192,6 +192,7 @@ export const quotes = pgTable("quotes", {
   approvedAt: timestamp("approved_at"),
   declinedAt: timestamp("declined_at"),
   approvalToken: varchar("approval_token"),
+  archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
