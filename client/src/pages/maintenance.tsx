@@ -1530,37 +1530,40 @@ export default function Maintenance() {
                         )}
                       />
 
-                      <FormField
-                        control={form.control}
-                        name="propertyId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Property</FormLabel>
-                            <Select 
-                              onValueChange={(value) => {
-                                field.onChange(value);
-                                setSelectedPropertyId(value);
-                                form.setValue("unitId", "");
-                              }} 
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger data-testid="select-case-property">
-                                  <SelectValue placeholder="Select a property" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {properties?.map((property) => (
-                                  <SelectItem key={property.id} value={property.id}>
-                                    {property.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {/* Property field - hidden for contractors */}
+                      {role !== 'contractor' && (
+                        <FormField
+                          control={form.control}
+                          name="propertyId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Property</FormLabel>
+                              <Select 
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  setSelectedPropertyId(value);
+                                  form.setValue("unitId", "");
+                                }} 
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-case-property">
+                                    <SelectValue placeholder="Select a property" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {properties?.map((property) => (
+                                    <SelectItem key={property.id} value={property.id}>
+                                      {property.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
                       {/* Unit Selection - only show if property is selected and is a building with multiple units */}
                       {(() => {

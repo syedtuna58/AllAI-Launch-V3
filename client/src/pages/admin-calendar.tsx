@@ -633,7 +633,7 @@ export default function AdminCalendarPage() {
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                Admin Calendar
+                {role === 'org_admin' ? 'Admin Calendar' : 'Calendar'}
               </h1>
             </div>
           </div>
