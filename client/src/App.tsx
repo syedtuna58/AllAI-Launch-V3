@@ -40,6 +40,7 @@ import PromptTester from "@/pages/prompt-tester";
 import MayaTester from "@/pages/maya-tester";
 import Inbox from "@/pages/inbox";
 import ChannelSettings from "@/pages/channel-settings";
+import Customers from "@/pages/customers";
 import NotFound from "@/pages/not-found";
 
 function RoleBasedHome() {
@@ -103,6 +104,7 @@ function Router() {
           <Route path="/contractor-marketplace-dashboard" component={ContractorMarketplaceDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
           <Route path="/contractor-schedule" component={AdminCalendar} />
+          <Route path="/customers" component={Customers} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin-calendar" component={AdminCalendar} />
           <Route path="/expenses" component={Expenses} />
