@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save, ArrowLeft, Pencil } from "lucide-react";
+import { Plus, Trash2, Save, ArrowLeft, Pencil, Check, X } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -356,39 +356,113 @@ export default function QuoteFormPage() {
                 <TableBody>
                   {lineItems.map((item, index) => (
                     <TableRow key={index} data-testid={`line-item-${index}`}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.name}</div>
-                          {item.description && (
-                            <div className="text-sm text-muted-foreground">{item.description}</div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                      <TableCell className="text-right font-medium">${item.total.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => editLineItem(index)}
-                            data-testid={`button-edit-${index}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeLineItem(index)}
-                            data-testid={`button-remove-${index}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {editingIndex === index ? (
+                        <>
+                          {/* Editing Mode - Inline */}
+                          <TableCell>
+                            <div className="space-y-2">
+                              <Input
+                                value={newItemName}
+                                onChange={(e) => setNewItemName(e.target.value)}
+                                placeholder="Item name"
+                                className="font-medium"
+                                data-testid={`input-edit-name-${index}`}
+                              />
+                              <Input
+                                value={newItemDescription}
+                                onChange={(e) => setNewItemDescription(e.target.value)}
+                                placeholder="Description (optional)"
+                                className="text-sm"
+                                data-testid={`input-edit-description-${index}`}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="1"
+                              value={newItemQty}
+                              onChange={(e) => setNewItemQty(parseFloat(e.target.value) || 0)}
+                              onFocus={(e) => { try { e.target.select(); } catch {} }}
+                              className="text-right w-20"
+                              data-testid={`input-edit-qty-${index}`}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={newItemPrice}
+                              onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
+                              onFocus={(e) => { try { e.target.select(); } catch {} }}
+                              className="text-right w-24"
+                              data-testid={`input-edit-price-${index}`}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            ${(newItemQty * newItemPrice).toFixed(2)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={addLineItem}
+                                data-testid={`button-save-${index}`}
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={cancelEdit}
+                                data-testid={`button-cancel-${index}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          {/* View Mode */}
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{item.name}</div>
+                              {item.description && (
+                                <div className="text-sm text-muted-foreground">{item.description}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-medium">${item.total.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => editLineItem(index)}
+                                data-testid={`button-edit-${index}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeLineItem(index)}
+                                data-testid={`button-remove-${index}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -412,7 +486,7 @@ export default function QuoteFormPage() {
                     <Input
                       id="item-qty"
                       type="number"
-                      step="0.01"
+                      step="1"
                       placeholder="1"
                       value={newItemQty}
                       onChange={(e) => setNewItemQty(parseFloat(e.target.value) || 0)}
