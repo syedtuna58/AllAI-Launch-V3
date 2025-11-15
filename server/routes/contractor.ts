@@ -89,18 +89,14 @@ router.get('/customers', requireAuth, requireRole('contractor'), async (req: Aut
       return res.json([]);
     }
     
-    // Get org admins (primary landlords) from linked organizations
-    const orgAdminsQuery = await db
+    // Get org admins
+    const orgAdmins = await db
       .select({
         id: users.id,
         firstName: users.firstName,
         lastName: users.lastName,
         email: users.email,
-        companyName: sql<string>`NULL`,
-        role: sql<string>`'org_admin'`,
         orgId: organizationMembers.organizationId,
-        propertyCount: sql<number>`0`,
-        activeJobCount: sql<number>`0`,
       })
       .from(organizationMembers)
       .innerJoin(users, eq(organizationMembers.userId, users.id))
@@ -111,10 +107,50 @@ router.get('/customers', requireAuth, requireRole('contractor'), async (req: Aut
         )
       );
     
-    const orgAdmins = orgAdminsQuery;
+    // Batch fetch property counts grouped by orgId
+    const propertyCounts = await db
+      .select({
+        orgId: properties.orgId,
+        count: sql<number>`count(*)::int`.as('count'),
+      })
+      .from(properties)
+      .where(inArray(properties.orgId, orgIds))
+      .groupBy(properties.orgId);
     
-    // Return org admins as customers (primary landlords)
-    res.json(orgAdmins);
+    // Batch fetch active job counts grouped by orgId
+    const activeJobCounts = await db
+      .select({
+        orgId: smartCases.orgId,
+        count: sql<number>`count(*)::int`.as('count'),
+      })
+      .from(smartCases)
+      .where(
+        and(
+          inArray(smartCases.orgId, orgIds),
+          eq(smartCases.assignedContractorId, contractorUserId),
+          sql`${smartCases.status} NOT IN ('Closed', 'Resolved')`
+        )
+      )
+      .groupBy(smartCases.orgId);
+    
+    // Create lookup maps for efficient merging
+    const propertyCountMap = new Map(propertyCounts.map(pc => [pc.orgId, pc.count]));
+    const activeJobCountMap = new Map(activeJobCounts.map(ajc => [ajc.orgId, ajc.count]));
+    
+    // Merge metrics with org admins
+    const customersWithMetrics = orgAdmins.map(admin => ({
+      id: admin.id,
+      firstName: admin.firstName,
+      lastName: admin.lastName,
+      email: admin.email,
+      companyName: null,
+      role: 'org_admin',
+      orgId: admin.orgId,
+      propertyCount: propertyCountMap.get(admin.orgId) || 0,
+      activeJobCount: activeJobCountMap.get(admin.orgId) || 0,
+    }));
+    
+    res.json(customersWithMetrics);
   } catch (error) {
     console.error('Error fetching customers:', error);
     res.status(500).json({ error: 'Failed to fetch customers' });
