@@ -123,8 +123,11 @@ router.post('/customers', requireAuth, requireRole('contractor'), async (req: Au
       .returning();
     
     res.json(newCustomer);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating customer:', error);
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: 'Invalid customer data', details: error.errors });
+    }
     res.status(500).json({ error: 'Failed to create customer' });
   }
 });
@@ -156,8 +159,11 @@ router.patch('/customers/:id', requireAuth, requireRole('contractor'), async (re
       .returning();
     
     res.json(updatedCustomer);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating customer:', error);
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: 'Invalid customer data', details: error.errors });
+    }
     res.status(500).json({ error: 'Failed to update customer' });
   }
 });
@@ -188,7 +194,7 @@ router.delete('/customers/:id', requireAuth, requireRole('contractor'), async (r
     
     if (workOrderCount[0]?.count > 0) {
       return res.status(400).json({ 
-        error: 'Cannot delete customer with existing work orders' 
+        error: `Cannot delete customer with ${workOrderCount[0].count} existing work order${workOrderCount[0].count > 1 ? 's' : ''}` 
       });
     }
     
@@ -197,8 +203,12 @@ router.delete('/customers/:id', requireAuth, requireRole('contractor'), async (r
       .where(eq(contractorCustomers.id, id));
     
     res.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting customer:', error);
+    // Check for database foreign key constraint errors
+    if (error.code === '23503') {
+      return res.status(400).json({ error: 'Cannot delete customer with existing work orders' });
+    }
     res.status(500).json({ error: 'Failed to delete customer' });
   }
 });

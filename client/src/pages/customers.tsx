@@ -46,6 +46,24 @@ const customerFormSchema = z.object({
 
 type CustomerFormData = z.infer<typeof customerFormSchema>;
 
+// Helper function to extract error message from API error
+function extractErrorMessage(error: any): string {
+  if (!error?.message) return "";
+  
+  // Error message format: "400: {\"error\":\"message\"}"
+  const match = error.message.match(/\d+:\s*(\{.*\})/);
+  if (match) {
+    try {
+      const errorObj = JSON.parse(match[1]);
+      return errorObj.error || "";
+    } catch {
+      return "";
+    }
+  }
+  
+  return error.message || "";
+}
+
 export default function CustomersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -69,10 +87,7 @@ export default function CustomersPage() {
 
   const createMutation = useMutation({
     mutationFn: async (data: CustomerFormData) => {
-      return await apiRequest('/api/contractor/customers', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+      return await apiRequest('POST', '/api/contractor/customers', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractor/customers'] });
@@ -83,10 +98,11 @@ export default function CustomersPage() {
         description: "The customer has been added successfully.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = extractErrorMessage(error);
       toast({
         title: "Error",
-        description: "Failed to add customer. Please try again.",
+        description: errorMessage || "Failed to add customer. Please try again.",
         variant: "destructive",
       });
     },
@@ -94,10 +110,7 @@ export default function CustomersPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: CustomerFormData }) => {
-      return await apiRequest(`/api/contractor/customers/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      });
+      return await apiRequest('PATCH', `/api/contractor/customers/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractor/customers'] });
@@ -108,10 +121,11 @@ export default function CustomersPage() {
         description: "The customer has been updated successfully.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const errorMessage = extractErrorMessage(error);
       toast({
         title: "Error",
-        description: "Failed to update customer. Please try again.",
+        description: errorMessage || "Failed to update customer. Please try again.",
         variant: "destructive",
       });
     },
@@ -119,9 +133,7 @@ export default function CustomersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/contractor/customers/${id}`, {
-        method: 'DELETE',
-      });
+      return await apiRequest('DELETE', `/api/contractor/customers/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractor/customers'] });
@@ -131,9 +143,10 @@ export default function CustomersPage() {
       });
     },
     onError: (error: any) => {
+      const errorMessage = extractErrorMessage(error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete customer. They may have existing work orders.",
+        description: errorMessage || "Failed to delete customer. They may have existing work orders.",
         variant: "destructive",
       });
     },
