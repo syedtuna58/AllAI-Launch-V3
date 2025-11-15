@@ -111,7 +111,7 @@ function DraggableCalendarItem({
       ref={setNodeRef}
       {...(disabled ? {} : listeners)}
       {...(disabled ? {} : attributes)}
-      className={cn(disabled ? "cursor-default" : "cursor-grab active:cursor-grabbing", className)}
+      className={cn("group", disabled ? "cursor-default" : "cursor-grab active:cursor-grabbing", className)}
       style={{ ...style, ...dragStyle }}
     >
       {children}

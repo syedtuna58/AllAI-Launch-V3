@@ -121,7 +121,7 @@ export default function CompactCalendarCard({
 
   return (
     <div
-      className={`group relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
+      className={`relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
       style={{
         backgroundColor: pastelColor,
       }}
