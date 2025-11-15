@@ -249,47 +249,45 @@ export default function QuoteFormPage() {
             <div className="bg-card border rounded-lg p-6">
               <h3 className="text-lg font-semibold mb-4">Line Items</h3>
               
-              {lineItems.length > 0 && (
-                <Table className="mb-4">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[300px]">Product / Service</TableHead>
-                      <TableHead className="text-right w-[100px]">Qty.</TableHead>
-                      <TableHead className="text-right w-[120px]">Unit Price</TableHead>
-                      <TableHead className="text-right w-[120px]">Total</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
+              <Table className="mb-4">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[300px]">Product / Service</TableHead>
+                    <TableHead className="text-right w-[100px]">Qty.</TableHead>
+                    <TableHead className="text-right w-[120px]">Unit Price</TableHead>
+                    <TableHead className="text-right w-[120px]">Total</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lineItems.map((item, index) => (
+                    <TableRow key={index} data-testid={`line-item-${index}`}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{item.name}</div>
+                          {item.description && (
+                            <div className="text-sm text-muted-foreground">{item.description}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-medium">${item.total.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeLineItem(index)}
+                          data-testid={`button-remove-${index}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lineItems.map((item, index) => (
-                      <TableRow key={index} data-testid={`line-item-${index}`}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{item.name}</div>
-                            {item.description && (
-                              <div className="text-sm text-muted-foreground">{item.description}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-medium">${item.total.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeLineItem(index)}
-                            data-testid={`button-remove-${index}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+                  ))}
+                </TableBody>
+              </Table>
 
               {/* Add Line Item Form */}
               <div className="grid gap-4 p-4 bg-muted/50 rounded-lg">
@@ -430,36 +428,34 @@ export default function QuoteFormPage() {
                   </div>
 
                   <div className="border-t pt-4 space-y-3">
-                    <div>
-                      <Label>Required Deposit</Label>
+                    <Label>Required Deposit</Label>
+                    <div className="flex items-center gap-2">
                       <Select value={depositType} onValueChange={(value: any) => setDepositType(value)}>
-                        <SelectTrigger data-testid="select-deposit-type">
+                        <SelectTrigger data-testid="select-deposit-type" className="flex-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">No Deposit</SelectItem>
-                          <SelectItem value="percent">Percentage</SelectItem>
-                          <SelectItem value="fixed">Fixed Amount</SelectItem>
+                          <SelectItem value="percent">Percentage (%)</SelectItem>
+                          <SelectItem value="fixed">Fixed ($)</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-
-                    {depositType !== 'none' && (
-                      <div>
+                      {depositType !== 'none' && (
                         <Input
                           type="number"
                           step="0.01"
-                          placeholder={depositType === 'percent' ? 'e.g., 25' : 'e.g., 500'}
+                          placeholder={depositType === 'percent' ? '25' : '500'}
                           value={depositValue}
                           onChange={(e) => setDepositValue(parseFloat(e.target.value) || 0)}
+                          className="w-32"
                           data-testid="input-deposit-value"
                         />
-                        {requiredDepositAmount > 0 && (
-                          <p className="text-sm text-muted-foreground mt-1" data-testid="text-deposit-calculated">
-                            Deposit: ${requiredDepositAmount.toFixed(2)}
-                          </p>
-                        )}
-                      </div>
+                      )}
+                    </div>
+                    {depositType !== 'none' && requiredDepositAmount > 0 && (
+                      <p className="text-sm text-muted-foreground" data-testid="text-deposit-calculated">
+                        Deposit Amount: ${requiredDepositAmount.toFixed(2)}
+                      </p>
                     )}
                   </div>
                 </div>
