@@ -23,6 +23,7 @@ type Customer = {
   companyName: string | null;
   email: string | null;
   phone: string | null;
+  address: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -35,6 +36,7 @@ const customerFormSchema = z.object({
   companyName: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
+  address: z.string().optional(),
   notes: z.string().optional(),
 }).refine(
   (data) => data.firstName || data.lastName || data.companyName,
@@ -94,6 +96,7 @@ export default function CustomersPage() {
       companyName: "",
       email: "",
       phone: "",
+      address: "",
       notes: "",
     },
   });
@@ -181,6 +184,7 @@ export default function CustomersPage() {
       companyName: customer.companyName || "",
       email: customer.email || "",
       phone: customer.phone || "",
+      address: customer.address || "",
       notes: customer.notes || "",
     });
   };
@@ -300,6 +304,19 @@ export default function CustomersPage() {
                           <FormLabel>Phone</FormLabel>
                           <FormControl>
                             <Input placeholder="(555) 123-4567" {...field} data-testid="input-phone" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address</FormLabel>
+                          <FormControl>
+                            <Input placeholder="123 Main St, City, ST 12345" {...field} data-testid="input-address" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
