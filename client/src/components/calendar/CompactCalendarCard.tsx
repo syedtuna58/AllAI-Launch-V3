@@ -66,6 +66,16 @@ export default function CompactCalendarCard({
   onCreateReminder,
 }: CompactCalendarCardProps) {
   const [teamPopoverOpen, setTeamPopoverOpen] = useState(false);
+  
+  // Debug logging
+  console.log('CompactCalendarCard render:', {
+    workOrderId: workOrder.id,
+    hasOnEdit: !!onEdit,
+    hasOnDelete: !!onDelete,
+    hasOnCreateReminder: !!onCreateReminder,
+    hasOnTeamChange: !!onTeamChange,
+    teamsCount: teams.length
+  });
 
   // Get team color or default, then convert to pastel
   const originalColor = team?.color || "#6B7280";
