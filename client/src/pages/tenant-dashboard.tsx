@@ -192,15 +192,11 @@ export default function TenantDashboard() {
       } else if (conversationState === "confirming") {
         if (content.toLowerCase().includes("yes") || content.toLowerCase().includes("confirm")) {
           setConversationState("creating");
-          const caseRes = await apiRequest('POST', '/api/cases', {
+          const caseRes = await apiRequest('POST', '/api/tenant/cases', {
             title: triageData?.suggestedTitle || "Maintenance Request",
             description: issueDescription,
-            status: "New",
-            type: "maintenance",
-            priority: triageData?.urgency || "Medium",
+            priority: triageData?.urgency || "Normal",
             category: triageData?.category || "general",
-            propertyId: selectedProperty?.id,
-            unitId: selectedProperty?.unitId,
             aiTriageJson: triageData,
             mediaUrls: uploadedMedia,
           });

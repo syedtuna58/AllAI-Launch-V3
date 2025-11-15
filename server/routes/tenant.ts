@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/rbac';
 import { db } from '../db';
-import { tenants, smartCases } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { tenants, smartCases, caseMedia } from '@shared/schema';
+import { eq, and, or } from 'drizzle-orm';
 import { z } from 'zod';
 
 const router = Router();
@@ -10,6 +10,10 @@ const router = Router();
 const createCaseSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
+  priority: z.string().optional(),
+  category: z.string().optional(),
+  aiTriageJson: z.any().optional(),
+  mediaUrls: z.array(z.string()).optional(),
 });
 
 // Get tenant's unit
@@ -44,7 +48,7 @@ router.get('/cases', requireAuth, requireRole('tenant'), async (req: Authenticat
   try {
     const userId = req.user!.id;
     
-    // Get tenant record
+    // Get tenant record to access unitId for legacy cases
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.userId, userId),
     });
@@ -53,11 +57,20 @@ router.get('/cases', requireAuth, requireRole('tenant'), async (req: Authenticat
       return res.status(404).json({ error: 'Tenant not found' });
     }
 
+    // Get cases: either new cases (reporterUserId) or legacy cases (unitId)
+    const whereClauses = tenant.unitId 
+      ? or(
+          eq(smartCases.reporterUserId, userId),
+          eq(smartCases.unitId, tenant.unitId)
+        )
+      : eq(smartCases.reporterUserId, userId);
+
     const cases = await db.query.smartCases.findMany({
-      where: eq(smartCases.tenantId, tenant.id),
+      where: whereClauses,
       with: {
         property: true,
         unit: true,
+        media: true,
       },
       orderBy: (cases, { desc }) => [desc(cases.createdAt)],
     });
@@ -102,10 +115,23 @@ router.post('/cases', requireAuth, requireRole('tenant'), async (req: Authentica
       orgId: tenant.orgId,
       propertyId: tenant.unit.propertyId,
       unitId: tenant.unitId,
-      tenantId: tenant.id,
-      status: 'pending',
-      source: 'tenant',
+      reporterUserId: userId,
+      status: 'New',
+      priority: parsed.data.priority as any || 'Normal',
+      category: parsed.data.category,
+      aiTriageJson: parsed.data.aiTriageJson,
     }).returning();
+
+    // Handle media uploads if provided
+    if (parsed.data.mediaUrls && parsed.data.mediaUrls.length > 0) {
+      await db.insert(caseMedia).values(
+        parsed.data.mediaUrls.map(url => ({
+          caseId: newCase.id,
+          url,
+          type: 'image',
+        }))
+      );
+    }
 
     res.json(newCase);
   } catch (error) {
