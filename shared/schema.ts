@@ -1762,7 +1762,12 @@ export const insertContractorProfileSchema = createInsertSchema(contractorProfil
 export const insertUserContractorSpecialtySchema = createInsertSchema(userContractorSpecialties).omit({ id: true, createdAt: true });
 export const insertContractorOrgLinkSchema = createInsertSchema(contractorOrgLinks).omit({ id: true, createdAt: true });
 export const insertContractorCustomerSchema = createInsertSchema(contractorCustomers).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, updatedAt: true }).extend({
+  expiresAt: z.coerce.date().nullable().optional(),
+  sentAt: z.coerce.date().nullable().optional(),
+  approvedAt: z.coerce.date().nullable().optional(),
+  declinedAt: z.coerce.date().nullable().optional(),
+});
 export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItems).omit({ id: true, createdAt: true });
 export const insertFavoriteContractorSchema = createInsertSchema(favoriteContractors).omit({ id: true, createdAt: true });
 export const insertVerificationTokenSchema = createInsertSchema(verificationTokens).omit({ id: true, createdAt: true });
