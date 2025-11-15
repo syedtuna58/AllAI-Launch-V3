@@ -5,7 +5,7 @@ import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, DollarSign, Calendar, Send, Copy, Check } from "lucide-react";
+import { Plus, FileText, DollarSign, Calendar, Send, Copy, Check, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -35,6 +35,7 @@ export default function QuotesPage() {
   const [_, setLocation] = useLocation();
   const [filterStatus, setFilterStatus] = useState<'all' | QuoteStatus>('all');
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [approvalLink, setApprovalLink] = useState<string>('');
   const [linkCopied, setLinkCopied] = useState(false);
@@ -63,6 +64,27 @@ export default function QuotesPage() {
       toast({
         title: "Error",
         description: error.message || "Failed to send quote",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (quoteId: string) => {
+      return await apiRequest('DELETE', `/api/contractor/quotes/${quoteId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/quotes'] });
+      setDeleteDialogOpen(false);
+      toast({
+        title: "Quote deleted",
+        description: "Quote has been deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete quote",
         variant: "destructive",
       });
     },
@@ -113,6 +135,18 @@ export default function QuotesPage() {
   const handleSendQuote = (e: React.MouseEvent, quoteId: string) => {
     e.stopPropagation(); // Prevent card click
     sendMutation.mutate(quoteId);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, quoteId: string) => {
+    e.stopPropagation(); // Prevent card click
+    setSelectedQuoteId(quoteId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedQuoteId) {
+      deleteMutation.mutate(selectedQuoteId);
+    }
   };
 
   return (
@@ -263,16 +297,25 @@ export default function QuotesPage() {
                         </span>
                       </div>
                       {quote.status === 'draft' && (
-                        <div className="pt-3 border-t mt-3">
+                        <div className="pt-3 border-t mt-3 flex gap-2">
                           <Button
                             size="sm"
-                            className="w-full"
+                            className="flex-1"
                             onClick={(e) => handleSendQuote(e, quote.id)}
                             disabled={sendMutation.isPending}
                             data-testid={`button-send-${quote.id}`}
                           >
                             <Send className="h-4 w-4 mr-2" />
                             Send Quote
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => handleDeleteClick(e, quote.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-${quote.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       )}
@@ -339,6 +382,35 @@ export default function QuotesPage() {
           <DialogFooter>
             <Button onClick={() => setSendDialogOpen(false)} data-testid="button-close-dialog">
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent data-testid="dialog-delete-confirmation">
+          <DialogHeader>
+            <DialogTitle>Delete Quote</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this quote? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              data-testid="button-cancel-delete"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Quote"}
             </Button>
           </DialogFooter>
         </DialogContent>
