@@ -190,6 +190,7 @@ export default function Maintenance() {
   const [propertyFilter, setPropertyFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [unitFilter, setUnitFilter] = useState<string[]>([]);
+  const [customerFilter, setCustomerFilter] = useState<string>("all");
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [reminderCaseContext, setReminderCaseContext] = useState<{caseId: string; caseTitle: string} | null>(null);
@@ -280,6 +281,13 @@ export default function Maintenance() {
   const { data: teams = [] } = useQuery<any[]>({
     queryKey: ["/api/teams"],
     enabled: !!user,
+    retry: false,
+  });
+
+  // Fetch customers for contractors
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/contractor/customers"],
+    enabled: role === "contractor",
     retry: false,
   });
 
@@ -914,7 +922,18 @@ export default function Maintenance() {
       (smartCase as any).scheduledJobs?.some((job: any) => job.teamId === teamFilter)
     );
     
-    return propertyMatch && categoryMatch && unitMatch && teamMatch;
+    // Customer filter (for contractors) - filter by property owner or org admin
+    const customerMatch = customerFilter === "all" || (
+      role === "contractor" && smartCase.propertyId && (() => {
+        const property = properties?.find(p => p.id === smartCase.propertyId);
+        return property && (
+          property.ownerId === customerFilter || // Property owner match
+          property.orgId === customers.find((c: any) => c.id === customerFilter)?.orgId // Org admin match
+        );
+      })()
+    );
+    
+    return propertyMatch && categoryMatch && unitMatch && teamMatch && customerMatch;
   });
 
   // Debug logging
@@ -1376,23 +1395,44 @@ export default function Maintenance() {
                 </SelectContent>
               </Select>
 
-              {/* Property Filter */}
-              <Select value={propertyFilter} onValueChange={(value) => {
-                setPropertyFilter(value);
-                setUnitFilter([]); // Reset unit filter when property changes
-              }}>
-                <SelectTrigger className="w-52" data-testid="select-property-filter">
-                  <SelectValue placeholder="All Properties" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Properties</SelectItem>
-                  {filteredProperties.map((property) => (
-                    <SelectItem key={property.id} value={property.id}>
-                      {property.name || `${property.street}, ${property.city}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Customer Filter - only for contractors */}
+              {role === "contractor" && (
+                <Select value={customerFilter} onValueChange={setCustomerFilter}>
+                  <SelectTrigger className="w-52" data-testid="select-customer-filter">
+                    <SelectValue placeholder="All Customers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Customers</SelectItem>
+                    {customers.map((customer: any) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.firstName && customer.lastName 
+                          ? `${customer.firstName} ${customer.lastName}` 
+                          : customer.companyName || customer.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Property Filter - hidden for contractors */}
+              {role !== "contractor" && (
+                <Select value={propertyFilter} onValueChange={(value) => {
+                  setPropertyFilter(value);
+                  setUnitFilter([]); // Reset unit filter when property changes
+                }}>
+                  <SelectTrigger className="w-52" data-testid="select-property-filter">
+                    <SelectValue placeholder="All Properties" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Properties</SelectItem>
+                    {filteredProperties.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.name || `${property.street}, ${property.city}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               {/* Unit Selection - only show for buildings with multiple units */}
               {propertyFilter !== "all" && (() => {
@@ -1455,23 +1495,25 @@ export default function Maintenance() {
                 </SelectContent>
               </Select>
 
-              {/* Entity Filter */}
-              <Select value={entityFilter} onValueChange={(value) => {
-                setEntityFilter(value);
-                if (value !== "all") {
-                  setPropertyFilter("all");
-                }
-              }}>
-                <SelectTrigger className="w-44" data-testid="select-entity-filter">
-                  <SelectValue placeholder="All Entities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Entities</SelectItem>
-                  {entities.map((entity) => (
-                    <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Entity Filter - hidden for contractors */}
+              {role !== "contractor" && (
+                <Select value={entityFilter} onValueChange={(value) => {
+                  setEntityFilter(value);
+                  if (value !== "all") {
+                    setPropertyFilter("all");
+                  }
+                }}>
+                  <SelectTrigger className="w-44" data-testid="select-entity-filter">
+                    <SelectValue placeholder="All Entities" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Entities</SelectItem>
+                    {entities.map((entity) => (
+                      <SelectItem key={entity.id} value={entity.id}>{entity.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
                 </div>
                 
