@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save, ArrowLeft, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, Save, ArrowLeft } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -50,12 +50,7 @@ export default function QuoteFormPage() {
   const [depositValue, setDepositValue] = useState(0);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
 
-  // New line item form
-  const [newItemName, setNewItemName] = useState("");
-  const [newItemDescription, setNewItemDescription] = useState("");
-  const [newItemQty, setNewItemQty] = useState(1);
-  const [newItemPrice, setNewItemPrice] = useState(0);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  // Removed separate form state - editing happens directly in the table
 
   // Fetch customers
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -166,70 +161,34 @@ export default function QuoteFormPage() {
   });
 
   const addLineItem = () => {
-    if (!newItemName) {
-      toast({
-        title: "Error",
-        description: "Item name is required",
-        variant: "destructive",
-      });
-      return;
-    }
+    const newItem: LineItem = {
+      name: "",
+      description: "",
+      quantity: 1,
+      unitPrice: 0,
+      total: 0,
+      displayOrder: lineItems.length,
+    };
+    setLineItems([...lineItems, newItem]);
+  };
 
-    if (editingIndex !== null) {
-      // Update existing item
-      const updatedItems = [...lineItems];
-      updatedItems[editingIndex] = {
-        ...updatedItems[editingIndex],
-        name: newItemName,
-        description: newItemDescription,
-        quantity: newItemQty,
-        unitPrice: newItemPrice,
-        total: newItemQty * newItemPrice,
-      };
-      setLineItems(updatedItems);
-      setEditingIndex(null);
-    } else {
-      // Add new item
-      const newItem: LineItem = {
-        name: newItemName,
-        description: newItemDescription,
-        quantity: newItemQty,
-        unitPrice: newItemPrice,
-        total: newItemQty * newItemPrice,
-        displayOrder: lineItems.length,
-      };
-      setLineItems([...lineItems, newItem]);
+  const updateLineItem = (index: number, field: keyof LineItem, value: any) => {
+    const updatedItems = [...lineItems];
+    updatedItems[index] = {
+      ...updatedItems[index],
+      [field]: value,
+    };
+    
+    // Recalculate total when quantity or price changes
+    if (field === 'quantity' || field === 'unitPrice') {
+      updatedItems[index].total = updatedItems[index].quantity * updatedItems[index].unitPrice;
     }
     
-    // Reset form
-    setNewItemName("");
-    setNewItemDescription("");
-    setNewItemQty(1);
-    setNewItemPrice(0);
-  };
-
-  const editLineItem = (index: number) => {
-    const item = lineItems[index];
-    setNewItemName(item.name);
-    setNewItemDescription(item.description);
-    setNewItemQty(item.quantity);
-    setNewItemPrice(item.unitPrice);
-    setEditingIndex(index);
-  };
-
-  const cancelEdit = () => {
-    setNewItemName("");
-    setNewItemDescription("");
-    setNewItemQty(1);
-    setNewItemPrice(0);
-    setEditingIndex(null);
+    setLineItems(updatedItems);
   };
 
   const removeLineItem = (index: number) => {
     setLineItems(lineItems.filter((_, i) => i !== index));
-    if (editingIndex === index) {
-      cancelEdit();
-    }
   };
 
   const getCustomerDisplayName = (customer: Customer) => {
@@ -356,196 +315,75 @@ export default function QuoteFormPage() {
                 <TableBody>
                   {lineItems.map((item, index) => (
                     <TableRow key={index} data-testid={`line-item-${index}`}>
-                      {editingIndex === index ? (
-                        <>
-                          {/* Editing Mode - Inline */}
-                          <TableCell>
-                            <div className="space-y-2">
-                              <Input
-                                value={newItemName}
-                                onChange={(e) => setNewItemName(e.target.value)}
-                                placeholder="Item name"
-                                className="font-medium"
-                                data-testid={`input-edit-name-${index}`}
-                              />
-                              <Input
-                                value={newItemDescription}
-                                onChange={(e) => setNewItemDescription(e.target.value)}
-                                placeholder="Description (optional)"
-                                className="text-sm"
-                                data-testid={`input-edit-description-${index}`}
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="1"
-                              value={newItemQty}
-                              onChange={(e) => setNewItemQty(parseFloat(e.target.value) || 0)}
-                              onFocus={(e) => { try { e.target.select(); } catch {} }}
-                              className="text-right w-20"
-                              data-testid={`input-edit-qty-${index}`}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={newItemPrice}
-                              onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
-                              onFocus={(e) => { try { e.target.select(); } catch {} }}
-                              className="text-right w-24"
-                              data-testid={`input-edit-price-${index}`}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            ${(newItemQty * newItemPrice).toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={addLineItem}
-                                data-testid={`button-save-${index}`}
-                              >
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={cancelEdit}
-                                data-testid={`button-cancel-${index}`}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      ) : (
-                        <>
-                          {/* View Mode */}
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{item.name}</div>
-                              {item.description && (
-                                <div className="text-sm text-muted-foreground">{item.description}</div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                          <TableCell className="text-right font-medium">${item.total.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => editLineItem(index)}
-                                data-testid={`button-edit-${index}`}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeLineItem(index)}
-                                data-testid={`button-remove-${index}`}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </>
-                      )}
+                      <TableCell>
+                        <div className="space-y-2">
+                          <Input
+                            value={item.name}
+                            onChange={(e) => updateLineItem(index, 'name', e.target.value)}
+                            placeholder="Item name"
+                            className="font-medium"
+                            data-testid={`input-name-${index}`}
+                          />
+                          <Input
+                            value={item.description}
+                            onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                            placeholder="Description (optional)"
+                            className="text-sm"
+                            data-testid={`input-description-${index}`}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="1"
+                          value={item.quantity}
+                          onChange={(e) => updateLineItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          onFocus={(e) => { try { e.target.select(); } catch {} }}
+                          className="text-right w-20"
+                          data-testid={`input-qty-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.unitPrice}
+                          onChange={(e) => updateLineItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          onFocus={(e) => { try { e.target.select(); } catch {} }}
+                          className="text-right w-24"
+                          data-testid={`input-price-${index}`}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-medium" data-testid={`text-total-${index}`}>
+                        ${item.total.toFixed(2)}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeLineItem(index)}
+                          data-testid={`button-remove-${index}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
 
-              {/* Add Line Item Form */}
-              <div className="grid gap-4 p-4 bg-muted/50 rounded-lg">
-                <div className="grid gap-4 md:grid-cols-4">
-                  <div className="md:col-span-2">
-                    <Label htmlFor="item-name" className="text-sm mb-1 block">Item Name</Label>
-                    <Input
-                      id="item-name"
-                      placeholder="e.g., Stump Grinding"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      data-testid="input-item-name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="item-qty" className="text-sm mb-1 block">Qty</Label>
-                    <Input
-                      id="item-qty"
-                      type="number"
-                      step="1"
-                      placeholder="1"
-                      value={newItemQty}
-                      onChange={(e) => setNewItemQty(parseFloat(e.target.value) || 0)}
-                      onFocus={(e) => { try { e.target.select(); } catch {} }}
-                      data-testid="input-item-qty"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="item-price" className="text-sm mb-1 block">Unit Price ($)</Label>
-                    <Input
-                      id="item-price"
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={newItemPrice}
-                      onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
-                      onFocus={(e) => { try { e.target.select(); } catch {} }}
-                      data-testid="input-item-price"
-                    />
-                    {newItemQty > 0 && newItemPrice > 0 && editingIndex === null && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Item total: ${(newItemQty * newItemPrice).toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <Textarea
-                    placeholder="Description (optional)"
-                    value={newItemDescription}
-                    onChange={(e) => setNewItemDescription(e.target.value)}
-                    rows={2}
-                    data-testid="input-item-description"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addLineItem}
-                    data-testid="button-add-item"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    {editingIndex !== null ? 'Update Line Item' : 'Add Line Item'}
-                  </Button>
-                  {editingIndex !== null && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={cancelEdit}
-                      data-testid="button-cancel-edit"
-                    >
-                      Cancel
-                    </Button>
-                  )}
-                </div>
-              </div>
+              {/* Add Line Item Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addLineItem}
+                data-testid="button-add-item"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Line Item
+              </Button>
             </div>
 
             {/* Bottom Section: Messages & Totals */}
