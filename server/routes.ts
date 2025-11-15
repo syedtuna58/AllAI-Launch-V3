@@ -5,6 +5,7 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService } from "./objectStorage";
 import { db } from "./db";
 import { users, organizationMembers, vendors, counterProposals } from "@shared/schema";
+import { z } from "zod";
 import authRouter from "./routes/auth";
 import contractorRouter from "./routes/contractor";
 import adminRouter from "./routes/admin";
