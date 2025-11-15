@@ -460,7 +460,9 @@ export const tenantGroups = pgTable("tenant_groups", {
 // Tenants
 export const tenants = pgTable("tenants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull().references(() => organizations.id),
   groupId: varchar("group_id").references(() => tenantGroups.id),
+  unitId: varchar("unit_id").references(() => units.id),
   // Link to user account (nullable for staged migration - tenants invited but not yet verified)
   userId: varchar("user_id").references(() => users.id),
   firstName: varchar("first_name").notNull(),
@@ -1042,6 +1044,13 @@ export const unitsRelations = relations(units, ({ one, many }) => ({
 export const leasesRelations = relations(leases, ({ one }) => ({
   unit: one(units, { fields: [leases.unitId], references: [units.id] }),
   tenantGroup: one(tenantGroups, { fields: [leases.tenantGroupId], references: [tenantGroups.id] }),
+}));
+
+export const tenantsRelations = relations(tenants, ({ one }) => ({
+  organization: one(organizations, { fields: [tenants.orgId], references: [organizations.id] }),
+  unit: one(units, { fields: [tenants.unitId], references: [units.id] }),
+  user: one(users, { fields: [tenants.userId], references: [users.id] }),
+  group: one(tenantGroups, { fields: [tenants.groupId], references: [tenantGroups.id] }),
 }));
 
 export const smartCasesRelations = relations(smartCases, ({ one, many }) => ({
