@@ -497,12 +497,11 @@ export default function CustomersPage() {
               </div>
 
               {uniqueCities.length > 0 && (
-                <Select value={filterCity} onValueChange={setFilterCity}>
+                <Select value={filterCity || undefined} onValueChange={setFilterCity}>
                   <SelectTrigger className="w-40" data-testid="select-city">
-                    <SelectValue placeholder="Filter by City" />
+                    <SelectValue placeholder="All Cities" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Cities</SelectItem>
                     {uniqueCities.map((city) => (
                       <SelectItem key={city} value={city!}>
                         {city}
