@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { format } from "date-fns";
 import { useState } from "react";
 import { Edit2, Trash2, Bell, MoreVertical } from "lucide-react";
 import type { SmartCase } from "@shared/schema";
@@ -66,16 +64,6 @@ export default function CompactCalendarCard({
   onCreateReminder,
 }: CompactCalendarCardProps) {
   const [teamPopoverOpen, setTeamPopoverOpen] = useState(false);
-  
-  // Debug logging
-  console.log('CompactCalendarCard render:', {
-    workOrderId: workOrder.id,
-    hasOnEdit: !!onEdit,
-    hasOnDelete: !!onDelete,
-    hasOnCreateReminder: !!onCreateReminder,
-    hasOnTeamChange: !!onTeamChange,
-    teamsCount: teams.length
-  });
 
   // Get team color or default, then convert to pastel
   const originalColor = team?.color || "#6B7280";
@@ -131,16 +119,14 @@ export default function CompactCalendarCard({
   );
 
   return (
-    <TooltipProvider>
-      <Tooltip delayDuration={300}>
-        <TooltipTrigger asChild>
-          <div
-            className={`group relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
-            style={{
-              backgroundColor: pastelColor,
-            }}
-            onDoubleClick={onDoubleClick}
-          >
+    <div
+      className={`group relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
+      style={{
+        backgroundColor: pastelColor,
+      }}
+      onDoubleClick={onDoubleClick}
+      title={`${workOrder.title} - ${workOrder.priority || 'Normal'} Priority - ${workOrder.status || 'New'}`}
+    >
             {/* Title with urgency badge */}
             <div className="flex items-start justify-between gap-1 mb-0.5">
               <div className="flex-1 min-w-0">
@@ -250,12 +236,6 @@ export default function CompactCalendarCard({
                 </PopoverContent>
               </Popover>
             )}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs">
-          {tooltipContent}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    </div>
   );
 }
