@@ -139,8 +139,10 @@ const createCaseSchema = z.object({
   description: z.string().optional(),
   propertyId: z.string().optional(),
   unitId: z.string().optional(),
-  priority: z.enum(["Low", "Medium", "High", "Urgent"]).default("Medium"),
+  priority: z.enum(["Normal", "High", "Urgent"]).default("Normal"),
   category: z.string().optional(),
+  teamId: z.string().optional(),
+  scheduledStartAt: z.string().optional(),
   createReminder: z.boolean().default(false),
 });
 
@@ -262,10 +264,10 @@ export default function Maintenance() {
     retry: false,
   });
 
-  // Fetch teams for the current contractor
+  // Fetch teams for all users
   const { data: teams = [] } = useQuery<any[]>({
     queryKey: ["/api/teams"],
-    enabled: role === "contractor",
+    enabled: !!user,
     retry: false,
   });
 
@@ -1608,8 +1610,7 @@ export default function Maintenance() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="Low">Low</SelectItem>
-                                <SelectItem value="Medium">Medium</SelectItem>
+                                <SelectItem value="Normal">Normal</SelectItem>
                                 <SelectItem value="High">High</SelectItem>
                                 <SelectItem value="Urgent">Urgent</SelectItem>
                               </SelectContent>

@@ -930,7 +930,13 @@ export default function AdminCalendarPage() {
                           <SelectItem value="all">All Teams</SelectItem>
                           {teams.map((team: any) => (
                             <SelectItem key={team.id} value={team.id}>
-                              {team.name}
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full flex-shrink-0" 
+                                  style={{ backgroundColor: team.color }}
+                                />
+                                <span>{team.name}</span>
+                              </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
