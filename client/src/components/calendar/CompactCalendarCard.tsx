@@ -181,10 +181,10 @@ export default function CompactCalendarCard({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <button
-                    className="absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover:opacity-80 hover:!opacity-100 hover:bg-white/50 transition-all"
+                    className="absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-white/50 transition-all z-20"
                     data-testid={`button-actions-menu-${workOrder.id}`}
                   >
-                    <MoreVertical className="h-3 w-3 text-gray-700" />
+                    <MoreVertical className="h-3 w-3 text-gray-700 dark:text-gray-900" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
@@ -215,7 +215,7 @@ export default function CompactCalendarCard({
               <Popover open={teamPopoverOpen} onOpenChange={setTeamPopoverOpen}>
                 <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
                   <button
-                    className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-gray-400 opacity-20 group-hover:opacity-60 hover:!opacity-100 hover:scale-125 transition-all"
+                    className="absolute bottom-1 right-1 w-3 h-3 rounded-full border border-gray-400 opacity-20 group-hover:opacity-100 hover:scale-125 transition-all z-20"
                     style={{ backgroundColor: originalColor }}
                     data-testid={`button-team-selector-${workOrder.id}`}
                   />
