@@ -3385,8 +3385,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/reminders', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      
+      // Check if user is a contractor (vendor) - they don't use reminders
+      const contractorCheck = await db
+        .select()
+        .from(vendors)
+        .where(eq(vendors.userId, userId))
+        .limit(1);
+      
+      if (contractorCheck.length > 0) {
+        // Contractors don't see reminders
+        return res.json([]);
+      }
+      
       const org = await storage.getUserOrganization(userId);
-      if (!org) return res.status(404).json({ message: "Organization not found" });
+      if (!org) {
+        // No organization found - return empty array
+        return res.json([]);
+      }
       
       // Get user's role in the organization
       const userRole = await db
