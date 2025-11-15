@@ -12,7 +12,6 @@ import VerifyEmail from "@/pages/VerifyEmail";
 import ContractorSignup from "@/pages/ContractorSignup";
 import PropertyOwnerSignup from "@/pages/PropertyOwnerSignup";
 import ContractorMarketplaceDashboard from "@/pages/ContractorMarketplaceDashboard";
-import TenantDashboardNew from "@/pages/TenantDashboardNew";
 import Dashboard from "@/pages/dashboard";
 import Properties from "@/pages/properties";
 import Entities from "@/pages/entities";
@@ -103,7 +102,6 @@ function Router() {
           <Route path="/tenant-request" component={TenantRequest} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/tenant-dashboard" component={TenantDashboard} />
-          <Route path="/tenant-dashboard-new" component={TenantDashboardNew} />
           <Route path="/contractor-dashboard" component={ContractorDashboard} />
           <Route path="/contractor-marketplace-dashboard" component={ContractorMarketplaceDashboard} />
           <Route path="/contractor-availability" component={ContractorAvailability} />
