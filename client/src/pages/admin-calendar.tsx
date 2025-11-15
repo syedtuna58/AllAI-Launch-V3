@@ -183,6 +183,8 @@ export default function AdminCalendarPage() {
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<MaintenanceCase | null>(null);
+  const [showWorkOrderDialog, setShowWorkOrderDialog] = useState(false);
 
   // Ref for scroll container (used in collision detection)
   const weekViewScrollRef = useRef<HTMLDivElement>(null);
@@ -410,7 +412,11 @@ export default function AdminCalendarPage() {
 
   // Handler function for case double-click
   const handleCaseDoubleClick = (caseId: string) => {
-    navigate(`/maintenance?caseId=${caseId}`);
+    const workOrder = filteredCases.find(c => c.id === caseId);
+    if (workOrder) {
+      setSelectedWorkOrder(workOrder);
+      setShowWorkOrderDialog(true);
+    }
   };
 
   // Filter cases by team
