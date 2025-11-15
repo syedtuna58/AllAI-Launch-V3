@@ -923,15 +923,9 @@ export default function Maintenance() {
       (smartCase as any).scheduledJobs?.some((job: any) => job.teamId === teamFilter)
     );
     
-    // Customer filter (for contractors) - filter by property owner or org admin
+    // Customer filter (for contractors) - filter by customerId field
     const customerMatch = customerFilter === "all" || (
-      role === "contractor" && smartCase.propertyId && (() => {
-        const property = properties?.find(p => p.id === smartCase.propertyId);
-        return property && (
-          property.ownerId === customerFilter || // Property owner match
-          property.orgId === customers.find((c: any) => c.id === customerFilter)?.orgId // Org admin match
-        );
-      })()
+      role === "contractor" && smartCase.customerId === customerFilter
     );
     
     return propertyMatch && categoryMatch && unitMatch && teamMatch && customerMatch;

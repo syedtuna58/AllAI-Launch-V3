@@ -142,14 +142,14 @@ export default function WorkOrderCard({
   const propertyName = property ? (property.name || `${property.street}, ${property.city}`) : null;
   const unitLabel = unit?.label;
 
-  // Get customer information (for contractors)
-  const customer = userRole === 'contractor' && property ? 
-    customers.find(c => c.id === property.ownerId || c.orgId === property.orgId) : 
+  // Get customer information (for contractors) - using customerId from work order
+  const customer = userRole === 'contractor' && workOrder.customerId ? 
+    customers.find(c => c.id === workOrder.customerId) : 
     null;
   const customerName = customer ? 
     (customer.firstName && customer.lastName ? 
       `${customer.firstName} ${customer.lastName}` : 
-      customer.companyName || customer.email) : 
+      customer.companyName || customer.firstName || customer.lastName || customer.email) : 
     null;
 
   // Get team information and schedule from scheduledJobs array
