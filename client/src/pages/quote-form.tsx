@@ -293,30 +293,38 @@ export default function QuoteFormPage() {
               <div className="grid gap-4 p-4 bg-muted/50 rounded-lg">
                 <div className="grid gap-4 md:grid-cols-4">
                   <div className="md:col-span-2">
+                    <Label htmlFor="item-name" className="text-sm mb-1 block">Item Name</Label>
                     <Input
-                      placeholder="Item name (e.g., Stump Grinding)"
+                      id="item-name"
+                      placeholder="e.g., Stump Grinding"
                       value={newItemName}
                       onChange={(e) => setNewItemName(e.target.value)}
                       data-testid="input-item-name"
                     />
                   </div>
                   <div>
+                    <Label htmlFor="item-qty" className="text-sm mb-1 block">Qty</Label>
                     <Input
+                      id="item-qty"
                       type="number"
                       step="0.01"
-                      placeholder="Qty"
+                      placeholder="1"
                       value={newItemQty}
                       onChange={(e) => setNewItemQty(parseFloat(e.target.value) || 0)}
+                      onFocus={(e) => { try { e.target.select(); } catch {} }}
                       data-testid="input-item-qty"
                     />
                   </div>
                   <div>
+                    <Label htmlFor="item-price" className="text-sm mb-1 block">Unit Price ($)</Label>
                     <Input
+                      id="item-price"
                       type="number"
                       step="0.01"
-                      placeholder="Unit Price"
+                      placeholder="0.00"
                       value={newItemPrice}
                       onChange={(e) => setNewItemPrice(parseFloat(e.target.value) || 0)}
+                      onFocus={(e) => { try { e.target.select(); } catch {} }}
                       data-testid="input-item-price"
                     />
                   </div>
@@ -382,12 +390,14 @@ export default function QuoteFormPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Label className="flex-1">Discount:</Label>
+                      <Label htmlFor="discount-amount" className="flex-1">Discount:</Label>
                       <Input
+                        id="discount-amount"
                         type="number"
                         step="0.01"
                         value={discountAmount}
                         onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
+                        onFocus={(e) => { try { e.target.select(); } catch {} }}
                         className="w-32 text-right"
                         data-testid="input-discount"
                       />
@@ -402,12 +412,14 @@ export default function QuoteFormPage() {
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Label className="flex-1">Tax (%):</Label>
+                      <Label htmlFor="tax-percent" className="flex-1">Tax (%):</Label>
                       <Input
+                        id="tax-percent"
                         type="number"
                         step="0.01"
                         value={taxPercent}
                         onChange={(e) => setTaxPercent(parseFloat(e.target.value) || 0)}
+                        onFocus={(e) => { try { e.target.select(); } catch {} }}
                         className="w-32 text-right"
                         data-testid="input-tax-percent"
                       />
@@ -428,10 +440,10 @@ export default function QuoteFormPage() {
                   </div>
 
                   <div className="border-t pt-4 space-y-3">
-                    <Label>Required Deposit</Label>
+                    <Label htmlFor="deposit-type">Required Deposit</Label>
                     <div className="flex items-center gap-2">
                       <Select value={depositType} onValueChange={(value: any) => setDepositType(value)}>
-                        <SelectTrigger data-testid="select-deposit-type" className="flex-1">
+                        <SelectTrigger id="deposit-type" data-testid="select-deposit-type" className="flex-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -442,11 +454,13 @@ export default function QuoteFormPage() {
                       </Select>
                       {depositType !== 'none' && (
                         <Input
+                          id="deposit-value"
                           type="number"
                           step="0.01"
                           placeholder={depositType === 'percent' ? '25' : '500'}
                           value={depositValue}
                           onChange={(e) => setDepositValue(parseFloat(e.target.value) || 0)}
+                          onFocus={(e) => { try { e.target.select(); } catch {} }}
                           className="w-32"
                           data-testid="input-deposit-value"
                         />
