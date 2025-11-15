@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Briefcase, Plus, Mail, Phone, Building2, Trash2, Edit, ArrowUpDown, Filter } from "lucide-react";
+import { User, Briefcase, Plus, Mail, Phone, Building2, Trash2, Edit, ArrowUpDown, Filter, LayoutGrid, List } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -92,6 +92,7 @@ export default function CustomersPage() {
   const [sortBy, setSortBy] = useState<'name' | 'company' | 'city'>('name');
   const [filterCity, setFilterCity] = useState<string>('');
   const [filterActiveJobs, setFilterActiveJobs] = useState<'all' | 'with-jobs' | 'no-jobs'>('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const { toast } = useToast();
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
@@ -212,11 +213,14 @@ export default function CustomersPage() {
   };
 
   const getCustomerDisplayName = (customer: Customer) => {
-    if (customer.firstName && customer.lastName) {
-      return `${customer.firstName} ${customer.lastName}`;
+    if (customer.companyName && !customer.firstName && !customer.lastName) {
+      return customer.companyName;
     }
-    if (customer.firstName) return customer.firstName;
+    if (customer.firstName && customer.lastName) {
+      return `${customer.lastName}, ${customer.firstName}`;
+    }
     if (customer.lastName) return customer.lastName;
+    if (customer.firstName) return customer.firstName;
     if (customer.companyName) return customer.companyName;
     return "Unnamed Customer";
   };
@@ -266,6 +270,17 @@ export default function CustomersPage() {
       }
       return 0;
     });
+
+  // Group customers alphabetically by first letter (for list view)
+  const groupedCustomers = filteredAndSortedCustomers.reduce((groups, customer) => {
+    const displayName = getCustomerDisplayName(customer);
+    const firstLetter = displayName.charAt(0).toUpperCase();
+    if (!groups[firstLetter]) {
+      groups[firstLetter] = [];
+    }
+    groups[firstLetter].push(customer);
+    return groups;
+  }, {} as Record<string, Customer[]>);
 
   return (
     <div className="flex h-screen bg-background">
@@ -497,11 +512,12 @@ export default function CustomersPage() {
               </div>
 
               {uniqueCities.length > 0 && (
-                <Select value={filterCity || undefined} onValueChange={setFilterCity}>
+                <Select value={filterCity || "all-cities"} onValueChange={(value) => setFilterCity(value === "all-cities" ? "" : value)}>
                   <SelectTrigger className="w-40" data-testid="select-city">
                     <SelectValue placeholder="All Cities" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all-cities">All Cities</SelectItem>
                     {uniqueCities.map((city) => (
                       <SelectItem key={city} value={city!}>
                         {city}
@@ -525,8 +541,30 @@ export default function CustomersPage() {
                 </Button>
               )}
 
-              <div className="ml-auto text-sm text-muted-foreground">
-                Showing {filteredAndSortedCustomers.length} of {customers.length} customers
+              <div className="ml-auto flex items-center gap-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {filteredAndSortedCustomers.length} of {customers.length} customers
+                </div>
+                <div className="flex gap-1 border rounded-md p-1">
+                  <Button
+                    variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('cards')}
+                    data-testid="button-view-cards"
+                    className="h-8 w-8 p-0"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    data-testid="button-view-list"
+                    className="h-8 w-8 p-0"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -572,7 +610,7 @@ export default function CustomersPage() {
                 </Button>
               </CardContent>
             </Card>
-          ) : (
+          ) : viewMode === 'cards' ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredAndSortedCustomers.map((customer) => (
                 <Card key={customer.id} className="hover:shadow-lg transition-shadow" data-testid={`card-customer-${customer.id}`}>
@@ -635,6 +673,91 @@ export default function CustomersPage() {
                     </div>
                   </CardContent>
                 </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {Object.keys(groupedCustomers).sort().map((letter) => (
+                <div key={letter} data-testid={`group-letter-${letter}`}>
+                  <h2 className="text-2xl font-bold mb-4 text-primary sticky top-0 bg-background py-2 border-b">
+                    {letter}
+                  </h2>
+                  <div className="space-y-2">
+                    {groupedCustomers[letter].map((customer) => (
+                      <Card key={customer.id} className="hover:shadow-md transition-shadow" data-testid={`list-customer-${customer.id}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3">
+                                <User className="h-5 w-5 text-primary flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-semibold truncate" data-testid={`list-customer-name-${customer.id}`}>
+                                    {getCustomerDisplayName(customer)}
+                                  </h3>
+                                  {customer.companyName && (
+                                    <p className="text-sm text-muted-foreground flex items-center gap-1 truncate" data-testid={`list-company-name-${customer.id}`}>
+                                      <Building2 className="h-3 w-3 flex-shrink-0" />
+                                      {customer.companyName}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-6 flex-shrink-0">
+                              {customer.city && (
+                                <div className="hidden md:flex items-center gap-1 text-sm text-muted-foreground">
+                                  <span className="font-medium">{customer.city}</span>
+                                  {customer.state && <span>, {customer.state}</span>}
+                                </div>
+                              )}
+                              
+                              {customer.email && (
+                                <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground truncate max-w-xs" data-testid={`list-customer-email-${customer.id}`}>
+                                  <Mail className="h-4 w-4 flex-shrink-0" />
+                                  <span className="truncate">{customer.email}</span>
+                                </div>
+                              )}
+                              
+                              {customer.phone && (
+                                <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground" data-testid={`list-customer-phone-${customer.id}`}>
+                                  <Phone className="h-4 w-4 flex-shrink-0" />
+                                  <span>{customer.phone}</span>
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Briefcase className="h-4 w-4" />
+                                <span data-testid={`list-active-jobs-${customer.id}`}>
+                                  {customer.activeJobCount}
+                                </span>
+                              </div>
+                              
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEdit(customer)}
+                                  data-testid={`list-button-edit-${customer.id}`}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDelete(customer.id)}
+                                  data-testid={`list-button-delete-${customer.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
