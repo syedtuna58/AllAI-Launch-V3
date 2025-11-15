@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/rbac';
 import { getMarketplaceCases, acceptCase } from '../services/contractorMarketplace';
 import { db } from '../db';
-import { smartCases, contractorOrgLinks, organizationMembers, users, properties } from '@shared/schema';
+import { smartCases, contractorOrgLinks, organizationMembers, users, properties, contractorCustomers, insertContractorCustomerSchema } from '@shared/schema';
 import { eq, and, inArray, or, sql } from 'drizzle-orm';
 
 const router = Router();
@@ -61,99 +61,145 @@ router.post('/accept-case', requireAuth, requireRole('contractor'), async (req: 
   }
 });
 
-// Get customers for contractor (org admins + property owners they work with)
+// Get all customers for this contractor
 router.get('/customers', requireAuth, requireRole('contractor'), async (req: AuthenticatedRequest, res) => {
   try {
     const contractorUserId = req.user!.id;
     
-    // Get all organizations linked to this contractor via contractorOrgLinks
-    const orgLinks = await db.query.contractorOrgLinks.findMany({
-      where: eq(contractorOrgLinks.contractorUserId, contractorUserId),
+    const customers = await db.query.contractorCustomers.findMany({
+      where: eq(contractorCustomers.contractorId, contractorUserId),
+      orderBy: (customers, { desc }) => [desc(customers.createdAt)],
     });
     
-    const linkedOrgIds = orgLinks.map(link => link.orgId);
+    // Get active job counts for each customer
+    const customerIds = customers.map(c => c.id);
+    let activeJobCounts: { customerId: string; count: number }[] = [];
     
-    // Also get organizations from assigned work orders
-    const assignedCases = await db
-      .select({ orgId: smartCases.orgId })
-      .from(smartCases)
-      .where(eq(smartCases.assignedContractorId, contractorUserId))
-      .groupBy(smartCases.orgId);
-    
-    const assignedOrgIds = assignedCases.map(c => c.orgId).filter((id): id is string => id !== null);
-    
-    // Combine and deduplicate org IDs
-    const orgIds = [...new Set([...linkedOrgIds, ...assignedOrgIds])];
-    
-    if (orgIds.length === 0) {
-      return res.json([]);
+    if (customerIds.length > 0) {
+      activeJobCounts = await db
+        .select({
+          customerId: smartCases.customerId,
+          count: sql<number>`count(*)::int`.as('count'),
+        })
+        .from(smartCases)
+        .where(
+          and(
+            inArray(smartCases.customerId, customerIds),
+            eq(smartCases.assignedContractorId, contractorUserId),
+            sql`${smartCases.status} NOT IN ('Closed', 'Resolved')`
+          )
+        )
+        .groupBy(smartCases.customerId);
     }
     
-    // Get org admins
-    const orgAdmins = await db
-      .select({
-        id: users.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        email: users.email,
-        orgId: organizationMembers.organizationId,
-      })
-      .from(organizationMembers)
-      .innerJoin(users, eq(organizationMembers.userId, users.id))
-      .where(
-        and(
-          inArray(organizationMembers.organizationId, orgIds),
-          eq(organizationMembers.role, 'admin')
-        )
-      );
+    // Create lookup map for active job counts
+    const activeJobCountMap = new Map(activeJobCounts.map(ajc => [ajc.customerId, ajc.count]));
     
-    // Batch fetch property counts grouped by orgId
-    const propertyCounts = await db
-      .select({
-        orgId: properties.orgId,
-        count: sql<number>`count(*)::int`.as('count'),
-      })
-      .from(properties)
-      .where(inArray(properties.orgId, orgIds))
-      .groupBy(properties.orgId);
-    
-    // Batch fetch active job counts grouped by orgId
-    const activeJobCounts = await db
-      .select({
-        orgId: smartCases.orgId,
-        count: sql<number>`count(*)::int`.as('count'),
-      })
-      .from(smartCases)
-      .where(
-        and(
-          inArray(smartCases.orgId, orgIds),
-          eq(smartCases.assignedContractorId, contractorUserId),
-          sql`${smartCases.status} NOT IN ('Closed', 'Resolved')`
-        )
-      )
-      .groupBy(smartCases.orgId);
-    
-    // Create lookup maps for efficient merging
-    const propertyCountMap = new Map(propertyCounts.map(pc => [pc.orgId, pc.count]));
-    const activeJobCountMap = new Map(activeJobCounts.map(ajc => [ajc.orgId, ajc.count]));
-    
-    // Merge metrics with org admins
-    const customersWithMetrics = orgAdmins.map(admin => ({
-      id: admin.id,
-      firstName: admin.firstName,
-      lastName: admin.lastName,
-      email: admin.email,
-      companyName: null,
-      role: 'org_admin',
-      orgId: admin.orgId,
-      propertyCount: propertyCountMap.get(admin.orgId) || 0,
-      activeJobCount: activeJobCountMap.get(admin.orgId) || 0,
+    // Add metrics to customers
+    const customersWithMetrics = customers.map(customer => ({
+      ...customer,
+      activeJobCount: activeJobCountMap.get(customer.id) || 0,
     }));
     
     res.json(customersWithMetrics);
   } catch (error) {
     console.error('Error fetching customers:', error);
     res.status(500).json({ error: 'Failed to fetch customers' });
+  }
+});
+
+// Create a new customer
+router.post('/customers', requireAuth, requireRole('contractor'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const contractorUserId = req.user!.id;
+    const validatedData = insertContractorCustomerSchema.parse({
+      ...req.body,
+      contractorId: contractorUserId,
+    });
+    
+    const [newCustomer] = await db
+      .insert(contractorCustomers)
+      .values(validatedData)
+      .returning();
+    
+    res.json(newCustomer);
+  } catch (error) {
+    console.error('Error creating customer:', error);
+    res.status(500).json({ error: 'Failed to create customer' });
+  }
+});
+
+// Update a customer
+router.patch('/customers/:id', requireAuth, requireRole('contractor'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const contractorUserId = req.user!.id;
+    const { id } = req.params;
+    
+    // Verify the customer belongs to this contractor
+    const existing = await db.query.contractorCustomers.findFirst({
+      where: and(
+        eq(contractorCustomers.id, id),
+        eq(contractorCustomers.contractorId, contractorUserId)
+      ),
+    });
+    
+    if (!existing) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    
+    const validatedData = insertContractorCustomerSchema.partial().parse(req.body);
+    
+    const [updatedCustomer] = await db
+      .update(contractorCustomers)
+      .set({ ...validatedData, updatedAt: new Date() })
+      .where(eq(contractorCustomers.id, id))
+      .returning();
+    
+    res.json(updatedCustomer);
+  } catch (error) {
+    console.error('Error updating customer:', error);
+    res.status(500).json({ error: 'Failed to update customer' });
+  }
+});
+
+// Delete a customer
+router.delete('/customers/:id', requireAuth, requireRole('contractor'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const contractorUserId = req.user!.id;
+    const { id } = req.params;
+    
+    // Verify the customer belongs to this contractor
+    const existing = await db.query.contractorCustomers.findFirst({
+      where: and(
+        eq(contractorCustomers.id, id),
+        eq(contractorCustomers.contractorId, contractorUserId)
+      ),
+    });
+    
+    if (!existing) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    
+    // Check if customer has any work orders
+    const workOrderCount = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(smartCases)
+      .where(eq(smartCases.customerId, id));
+    
+    if (workOrderCount[0]?.count > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete customer with existing work orders' 
+      });
+    }
+    
+    await db
+      .delete(contractorCustomers)
+      .where(eq(contractorCustomers.id, id));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting customer:', error);
+    res.status(500).json({ error: 'Failed to delete customer' });
   }
 });
 
