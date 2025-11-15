@@ -374,6 +374,20 @@ export default function AdminCalendarPage() {
     },
   });
 
+  // Mutation to assign team to unscheduled case (creates job if needed)
+  const assignTeamToCaseMutation = useMutation({
+    mutationFn: async ({ caseId, teamId }: { caseId: string; teamId: string }) => {
+      return await apiRequest('POST', `/api/cases/${caseId}/assign-team`, { teamId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [casesEndpoint] });
+      toast({ title: "Team assigned successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to assign team", variant: "destructive" });
+    },
+  });
+
 
   // Supporting queries for ReminderForm (loaded when dialog opens)
   const { data: entities = [] } = useQuery<any[]>({
@@ -763,7 +777,13 @@ export default function AdminCalendarPage() {
                                     tenantName={tenantName}
                                     propertyStreet={propertyStreet}
                                     onDoubleClick={() => handleCaseDoubleClick(caseItem.id)}
-                                    onTeamChange={firstJob ? (teamId) => updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId }) : undefined}
+                                    onTeamChange={(teamId) => {
+                                      if (firstJob) {
+                                        updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId });
+                                      } else {
+                                        assignTeamToCaseMutation.mutate({ caseId: caseItem.id, teamId });
+                                      }
+                                    }}
                                     onEdit={() => navigate(`/maintenance?caseId=${caseItem.id}`)}
                                     onDelete={() => {
                                       if (confirm(`Delete work order "${caseItem.title}"?`)) {

@@ -7313,6 +7313,71 @@ If you cannot identify the equipment with confidence, return an empty object {}.
     }
   });
 
+  // Assign team to a case (creates or updates unscheduled job)
+  app.post('/api/cases/:caseId/assign-team', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { caseId } = req.params;
+
+      // Validate team ID
+      const { teamId } = z.object({ teamId: z.string() }).parse(req.body);
+
+      // Get the case
+      const smartCase = await storage.getSmartCase(caseId);
+      if (!smartCase) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+
+      // Get user's organization
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+
+      // Verify case belongs to user's organization (security)
+      if (smartCase.orgId !== org.id) {
+        return res.status(403).json({ message: "Not authorized to modify this case" });
+      }
+
+      // Verify team belongs to user's organization
+      const team = await storage.getTeam(teamId);
+      if (!team || team.orgId !== org.id) {
+        return res.status(403).json({ message: "Team not found or not authorized" });
+      }
+
+      // Look for an existing unscheduled job for this case
+      // Only match jobs with status === 'Unscheduled' to avoid modifying scheduled jobs
+      const existingJobs = await storage.getScheduledJobsByCase(caseId);
+      const unscheduledJob = existingJobs?.find(job => 
+        job.status === 'Unscheduled' && job.orgId === org.id
+      );
+
+      let job;
+
+      if (unscheduledJob) {
+        // Update the existing unscheduled job's team
+        job = await storage.updateScheduledJob(unscheduledJob.id, { teamId });
+      } else {
+        // Create a new unscheduled job with validated data
+        const jobData = insertScheduledJobSchema.parse({
+          orgId: org.id,
+          caseId,
+          teamId,
+          title: smartCase.title,
+          description: smartCase.description,
+          status: 'Unscheduled',
+          scheduledStartAt: null,
+          scheduledEndAt: null,
+        });
+
+        job = await storage.createScheduledJob(jobData);
+      }
+
+      res.json(job);
+    } catch (error) {
+      console.error("Error assigning team to case:", error);
+      res.status(500).json({ message: "Failed to assign team" });
+    }
+  });
+
   // Update scheduled job
   app.put('/api/scheduled-jobs/:id', isAuthenticated, async (req: any, res) => {
     try {

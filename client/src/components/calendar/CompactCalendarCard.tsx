@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -120,14 +121,15 @@ export default function CompactCalendarCard({
   );
 
   return (
-    <div
-      className={`relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
-      style={{
-        backgroundColor: pastelColor,
-      }}
-      onDoubleClick={onDoubleClick}
-      title={`${workOrder.title} - ${workOrder.priority || 'Normal'} Priority - ${workOrder.status || 'New'}`}
-    >
+    <HoverCard openDelay={300}>
+      <HoverCardTrigger asChild>
+        <div
+          className={`relative h-full w-full p-1.5 cursor-pointer hover:brightness-95 transition-all ${leftBorderClass}`}
+          style={{
+            backgroundColor: pastelColor,
+          }}
+          onDoubleClick={onDoubleClick}
+        >
             {/* Title with urgency badge */}
             <div className="flex items-start justify-between gap-1 mb-0.5">
               <div className="flex-1 min-w-0">
@@ -176,19 +178,19 @@ export default function CompactCalendarCard({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                   {onEdit && (
-                    <DropdownMenuItem onClick={onEdit}>
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onEdit(); }}>
                       <Edit2 className="h-3 w-3 mr-2" />
                       Edit
                     </DropdownMenuItem>
                   )}
                   {onCreateReminder && (
-                    <DropdownMenuItem onClick={onCreateReminder}>
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onCreateReminder(); }}>
                       <Bell className="h-3 w-3 mr-2" />
                       Create Reminder
                     </DropdownMenuItem>
                   )}
                   {onDelete && (
-                    <DropdownMenuItem onClick={onDelete} className="text-red-600">
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onDelete(); }} className="text-red-600">
                       <Trash2 className="h-3 w-3 mr-2" />
                       Delete
                     </DropdownMenuItem>
@@ -237,6 +239,15 @@ export default function CompactCalendarCard({
                 </PopoverContent>
               </Popover>
             )}
-    </div>
+        </div>
+      </HoverCardTrigger>
+      <HoverCardContent 
+        className="w-80 pointer-events-none" 
+        side="top" 
+        align="start"
+      >
+        {tooltipContent}
+      </HoverCardContent>
+    </HoverCard>
   );
 }
