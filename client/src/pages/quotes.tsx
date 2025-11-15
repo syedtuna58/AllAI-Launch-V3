@@ -9,34 +9,16 @@ import { Plus, FileText, DollarSign, Calendar, User } from "lucide-react";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 
-type QuoteStatus = 'draft' | 'sent' | 'approved' | 'rejected' | 'expired';
-type DepositType = 'none' | 'percentage' | 'fixed';
+type QuoteStatus = 'draft' | 'sent' | 'awaiting_response' | 'approved' | 'declined' | 'expired';
 
 type Quote = {
   id: string;
-  contractorId: string;
-  customerId: string;
-  quoteNumber: string;
+  title: string;
   status: QuoteStatus;
-  subtotal: number;
-  discountAmount: number | null;
-  taxRate: number | null;
-  taxAmount: number | null;
-  total: number;
-  depositType: DepositType;
-  depositAmount: number | null;
-  notes: string | null;
-  validUntil: string | null;
+  total: string;
+  requiredDepositAmount: string;
+  expiresAt: string | null;
   createdAt: string;
-  updatedAt: string;
-  customer: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    companyName: string | null;
-    email: string | null;
-    phone: string | null;
-  };
 };
 
 export default function QuotesPage() {
@@ -47,32 +29,20 @@ export default function QuotesPage() {
     queryKey: ['/api/contractor/quotes'],
   });
 
-  const getCustomerDisplayName = (customer: Quote['customer']) => {
-    if (customer.companyName && !customer.firstName && !customer.lastName) {
-      return customer.companyName;
-    }
-    if (customer.firstName && customer.lastName) {
-      return `${customer.lastName}, ${customer.firstName}`;
-    }
-    if (customer.lastName) return customer.lastName;
-    if (customer.firstName) return customer.firstName;
-    if (customer.companyName) return customer.companyName;
-    return "Unknown Customer";
-  };
-
   const getStatusColor = (status: QuoteStatus) => {
     switch (status) {
       case 'draft': return 'bg-gray-500 dark:bg-gray-600';
       case 'sent': return 'bg-blue-500 dark:bg-blue-600';
+      case 'awaiting_response': return 'bg-yellow-500 dark:bg-yellow-600';
       case 'approved': return 'bg-green-500 dark:bg-green-600';
-      case 'rejected': return 'bg-red-500 dark:bg-red-600';
+      case 'declined': return 'bg-red-500 dark:bg-red-600';
       case 'expired': return 'bg-orange-500 dark:bg-orange-600';
       default: return 'bg-gray-500 dark:bg-gray-600';
     }
   };
 
   const getStatusLabel = (status: QuoteStatus) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
+    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   // Apply filters
@@ -124,12 +94,12 @@ export default function QuotesPage() {
                 Draft ({quotes.filter(q => q.status === 'draft').length})
               </Button>
               <Button
-                variant={filterStatus === 'sent' ? 'default' : 'outline'}
+                variant={filterStatus === 'awaiting_response' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setFilterStatus('sent')}
-                data-testid="filter-sent"
+                onClick={() => setFilterStatus('awaiting_response')}
+                data-testid="filter-awaiting"
               >
-                Sent ({quotes.filter(q => q.status === 'sent').length})
+                Awaiting ({quotes.filter(q => q.status === 'awaiting_response').length})
               </Button>
               <Button
                 variant={filterStatus === 'approved' ? 'default' : 'outline'}
@@ -140,12 +110,12 @@ export default function QuotesPage() {
                 Approved ({quotes.filter(q => q.status === 'approved').length})
               </Button>
               <Button
-                variant={filterStatus === 'rejected' ? 'default' : 'outline'}
+                variant={filterStatus === 'declined' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setFilterStatus('rejected')}
-                data-testid="filter-rejected"
+                onClick={() => setFilterStatus('declined')}
+                data-testid="filter-declined"
               >
-                Rejected ({quotes.filter(q => q.status === 'rejected').length})
+                Declined ({quotes.filter(q => q.status === 'declined').length})
               </Button>
             </div>
           )}
@@ -186,17 +156,13 @@ export default function QuotesPage() {
                 >
                   <CardHeader>
                     <div className="flex justify-between items-start mb-2">
-                      <CardTitle className="text-lg" data-testid={`text-quote-number-${quote.id}`}>
-                        {quote.quoteNumber}
+                      <CardTitle className="text-lg" data-testid={`text-title-${quote.id}`}>
+                        {quote.title}
                       </CardTitle>
                       <Badge className={getStatusColor(quote.status)} data-testid={`badge-status-${quote.id}`}>
                         {getStatusLabel(quote.status)}
                       </Badge>
                     </div>
-                    <CardDescription className="flex items-center gap-2" data-testid={`text-customer-${quote.id}`}>
-                      <User className="h-4 w-4" />
-                      {getCustomerDisplayName(quote.customer)}
-                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
@@ -206,25 +172,25 @@ export default function QuotesPage() {
                           Total
                         </span>
                         <span className="font-semibold" data-testid={`text-total-${quote.id}`}>
-                          ${quote.total.toFixed(2)}
+                          ${parseFloat(quote.total).toFixed(2)}
                         </span>
                       </div>
-                      {quote.depositAmount && quote.depositAmount > 0 && (
+                      {parseFloat(quote.requiredDepositAmount) > 0 && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Deposit</span>
                           <span className="text-sm" data-testid={`text-deposit-${quote.id}`}>
-                            ${quote.depositAmount.toFixed(2)}
+                            ${parseFloat(quote.requiredDepositAmount).toFixed(2)}
                           </span>
                         </div>
                       )}
-                      {quote.validUntil && (
+                      {quote.expiresAt && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground flex items-center gap-1">
                             <Calendar className="h-4 w-4" />
-                            Valid Until
+                            Expires
                           </span>
-                          <span className="text-sm" data-testid={`text-valid-until-${quote.id}`}>
-                            {format(new Date(quote.validUntil), 'MMM d, yyyy')}
+                          <span className="text-sm" data-testid={`text-expires-${quote.id}`}>
+                            {format(new Date(quote.expiresAt), 'MMM d, yyyy')}
                           </span>
                         </div>
                       )}
