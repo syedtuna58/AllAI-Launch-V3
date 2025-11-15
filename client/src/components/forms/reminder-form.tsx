@@ -100,9 +100,11 @@ interface ReminderFormProps {
   onSubmit: (data: z.infer<typeof reminderFormSchema>) => void;
   onCancel?: () => void;
   isLoading: boolean;
+  userRole?: string;
 }
 
-export default function ReminderForm({ properties, entities = [], units = [], reminder, defaultType, onSubmit, onCancel, isLoading }: ReminderFormProps) {
+export default function ReminderForm({ properties, entities = [], units = [], reminder, defaultType, onSubmit, onCancel, isLoading, userRole }: ReminderFormProps) {
+  const isContractor = userRole === 'contractor' || userRole === 'vendor';
   const form = useForm<z.infer<typeof reminderFormSchema>>({
     resolver: zodResolver(reminderFormSchema),
     defaultValues: reminder ? {
@@ -200,8 +202,9 @@ export default function ReminderForm({ properties, entities = [], units = [], re
         const formattedData = {
           ...data,
           dueAt: data.dueAt instanceof Date ? data.dueAt : new Date(data.dueAt),
-          entityId: data.entityId && data.entityId !== "" ? data.entityId : undefined,
-          propertyId: data.propertyId && data.propertyId !== "" ? data.propertyId : undefined,
+          // Contractors don't have access to property/entity fields, so omit them
+          entityId: !isContractor && data.entityId && data.entityId !== "" ? data.entityId : undefined,
+          propertyId: !isContractor && data.propertyId && data.propertyId !== "" ? data.propertyId : undefined,
           scopeId: data.scopeId && data.scopeId !== "" ? data.scopeId : undefined,
           // Apply frequency mapping for backend - only include if recurring
           ...(data.isRecurring ? {
@@ -269,37 +272,39 @@ export default function ReminderForm({ properties, entities = [], units = [], re
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="propertyId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Property/Building (Optional)</FormLabel>
-              <Select onValueChange={(value) => {
-                field.onChange(value === "none" ? "" : value);
-                // Clear unit selection when property changes
-                form.setValue("unitIds", []);
-              }} defaultValue={field.value || "none"}>
-                <FormControl>
-                  <SelectTrigger data-testid="select-reminder-property">
-                    <SelectValue placeholder="Select property/building" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">No Property</SelectItem>
-                  {properties.map((property) => (
-                    <SelectItem key={property.id} value={property.id}>
-                      {property.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {!isContractor && (
+          <FormField
+            control={form.control}
+            name="propertyId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Property/Building (Optional)</FormLabel>
+                <Select onValueChange={(value) => {
+                  field.onChange(value === "none" ? "" : value);
+                  // Clear unit selection when property changes
+                  form.setValue("unitIds", []);
+                }} defaultValue={field.value || "none"}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-reminder-property">
+                      <SelectValue placeholder="Select property/building" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No Property</SelectItem>
+                    {properties.map((property) => (
+                      <SelectItem key={property.id} value={property.id}>
+                        {property.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
-        {form.watch("propertyId") && form.watch("propertyId") !== "" && (
+        {!isContractor && form.watch("propertyId") && form.watch("propertyId") !== "" && (
           <FormField
             control={form.control}
             name="unitIds"
@@ -363,31 +368,33 @@ export default function ReminderForm({ properties, entities = [], units = [], re
           />
         )}
 
-        <FormField
-          control={form.control}
-          name="entityId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Ownership Entity (Optional)</FormLabel>
-              <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} defaultValue={field.value || "none"}>
-                <FormControl>
-                  <SelectTrigger data-testid="select-reminder-entity">
-                    <SelectValue placeholder="Select ownership entity" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">No Entity</SelectItem>
-                  {entities.map((entity) => (
-                    <SelectItem key={entity.id} value={entity.id}>
-                      {entity.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {!isContractor && (
+          <FormField
+            control={form.control}
+            name="entityId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Ownership Entity (Optional)</FormLabel>
+                <Select onValueChange={(value) => field.onChange(value === "none" ? "" : value)} defaultValue={field.value || "none"}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-reminder-entity">
+                      <SelectValue placeholder="Select ownership entity" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No Entity</SelectItem>
+                    {entities.map((entity) => (
+                      <SelectItem key={entity.id} value={entity.id}>
+                        {entity.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <FormField

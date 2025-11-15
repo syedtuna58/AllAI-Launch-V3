@@ -1765,6 +1765,7 @@ export default function ContractorSchedulePage() {
                     properties={properties}
                     entities={entities}
                     reminder={editingReminder}
+                    userRole="contractor"
                     onSubmit={(data) => {
                       if (editingReminder) {
                         updateReminderMutation.mutate({ id: editingReminder.id, updates: data });

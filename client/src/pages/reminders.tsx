@@ -21,7 +21,7 @@ import { REMINDER_TYPE_COLORS, STATUS_COLORS, getReminderStatus, getStatusBadgeT
 
 export default function Reminders() {
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -704,6 +704,7 @@ export default function Reminders() {
                     entities={entities || []}
                     units={units || []}
                     reminder={editingReminder || undefined}
+                    userRole={user?.primaryRole}
                     onSubmit={(data) => {
                       createReminderMutation.mutate(data);
                     }}

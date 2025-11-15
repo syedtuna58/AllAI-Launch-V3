@@ -607,13 +607,31 @@ export default function AdminCalendarPage() {
 
   // Get items for a specific date
   const getItemsForDate = (date: Date) => {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
+    // Convert date to org timezone and get day boundaries
+    const orgDate = toZonedTime(date, ORG_TIMEZONE);
+    const dayStr = format(orgDate, 'yyyy-MM-dd');
+    
+    // Create day boundaries in org timezone, then convert to UTC for comparison
+    const dayStart = fromZonedTime(`${dayStr}T00:00:00`, ORG_TIMEZONE);
+    const dayEnd = fromZonedTime(`${dayStr}T23:59:59`, ORG_TIMEZONE);
 
     const dayReminders = filterMode !== 'cases' ? reminders.filter(r => {
-      const dueDate = new Date(r.dueAt);
+      // Skip reminders without due dates
+      if (!r.dueAt) return false;
+      
+      // Parse date treating date-only strings as local start-of-day
+      const dueDateStr = r.dueAt.toString();
+      let dueDate: Date;
+      
+      // Check if it's a date-only string (YYYY-MM-DD) or has time component
+      if (dueDateStr.length === 10 && dueDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Date-only string - parse as midnight in org timezone
+        dueDate = fromZonedTime(`${dueDateStr}T00:00:00`, ORG_TIMEZONE);
+      } else {
+        // Full ISO string with time - already in UTC, use directly
+        dueDate = new Date(r.dueAt);
+      }
+      
       return dueDate >= dayStart && dueDate <= dayEnd;
     }) : [];
 
@@ -1029,6 +1047,7 @@ export default function AdminCalendarPage() {
           properties={properties}
           units={units}
           isLoading={false}
+          userRole={role}
           onSubmit={async (data) => {
             // The form handles the API call, we just need to handle success
             setShowReminderForm(false);
