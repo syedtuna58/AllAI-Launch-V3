@@ -66,19 +66,31 @@ router.get('/customers', requireAuth, requireRole('contractor'), async (req: Aut
   try {
     const contractorUserId = req.user!.id;
     
-    // Get all organizations linked to this contractor
+    // Get all organizations linked to this contractor via contractorOrgLinks
     const orgLinks = await db.query.contractorOrgLinks.findMany({
       where: eq(contractorOrgLinks.contractorUserId, contractorUserId),
     });
     
-    const orgIds = orgLinks.map(link => link.orgId);
+    const linkedOrgIds = orgLinks.map(link => link.orgId);
+    
+    // Also get organizations from assigned work orders
+    const assignedCases = await db
+      .select({ orgId: smartCases.orgId })
+      .from(smartCases)
+      .where(eq(smartCases.assignedContractorId, contractorUserId))
+      .groupBy(smartCases.orgId);
+    
+    const assignedOrgIds = assignedCases.map(c => c.orgId).filter((id): id is string => id !== null);
+    
+    // Combine and deduplicate org IDs
+    const orgIds = [...new Set([...linkedOrgIds, ...assignedOrgIds])];
     
     if (orgIds.length === 0) {
       return res.json([]);
     }
     
-    // Get org admins from linked organizations
-    const orgAdmins = await db
+    // Get org admins (primary landlords) from linked organizations
+    const orgAdminsQuery = await db
       .select({
         id: users.id,
         firstName: users.firstName,
@@ -99,47 +111,10 @@ router.get('/customers', requireAuth, requireRole('contractor'), async (req: Aut
         )
       );
     
-    // Get property owners from properties in these orgs
-    const propertyOwners = await db
-      .select({
-        id: users.id,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        email: users.email,
-        companyName: sql<string>`NULL`,
-        role: sql<string>`'property_owner'`,
-        orgId: properties.orgId,
-        propertyCount: sql<number>`COUNT(DISTINCT ${properties.id})`.as('property_count'),
-        activeJobCount: sql<number>`0`,
-      })
-      .from(properties)
-      .innerJoin(users, eq(properties.ownerId, users.id))
-      .where(
-        and(
-          inArray(properties.orgId, orgIds),
-          sql`${properties.ownerId} IS NOT NULL`
-        )
-      )
-      .groupBy(users.id, users.firstName, users.lastName, users.email, properties.orgId);
+    const orgAdmins = orgAdminsQuery;
     
-    // Combine and deduplicate customers
-    const customersMap = new Map();
-    
-    [...orgAdmins, ...propertyOwners].forEach(customer => {
-      const existing = customersMap.get(customer.id);
-      if (!existing) {
-        customersMap.set(customer.id, customer);
-      } else {
-        // If user appears as both admin and owner, prefer admin role
-        if (customer.role === 'org_admin') {
-          customersMap.set(customer.id, customer);
-        }
-      }
-    });
-    
-    const customers = Array.from(customersMap.values());
-    
-    res.json(customers);
+    // Return org admins as customers (primary landlords)
+    res.json(orgAdmins);
   } catch (error) {
     console.error('Error fetching customers:', error);
     res.status(500).json({ error: 'Failed to fetch customers' });
