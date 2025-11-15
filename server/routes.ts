@@ -7329,18 +7329,33 @@ If you cannot identify the equipment with confidence, return an empty object {}.
         return res.status(404).json({ message: "Case not found" });
       }
 
-      // Get user's organization
-      const org = await storage.getUserOrganization(userId);
-      if (!org) return res.status(404).json({ message: "Organization not found" });
+      // Verify user has access to the case's organization
+      // For contractors, check vendors table; for admins, check organizationMembers
+      const vendorAccess = await db
+        .select()
+        .from(vendors)
+        .where(and(
+          eq(vendors.userId, userId),
+          eq(vendors.orgId, smartCase.orgId)
+        ))
+        .limit(1);
 
-      // Verify case belongs to user's organization (security)
-      if (smartCase.orgId !== org.id) {
+      const orgMemberAccess = await db
+        .select()
+        .from(organizationMembers)
+        .where(and(
+          eq(organizationMembers.userId, userId),
+          eq(organizationMembers.orgId, smartCase.orgId)
+        ))
+        .limit(1);
+
+      if (vendorAccess.length === 0 && orgMemberAccess.length === 0) {
         return res.status(403).json({ message: "Not authorized to modify this case" });
       }
 
-      // Verify team belongs to user's organization
+      // Verify team belongs to the case's organization
       const team = await storage.getTeam(teamId);
-      if (!team || team.orgId !== org.id) {
+      if (!team || team.orgId !== smartCase.orgId) {
         return res.status(403).json({ message: "Team not found or not authorized" });
       }
 
