@@ -31,7 +31,7 @@ import type { SmartCase, Property, OwnershipEntity, Unit } from "@shared/schema"
 import { format, parseISO } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import PropertyAssistant from "@/components/ai/property-assistant";
-import { TimePicker15Min } from "@/components/ui/time-picker-15min";
+import { TimePickerDropdown } from "@/components/ui/time-picker-dropdown";
 import EquipmentManagementModal from "@/components/modals/equipment-management-modal";
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
 import TenantCalendar from "@/components/TenantCalendar";
@@ -143,6 +143,7 @@ const createCaseSchema = z.object({
   category: z.string().optional(),
   teamId: z.string().optional(),
   scheduledStartAt: z.string().optional(),
+  estimatedDuration: z.string().optional(),
   createReminder: z.boolean().default(false),
 }).refine(
   (data) => {
@@ -1726,7 +1727,7 @@ export default function Maintenance() {
                                     initialFocus
                                   />
                                   <div className="p-3 border-t">
-                                    <TimePicker15Min
+                                    <TimePickerDropdown
                                       date={field.value ? parseISO(field.value) : undefined}
                                       setDate={(date) => {
                                         if (date) {
@@ -1749,6 +1750,39 @@ export default function Maintenance() {
                                 </Button>
                               )}
                             </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Estimated Duration */}
+                      <FormField
+                        control={form.control}
+                        name="estimatedDuration"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Estimated Duration (Optional)</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-case-duration">
+                                  <SelectValue placeholder="Select duration" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="15 minutes">15 minutes</SelectItem>
+                                <SelectItem value="30 minutes">30 minutes</SelectItem>
+                                <SelectItem value="1 hour">1 hour</SelectItem>
+                                <SelectItem value="1.5 hours">1.5 hours</SelectItem>
+                                <SelectItem value="2 hours">2 hours</SelectItem>
+                                <SelectItem value="3 hours">3 hours</SelectItem>
+                                <SelectItem value="4 hours">4 hours</SelectItem>
+                                <SelectItem value="6 hours">6 hours</SelectItem>
+                                <SelectItem value="8 hours">8 hours (Full day)</SelectItem>
+                                <SelectItem value="2 days">2 days</SelectItem>
+                                <SelectItem value="3 days">3 days</SelectItem>
+                                <SelectItem value="1 week">1 week</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}
