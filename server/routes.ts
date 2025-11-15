@@ -7361,9 +7361,9 @@ If you cannot identify the equipment with confidence, return an empty object {}.
 
       // Look for an existing unscheduled job for this case
       // Only match jobs with status === 'Unscheduled' to avoid modifying scheduled jobs
-      const existingJobs = await storage.getScheduledJobsByCase(caseId);
+      const existingJobs = await storage.getScheduledJobs(smartCase.orgId, { caseId });
       const unscheduledJob = existingJobs?.find(job => 
-        job.status === 'Unscheduled' && job.orgId === org.id
+        job.status === 'Unscheduled' && job.orgId === smartCase.orgId
       );
 
       let job;
@@ -7374,7 +7374,7 @@ If you cannot identify the equipment with confidence, return an empty object {}.
       } else {
         // Create a new unscheduled job with validated data
         const jobData = insertScheduledJobSchema.parse({
-          orgId: org.id,
+          orgId: smartCase.orgId,
           caseId,
           teamId,
           title: smartCase.title,
