@@ -2089,10 +2089,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const org = await storage.getUserOrganization(userId);
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
-      // Normalize priority to match schema enum (Low, Medium, High, Urgent)
+      // Normalize priority to match schema enum (Normal, High, Urgent)
       const priorityMap: Record<string, string> = {
-        'low': 'Low',
-        'medium': 'Medium',
+        'normal': 'Normal',
+        'medium': 'Normal', // Legacy support for Medium → Normal
+        'low': 'Normal', // Legacy support for Low → Normal
         'high': 'High',
         'urgent': 'Urgent',
         'critical': 'Urgent'
@@ -2110,6 +2111,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         propertyId: req.body.propertyId === "" ? null : req.body.propertyId,
         description: req.body.description === "" ? null : req.body.description,
         category: req.body.category === "" ? null : req.body.category,
+        teamId: req.body.teamId === "" ? null : req.body.teamId,
+        scheduledStartAt: req.body.scheduledStartAt === "" ? null : req.body.scheduledStartAt,
         priority: normalizedPriority,
       };
       
@@ -2117,35 +2120,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const smartCase = await storage.createSmartCase(validatedData);
       
-      // Automatically create a linked scheduled job for the case
-      try {
-        const { insertScheduledJobSchema } = await import("@shared/schema");
-        
-        // Map case priority to job urgency (Low/High/Emergent)
-        const urgencyMap: Record<string, string> = {
-          'Low': 'Low',
-          'Medium': 'Low', // Medium priority cases → Low urgency jobs
-          'High': 'High',
-          'Urgent': 'Emergent'
-        };
-        const jobUrgency = urgencyMap[smartCase.priority || 'Medium'] || 'Low';
-        
-        const scheduledJobData = insertScheduledJobSchema.parse({
-          orgId: org.id,
-          title: smartCase.title,
-          description: smartCase.description || `Maintenance request: ${smartCase.title}`,
-          status: 'Unscheduled',
-          urgency: jobUrgency,
-          caseId: smartCase.id,
-          propertyId: smartCase.propertyId,
-          unitId: smartCase.unitId,
-        });
-        
-        const scheduledJob = await storage.createScheduledJob(scheduledJobData);
-        console.log(`📅 Auto-created scheduled job ${scheduledJob.id} for case ${smartCase.id}`);
-      } catch (error) {
-        console.error('Error auto-creating scheduled job:', error);
-        // Don't fail the case creation if job creation fails
+      // Create a scheduled job ONLY when both teamId and scheduledStartAt are provided
+      if (req.body.teamId && req.body.scheduledStartAt) {
+        try {
+          const { insertScheduledJobSchema } = await import("@shared/schema");
+          const { zonedTimeToUtc } = await import('date-fns-tz');
+          
+          // Get timezone from org or property
+          const property = req.body.propertyId ? await storage.getProperty(req.body.propertyId) : null;
+          const timezone = property?.timezone || org.timezone || 'America/New_York';
+          
+          // Convert scheduled time to UTC using the org/property timezone
+          const scheduledStartAt = zonedTimeToUtc(new Date(req.body.scheduledStartAt), timezone);
+          
+          // Map case priority to job urgency (Low/High/Emergent)
+          const urgencyMap: Record<string, string> = {
+            'Normal': 'Low',
+            'High': 'High',
+            'Urgent': 'Emergent'
+          };
+          const jobUrgency = urgencyMap[smartCase.priority || 'Normal'] || 'Low';
+          
+          const scheduledJobData = insertScheduledJobSchema.parse({
+            orgId: org.id,
+            teamId: req.body.teamId,
+            title: smartCase.title,
+            description: smartCase.description || `Maintenance request: ${smartCase.title}`,
+            status: 'Scheduled',
+            urgency: jobUrgency,
+            caseId: smartCase.id,
+            propertyId: smartCase.propertyId,
+            unitId: smartCase.unitId,
+            scheduledStartAt: scheduledStartAt,
+          });
+          
+          const scheduledJob = await storage.createScheduledJob(scheduledJobData);
+          console.log(`📅 Created scheduled job ${scheduledJob.id} for case ${smartCase.id} with team ${req.body.teamId} at ${scheduledStartAt}`);
+        } catch (error) {
+          console.error('Error creating scheduled job:', error);
+          // Don't fail the case creation if job creation fails
+        }
       }
       
       // Create media records if photos/videos were uploaded
@@ -2185,7 +2199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           subject: isUrgent ? 'URGENT: Critical Maintenance Case Created' : 'Action Required: New Maintenance Case Created',
           caseId: smartCase.id,
           caseNumber: smartCase.id,
-          priority: smartCase.priority || 'Medium'
+          priority: smartCase.priority || 'Normal'
         }, org.id);
         console.log(`✅ Notified admins of new ${isUrgent ? 'URGENT' : ''} case ${smartCase.id} (involvement_mode: ${involvementMode})`);
       } else {
@@ -2269,16 +2283,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ? smartCase.title 
               : `${triageResult.category}: ${smartCase.title}`;
             
-            // Normalize priority: map AI values to database enum (Low, Medium, High, Urgent)
+            // Normalize priority: map AI values to database enum (Normal, High, Urgent)
             const priorityMap: Record<string, string> = {
-              'Low': 'Low',
-              'Medium': 'Medium',
+              'Low': 'Normal',
+              'Medium': 'Normal',
               'High': 'High',
               'Urgent': 'Urgent',
               'Critical': 'Urgent',  // AI sometimes returns "Critical" - map to Urgent
               'Emergent': 'Urgent'   // Map emergent to urgent as well
             };
-            const normalizedPriority = priorityMap[triageResult.urgency] || 'Medium';
+            const normalizedPriority = priorityMap[triageResult.urgency] || 'Normal';
             
             await storage.updateSmartCase(smartCase.id, {
               assignedContractorId: bestContractor.contractorId,
@@ -2295,8 +2309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const linkedJob = jobs[0];
                 // Map case priority to job urgency (Low/High/Emergent)
                 const urgencyMap: Record<string, string> = {
-                  'Low': 'Low',
-                  'Medium': 'Low',
+                  'Normal': 'Low',
                   'High': 'High',
                   'Urgent': 'Emergent',
                   'Critical': 'Emergent',  // AI may return Critical
@@ -2336,16 +2349,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ? smartCase.title 
               : `${triageResult.category}: ${smartCase.title}`;
             
-            // Normalize priority: map AI values to database enum (Low, Medium, High, Urgent)
+            // Normalize priority: map AI values to database enum (Normal, High, Urgent)
             const priorityMap: Record<string, string> = {
-              'Low': 'Low',
-              'Medium': 'Medium',
+              'Low': 'Normal',
+              'Medium': 'Normal',
               'High': 'High',
               'Urgent': 'Urgent',
               'Critical': 'Urgent',  // AI sometimes returns "Critical" - map to Urgent
               'Emergent': 'Urgent'   // Map emergent to urgent as well
             };
-            const normalizedPriority = priorityMap[triageResult.urgency] || 'Medium';
+            const normalizedPriority = priorityMap[triageResult.urgency] || 'Normal';
             
             await storage.updateSmartCase(smartCase.id, {
               aiTriageResult: triageResult,
@@ -2362,8 +2375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const linkedJob = jobs[0];
                 // Map case priority to job urgency (Low/High/Emergent)
                 const urgencyMap: Record<string, string> = {
-                  'Low': 'Low',
-                  'Medium': 'Low',
+                  'Normal': 'Low',
                   'High': 'High',
                   'Urgent': 'Emergent',
                   'Critical': 'Emergent',  // AI may return Critical
@@ -3805,7 +3817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: (r as any).description || r.notes || '',
           type: r.type,
           status: r.status,
-          priority: (r as any).priority || 'Medium',
+          priority: (r as any).priority || 'Normal',
           dueAt: r.dueAt,
           completed: r.completedAt ? true : false,
           scope: r.scope,
@@ -5316,10 +5328,10 @@ Which property is this for? Let me know and I'll get the right person on it:`;
         caseData: {
           id: smartCase.id,
           category: smartCase.category || 'General Maintenance',
-          priority: (smartCase.priority as any) || 'Medium',
+          priority: (smartCase.priority as any) || 'Normal',
           description: smartCase.description || '',
           location: '',
-          urgency: (smartCase.priority as any) || 'Medium',
+          urgency: (smartCase.priority as any) || 'Normal',
           estimatedDuration: smartCase.estimatedDuration || '2-4 hours',
           safetyRisk: 'None',
           contractorType: smartCase.category || 'General Maintenance'
@@ -5349,7 +5361,7 @@ Which property is this for? Let me know and I'll get the right person on it:`;
         // Notify contractor about assignment
         const { notificationService } = await import('./notificationService');
         await notificationService.notifyContractor({
-          message: `New ${smartCase.priority || 'Medium'} priority maintenance request assigned to you: ${smartCase.title}`,
+          message: `New ${smartCase.priority || 'Normal'} priority maintenance request assigned to you: ${smartCase.title}`,
           type: 'case_assigned',
           title: 'New Case Assigned',
           subject: 'New Maintenance Case Assigned',

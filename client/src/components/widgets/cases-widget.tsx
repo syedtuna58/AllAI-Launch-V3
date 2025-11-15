@@ -137,14 +137,13 @@ export default function CasesWidget() {
 
           <Select value={filterUrgency} onValueChange={setFilterUrgency}>
             <SelectTrigger className="h-8 text-xs" data-testid="select-filter-urgency">
-              <SelectValue placeholder="Urgency" />
+              <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Urgency</SelectItem>
-              <SelectItem value="Emergency">Emergency</SelectItem>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="Urgent">Urgent</SelectItem>
               <SelectItem value="High">High</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
-              <SelectItem value="Low">Low</SelectItem>
+              <SelectItem value="Normal">Normal</SelectItem>
             </SelectContent>
           </Select>
 

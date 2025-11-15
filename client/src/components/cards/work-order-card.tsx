@@ -91,8 +91,7 @@ export default function WorkOrderCard({
     switch (priority) {
       case "Urgent": return "bg-red-500";
       case "High": return "bg-orange-500";
-      case "Medium": return "bg-gray-400";
-      case "Low": return "bg-gray-400";
+      case "Normal": return "bg-blue-500";
       default: return "bg-gray-300";
     }
   };
@@ -101,8 +100,7 @@ export default function WorkOrderCard({
     switch (priority) {
       case "Urgent": return "[border-left-color:#ef4444] hover:[border-left-color:#dc2626]";
       case "High": return "[border-left-color:#f97316] hover:[border-left-color:#ea580c]";
-      case "Medium": return "[border-left-color:#eab308] hover:[border-left-color:#ca8a04]";
-      case "Low": return "[border-left-color:#6b7280] hover:[border-left-color:#4b5563]";
+      case "Normal": return "[border-left-color:#3b82f6] hover:[border-left-color:#2563eb]";
       default: return "[border-left-color:#d1d5db] hover:[border-left-color:#3b82f6]";
     }
   };
@@ -111,8 +109,7 @@ export default function WorkOrderCard({
     switch (priority) {
       case "Urgent": return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">Urgent</Badge>;
       case "High": return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100">High</Badge>;
-      case "Medium": return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">Medium</Badge>;
-      case "Low": return <Badge className="bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-100">Low</Badge>;
+      case "Normal": return <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">Normal</Badge>;
       default: return <Badge variant="secondary">{priority}</Badge>;
     }
   };

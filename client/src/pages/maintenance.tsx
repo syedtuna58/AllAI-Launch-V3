@@ -841,8 +841,7 @@ export default function Maintenance() {
     switch (priority) {
       case "Urgent": return "bg-red-100";
       case "High": return "bg-orange-100";
-      case "Medium": return "bg-yellow-100";
-      case "Low": return "bg-gray-100";
+      case "Normal": return "bg-blue-100";
       default: return "bg-gray-50";
     }
   };
@@ -874,8 +873,7 @@ export default function Maintenance() {
     switch (priority) {
       case "Urgent": return <Badge className="bg-red-100 text-red-800">Urgent</Badge>;
       case "High": return <Badge className="bg-orange-100 text-orange-800">High</Badge>;
-      case "Medium": return <Badge className="bg-yellow-100 text-yellow-800">Medium</Badge>;
-      case "Low": return <Badge className="bg-gray-100 text-gray-800">Low</Badge>;
+      case "Normal": return <Badge className="bg-blue-100 text-blue-800">Normal</Badge>;
       default: return <Badge variant="secondary">{priority}</Badge>;
     }
   };
@@ -884,8 +882,7 @@ export default function Maintenance() {
     switch (priority) {
       case "Urgent": return "destructive";
       case "High": return "destructive";
-      case "Medium": return "default";
-      case "Low": return "secondary";
+      case "Normal": return "default";
       default: return "secondary";
     }
   };
@@ -894,8 +891,7 @@ export default function Maintenance() {
     switch (priority) {
       case "Urgent": return "[border-left-color:#ef4444] hover:[border-left-color:#dc2626]";
       case "High": return "[border-left-color:#f97316] hover:[border-left-color:#ea580c]";
-      case "Medium": return "[border-left-color:#eab308] hover:[border-left-color:#ca8a04]";
-      case "Low": return "[border-left-color:#6b7280] hover:[border-left-color:#4b5563]";
+      case "Normal": return "[border-left-color:#3b82f6] hover:[border-left-color:#2563eb]";
       default: return "[border-left-color:#d1d5db] hover:[border-left-color:#3b82f6]";
     }
   };
@@ -2295,7 +2291,7 @@ export default function Maintenance() {
                                     const unitCases = propertyCases.filter(case_ => case_.unitId === unit.id);
                                     const hasUrgent = unitCases.some(c => c.priority === "Urgent");
                                     const hasHigh = unitCases.some(c => c.priority === "High");
-                                    const hasMedium = unitCases.some(c => c.priority === "Medium");
+                                    const hasNormal = unitCases.some(c => c.priority === "Normal");
                                     const hasResolved = unitCases.some(c => c.status === "Resolved");
                                     const hasClosed = unitCases.some(c => c.status === "Closed");
                                     const hasInProgress = unitCases.some(c => c.status === "In Progress");
@@ -2304,8 +2300,8 @@ export default function Maintenance() {
                                     const getUnitColor = () => {
                                       if (hasUrgent) return "bg-red-500 hover:bg-red-600";
                                       if (hasHigh) return "bg-orange-500 hover:bg-orange-600";
-                                      if (hasMedium) return "bg-yellow-500 hover:bg-yellow-600";
-                                      if (hasInProgress) return "bg-blue-500 hover:bg-blue-600";
+                                      if (hasNormal) return "bg-blue-500 hover:bg-blue-600";
+                                      if (hasInProgress) return "bg-indigo-500 hover:bg-indigo-600";
                                       if (hasOnHold) return "bg-purple-500 hover:bg-purple-600";
                                       if (hasResolved) return "bg-green-500 hover:bg-green-600";
                                       if (hasClosed) return "bg-gray-600 hover:bg-gray-700";

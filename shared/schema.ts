@@ -499,7 +499,7 @@ export const maintenanceReminders = pgTable("maintenance_reminders", {
 
 // Smart Cases
 export const caseStatusEnum = pgEnum("case_status", ["New", "In Review", "Scheduled", "In Progress", "On Hold", "Resolved", "Closed"]);
-export const casePriorityEnum = pgEnum("case_priority", ["Low", "Medium", "High", "Urgent"]);
+export const casePriorityEnum = pgEnum("case_priority", ["Normal", "High", "Urgent"]);
 
 export const smartCases = pgTable("smart_cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -509,7 +509,7 @@ export const smartCases = pgTable("smart_cases", {
   title: varchar("title").notNull(),
   description: text("description"),
   status: caseStatusEnum("status").default("New"),
-  priority: casePriorityEnum("priority").default("Medium"),
+  priority: casePriorityEnum("priority").default("Normal"),
   category: varchar("category"),
   aiTriageJson: jsonb("ai_triage_json"),
   estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
@@ -646,7 +646,7 @@ export const appointments = pgTable("appointments", {
   actualStartAt: timestamp("actual_start_at", { withTimezone: true }),
   actualEndAt: timestamp("actual_end_at", { withTimezone: true }),
   status: appointmentStatusEnum("status").default("Scheduled"),
-  priority: varchar("priority").default("Medium"),
+  priority: varchar("priority").default("Normal"),
   notes: text("notes"),
   requiresTenantAccess: boolean("requires_tenant_access").default(false),
   tenantApproved: boolean("tenant_approved").default(false),
