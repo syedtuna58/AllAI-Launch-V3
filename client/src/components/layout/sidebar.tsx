@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import UserProfileForm from "@/components/forms/user-profile-form";
-import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, Clock, Inbox, Settings, Calendar, Bell } from "lucide-react";
+import { Building, Home, Users, Wrench, DollarSign, User, LogOut, ChevronDown, Clock, Inbox, Settings, Calendar, Bell, FileText } from "lucide-react";
 
 export default function Sidebar() {
   const [location, setLocation] = useLocation();
@@ -34,6 +34,7 @@ export default function Sidebar() {
     { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "Job Hub", href: "/maintenance", icon: Wrench },
     { name: "Customers", href: "/customers", icon: Users },
+    { name: "Quotes", href: "/quotes", icon: FileText },
     { name: "Calendar", href: "/contractor-schedule", icon: Calendar },
     { name: "Reminders", href: "/reminders", icon: Clock },
   ];

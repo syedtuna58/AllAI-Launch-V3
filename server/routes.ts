@@ -8,6 +8,7 @@ import { users, organizationMembers, vendors, counterProposals } from "@shared/s
 import { z } from "zod";
 import authRouter from "./routes/auth";
 import contractorRouter from "./routes/contractor";
+import publicQuotesRouter from "./routes/public-quotes";
 import adminRouter from "./routes/admin";
 import landlordRouter from "./routes/landlord";
 import landlordInvitesRouter from "./routes/landlord-invites";
@@ -264,6 +265,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/auth', authRouter);
   app.use('/auth', tenantAuthRouter);
   app.use('/api/auth', propertyOwnerAuthRouter);
+  
+  // Public routes (no auth required)
+  app.use('/api/public/quotes', publicQuotesRouter);
   
   // Contractor routes
   app.use('/api/contractor', contractorRouter);
