@@ -275,6 +275,7 @@ export interface IStorage {
   getQuoteWithLineItems(id: string): Promise<{ quote: Quote; lineItems: QuoteLineItem[] } | undefined>;
   createQuote(quote: InsertQuote): Promise<Quote>;
   updateQuote(id: string, quote: Partial<InsertQuote>): Promise<Quote>;
+  updateQuoteWithLineItems(id: string, quote: Partial<InsertQuote>, lineItems: InsertQuoteLineItem[]): Promise<{ quote: Quote; lineItems: QuoteLineItem[] }>;
   deleteQuote(id: string): Promise<void>;
   getQuoteLineItems(quoteId: string): Promise<QuoteLineItem[]>;
   createQuoteLineItem(lineItem: InsertQuoteLineItem): Promise<QuoteLineItem>;
@@ -3311,6 +3312,36 @@ export class DatabaseStorage implements IStorage {
       .where(eq(quotes.id, id))
       .returning();
     return quote;
+  }
+
+  async updateQuoteWithLineItems(
+    id: string, 
+    quoteData: Partial<InsertQuote>,
+    lineItemsData: InsertQuoteLineItem[]
+  ): Promise<{ quote: Quote; lineItems: QuoteLineItem[] }> {
+    return await db.transaction(async (tx) => {
+      // Step 1: Delete all existing line items for this quote
+      await tx.delete(quoteLineItems).where(eq(quoteLineItems.quoteId, id));
+      
+      // Step 2: Create all new line items
+      const newLineItems: QuoteLineItem[] = [];
+      for (const lineItemData of lineItemsData) {
+        const [lineItem] = await tx.insert(quoteLineItems).values({
+          ...lineItemData,
+          quoteId: id,
+        }).returning();
+        newLineItems.push(lineItem);
+      }
+      
+      // Step 3: Update the quote
+      const [updatedQuote] = await tx
+        .update(quotes)
+        .set({ ...quoteData, updatedAt: new Date() })
+        .where(eq(quotes.id, id))
+        .returning();
+      
+      return { quote: updatedQuote, lineItems: newLineItems };
+    });
   }
 
   async deleteQuote(id: string): Promise<void> {

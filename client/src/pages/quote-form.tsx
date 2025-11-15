@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Save, ArrowLeft, Pencil } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -55,11 +55,50 @@ export default function QuoteFormPage() {
   const [newItemDescription, setNewItemDescription] = useState("");
   const [newItemQty, setNewItemQty] = useState(1);
   const [newItemPrice, setNewItemPrice] = useState(0);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   // Fetch customers
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ['/api/contractor/customers'],
   });
+
+  // Fetch existing quote when in edit mode
+  const { data: existingQuoteData, isLoading: isLoadingQuote } = useQuery({
+    queryKey: ['/api/contractor/quotes', quoteId],
+    enabled: isEditMode,
+  });
+
+  // Populate form when editing existing quote
+  useEffect(() => {
+    if (isEditMode && existingQuoteData) {
+      const { quote, lineItems: existingLineItems } = existingQuoteData;
+      
+      setCustomerId(quote.customerId);
+      setTitle(quote.title || "");
+      setExpiresAt(quote.expiresAt ? format(new Date(quote.expiresAt), 'yyyy-MM-dd') : "");
+      setClientMessage(quote.clientMessage || "");
+      setInternalNotes(quote.internalNotes || "");
+      setDiscountAmount(parseFloat(quote.discountAmount) || 0);
+      setTaxPercent(parseFloat(quote.taxPercent) || 0);
+      setDepositType(quote.depositType || 'none');
+      // Handle depositValue safely (may be null, string, or number)
+      const depositVal = quote.depositValue;
+      setDepositValue(depositVal != null ? parseFloat(String(depositVal)) || 0 : 0);
+      
+      // Map line items to local state
+      const mappedLineItems: LineItem[] = existingLineItems.map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || "",
+        quantity: parseFloat(item.quantity),
+        unitPrice: parseFloat(item.unitPrice),
+        total: parseFloat(item.total),
+        displayOrder: item.displayOrder,
+      }));
+      
+      setLineItems(mappedLineItems);
+    }
+  }, [isEditMode, existingQuoteData]);
 
   // Calculate totals
   const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
@@ -74,9 +113,9 @@ export default function QuoteFormPage() {
     requiredDepositAmount = (total * depositValue) / 100;
   }
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      const quoteData = {
+      const payload = {
         customerId,
         title: title || `Quote for ${customers.find(c => c.id === customerId)?.companyName || customers.find(c => c.id === customerId)?.lastName || 'Customer'}`,
         status: 'draft',
@@ -101,20 +140,26 @@ export default function QuoteFormPage() {
         })),
       };
 
-      return await apiRequest('POST', '/api/contractor/quotes', quoteData);
+      if (isEditMode) {
+        // Use atomic update endpoint that handles quote + line items in one transaction
+        return await apiRequest('PATCH', `/api/contractor/quotes/${quoteId}`, payload);
+      } else {
+        // Create new quote with line items
+        return await apiRequest('POST', '/api/contractor/quotes', payload);
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/contractor/quotes'] });
       toast({
-        title: "Quote created",
-        description: `Quote has been created successfully.`,
+        title: isEditMode ? "Quote updated" : "Quote created",
+        description: isEditMode ? "Quote has been updated successfully." : "Quote has been created successfully.",
       });
       setLocation('/quotes');
     },
-    onError: (error: any) => {
+    onError: (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create quote. Please try again.",
+        description: error.message || `Failed to ${isEditMode ? 'update' : 'create'} quote. Please try again.`,
         variant: "destructive",
       });
     },
@@ -130,16 +175,31 @@ export default function QuoteFormPage() {
       return;
     }
 
-    const newItem: LineItem = {
-      name: newItemName,
-      description: newItemDescription,
-      quantity: newItemQty,
-      unitPrice: newItemPrice,
-      total: newItemQty * newItemPrice,
-      displayOrder: lineItems.length,
-    };
-
-    setLineItems([...lineItems, newItem]);
+    if (editingIndex !== null) {
+      // Update existing item
+      const updatedItems = [...lineItems];
+      updatedItems[editingIndex] = {
+        ...updatedItems[editingIndex],
+        name: newItemName,
+        description: newItemDescription,
+        quantity: newItemQty,
+        unitPrice: newItemPrice,
+        total: newItemQty * newItemPrice,
+      };
+      setLineItems(updatedItems);
+      setEditingIndex(null);
+    } else {
+      // Add new item
+      const newItem: LineItem = {
+        name: newItemName,
+        description: newItemDescription,
+        quantity: newItemQty,
+        unitPrice: newItemPrice,
+        total: newItemQty * newItemPrice,
+        displayOrder: lineItems.length,
+      };
+      setLineItems([...lineItems, newItem]);
+    }
     
     // Reset form
     setNewItemName("");
@@ -148,8 +208,28 @@ export default function QuoteFormPage() {
     setNewItemPrice(0);
   };
 
+  const editLineItem = (index: number) => {
+    const item = lineItems[index];
+    setNewItemName(item.name);
+    setNewItemDescription(item.description);
+    setNewItemQty(item.quantity);
+    setNewItemPrice(item.unitPrice);
+    setEditingIndex(index);
+  };
+
+  const cancelEdit = () => {
+    setNewItemName("");
+    setNewItemDescription("");
+    setNewItemQty(1);
+    setNewItemPrice(0);
+    setEditingIndex(null);
+  };
+
   const removeLineItem = (index: number) => {
     setLineItems(lineItems.filter((_, i) => i !== index));
+    if (editingIndex === index) {
+      cancelEdit();
+    }
   };
 
   const getCustomerDisplayName = (customer: Customer) => {
@@ -186,14 +266,28 @@ export default function QuoteFormPage() {
       return;
     }
 
-    createMutation.mutate();
+    saveMutation.mutate();
   };
+
+  if (isEditMode && isLoadingQuote) {
+    return (
+      <div className="flex h-screen bg-background">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Edit Quote" />
+          <main className="flex-1 p-6 overflow-auto flex items-center justify-center">
+            <p className="text-muted-foreground">Loading quote...</p>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="New Quote" />
+        <Header title={isEditMode ? "Edit Quote" : "New Quote"} />
         <main className="flex-1 p-6 overflow-auto">
           <Button
             variant="ghost"
@@ -274,15 +368,26 @@ export default function QuoteFormPage() {
                       <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
                       <TableCell className="text-right font-medium">${item.total.toFixed(2)}</TableCell>
                       <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeLineItem(index)}
-                          data-testid={`button-remove-${index}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => editLineItem(index)}
+                            data-testid={`button-edit-${index}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLineItem(index)}
+                            data-testid={`button-remove-${index}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -338,7 +443,7 @@ export default function QuoteFormPage() {
                     data-testid="input-item-description"
                   />
                 </div>
-                <div>
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
@@ -347,8 +452,19 @@ export default function QuoteFormPage() {
                     data-testid="button-add-item"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Line Item
+                    {editingIndex !== null ? 'Update Line Item' : 'Add Line Item'}
                   </Button>
+                  {editingIndex !== null && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={cancelEdit}
+                      data-testid="button-cancel-edit"
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -488,11 +604,11 @@ export default function QuoteFormPage() {
               </Button>
               <Button
                 type="submit"
-                disabled={createMutation.isPending}
+                disabled={saveMutation.isPending}
                 data-testid="button-save"
               >
                 <Save className="h-4 w-4 mr-2" />
-                {createMutation.isPending ? 'Saving...' : 'Save Quote'}
+                {saveMutation.isPending ? 'Saving...' : isEditMode ? 'Update Quote' : 'Save Quote'}
               </Button>
             </div>
           </form>

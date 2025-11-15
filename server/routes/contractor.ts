@@ -313,11 +313,12 @@ router.post('/quotes', requireAuth, requireRole('contractor'), async (req: Authe
   }
 });
 
-// Update quote
+// Update quote (optionally with line items for atomic updates)
 router.patch('/quotes/:id', requireAuth, requireRole('contractor'), async (req: AuthenticatedRequest, res) => {
   try {
     const contractorUserId = req.user!.id;
     const { id } = req.params;
+    const { lineItems, ...quoteData } = req.body;
     
     // Verify quote ownership using storage
     const existing = await storage.getQuote(id);
@@ -327,10 +328,10 @@ router.patch('/quotes/:id', requireAuth, requireRole('contractor'), async (req: 
     }
     
     // If updating customerId, verify new customer ownership
-    if (req.body.customerId && req.body.customerId !== existing.customerId) {
+    if (quoteData.customerId && quoteData.customerId !== existing.customerId) {
       const customer = await db.query.contractorCustomers.findFirst({
         where: and(
-          eq(contractorCustomers.id, req.body.customerId),
+          eq(contractorCustomers.id, quoteData.customerId),
           eq(contractorCustomers.contractorId, contractorUserId)
         ),
       });
@@ -340,11 +341,27 @@ router.patch('/quotes/:id', requireAuth, requireRole('contractor'), async (req: 
       }
     }
     
-    const validatedData = insertQuoteSchema.partial().parse(req.body);
+    // Validate quote data - omit immutable fields (contractorId, approvalToken, etc.)
+    const quoteUpdateSchema = insertQuoteSchema.partial().omit({ contractorId: true, approvalToken: true });
+    const validatedQuoteData = quoteUpdateSchema.parse(quoteData);
     
-    // Update using storage
-    const updatedQuote = await storage.updateQuote(id, validatedData);
+    // If lineItems are provided, use atomic update
+    if (lineItems && Array.isArray(lineItems)) {
+      // Validate line items without quoteId/id since we'll inject them in the transaction
+      const lineItemUpdateSchema = insertQuoteLineItemSchema.omit({ quoteId: true, id: true });
+      const validatedLineItems = lineItems.map((item, index) => 
+        lineItemUpdateSchema.parse({
+          ...item,
+          displayOrder: item.displayOrder ?? index,
+        })
+      );
+      
+      const result = await storage.updateQuoteWithLineItems(id, validatedQuoteData, validatedLineItems);
+      return res.json(result);
+    }
     
+    // Otherwise, just update the quote
+    const updatedQuote = await storage.updateQuote(id, validatedQuoteData);
     res.json(updatedQuote);
   } catch (error: any) {
     console.error('Error updating quote:', error);
