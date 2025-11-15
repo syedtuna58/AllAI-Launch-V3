@@ -975,7 +975,7 @@ export default function AdminCalendarPage() {
                   <div className="py-12 text-center text-gray-500">Loading...</div>
                 ) : (
                   <>
-                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} scrollRef={weekViewScrollRef} />}
+                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onEditCase={(caseId) => navigate(`/maintenance?caseId=${caseId}`)} onDeleteCase={(caseId) => { const caseItem = cases.find(c => c.id === caseId); if (caseItem && confirm(`Delete work order "${caseItem.title}"?`)) { deleteCaseMutation.mutate(caseId); } }} onCreateCaseReminder={(caseId) => { setSelectedCaseForReminder(caseId); setShowReminderDialog(true); }} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} scrollRef={weekViewScrollRef} />}
                     {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
                   </>
                 )}
@@ -1282,7 +1282,7 @@ export default function AdminCalendarPage() {
   );
 }
 
-function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], teams = [], canReschedule, onEditReminder, onCompleteReminder, onCancelReminder, onCaseDoubleClick, onTeamChange, scrollRef }: {
+function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properties = [], units = [], teams = [], canReschedule, onEditReminder, onCompleteReminder, onCancelReminder, onCaseDoubleClick, onEditCase, onDeleteCase, onCreateCaseReminder, onTeamChange, scrollRef }: {
   currentDate: Date;
   getItemsForDate: (date: Date) => { reminders: Reminder[]; cases: MaintenanceCase[] };
   hideWeekends?: boolean;
@@ -1294,6 +1294,9 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
   onCompleteReminder: (id: string) => void;
   onCancelReminder: (id: string) => void;
   onCaseDoubleClick?: (caseId: string) => void;
+  onEditCase?: (caseId: string) => void;
+  onDeleteCase?: (caseId: string) => void;
+  onCreateCaseReminder?: (caseId: string) => void;
   onTeamChange?: (jobId: string, teamId: string) => void;
   scrollRef?: React.RefObject<HTMLDivElement>;
 }) {
@@ -1483,16 +1486,9 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                                 propertyStreet={propertyStreet}
                                 onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
                                 onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
-                                onEdit={() => navigate(`/maintenance?caseId=${caseItem.id}`)}
-                                onDelete={() => {
-                                  if (confirm(`Delete work order "${caseItem.title}"?`)) {
-                                    deleteCaseMutation.mutate(caseItem.id);
-                                  }
-                                }}
-                                onCreateReminder={() => {
-                                  setSelectedCaseForReminder(caseItem.id);
-                                  setShowReminderDialog(true);
-                                }}
+                                onEdit={onEditCase ? () => onEditCase(caseItem.id) : undefined}
+                                onDelete={onDeleteCase ? () => onDeleteCase(caseItem.id) : undefined}
+                                onCreateReminder={onCreateCaseReminder ? () => onCreateCaseReminder(caseItem.id) : undefined}
                               />
                             </div>
                           </DraggableCalendarItem>
@@ -1595,16 +1591,9 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                                 propertyStreet={propertyStreet}
                                 onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
                                 onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
-                                onEdit={() => navigate(`/maintenance?caseId=${caseItem.id}`)}
-                                onDelete={() => {
-                                  if (confirm(`Delete work order "${caseItem.title}"?`)) {
-                                    deleteCaseMutation.mutate(caseItem.id);
-                                  }
-                                }}
-                                onCreateReminder={() => {
-                                  setSelectedCaseForReminder(caseItem.id);
-                                  setShowReminderDialog(true);
-                                }}
+                                onEdit={onEditCase ? () => onEditCase(caseItem.id) : undefined}
+                                onDelete={onDeleteCase ? () => onDeleteCase(caseItem.id) : undefined}
+                                onCreateReminder={onCreateCaseReminder ? () => onCreateCaseReminder(caseItem.id) : undefined}
                               />
                             </div>
                           </DraggableCalendarItem>
