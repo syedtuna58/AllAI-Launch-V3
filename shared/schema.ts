@@ -151,6 +151,7 @@ export const contractorCustomers = pgTable("contractor_customers", {
   companyName: varchar("company_name"),
   email: varchar("email"),
   phone: varchar("phone"),
+  address: text("address"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
