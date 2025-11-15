@@ -181,6 +181,7 @@ export default function AdminCalendarPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [showReminderForm, setShowReminderForm] = useState(false);
+  const [selectedCaseForReminder, setSelectedCaseForReminder] = useState<string | null>(null);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
   const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
@@ -975,7 +976,7 @@ export default function AdminCalendarPage() {
                   <div className="py-12 text-center text-gray-500">Loading...</div>
                 ) : (
                   <>
-                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onEditCase={(caseId) => navigate(`/maintenance?caseId=${caseId}`)} onDeleteCase={(caseId) => { const caseItem = cases.find(c => c.id === caseId); if (caseItem && confirm(`Delete work order "${caseItem.title}"?`)) { deleteCaseMutation.mutate(caseId); } }} onCreateCaseReminder={(caseId) => { setSelectedCaseForReminder(caseId); setShowReminderDialog(true); }} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} scrollRef={weekViewScrollRef} />}
+                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onEditCase={(caseId) => navigate(`/maintenance?caseId=${caseId}`)} onDeleteCase={(caseId) => { const caseItem = cases.find(c => c.id === caseId); if (caseItem && confirm(`Delete work order "${caseItem.title}"?`)) { deleteCaseMutation.mutate(caseId); } }} onCreateCaseReminder={(caseId) => { setSelectedCaseForReminder(caseId); setShowReminderForm(true); }} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} scrollRef={weekViewScrollRef} />}
                     {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
                   </>
                 )}
@@ -1011,12 +1012,14 @@ export default function AdminCalendarPage() {
             // The form handles the API call, we just need to handle success
             setShowReminderForm(false);
             setEditingReminder(null);
+            setSelectedCaseForReminder(null);
             queryClient.invalidateQueries({ queryKey: ['/api/reminders'] });
             toast({ title: editingReminder ? 'Reminder updated' : 'Reminder created' });
           }}
           onCancel={() => {
             setShowReminderForm(false);
             setEditingReminder(null);
+            setSelectedCaseForReminder(null);
           }}
         />
       </DialogContent>
