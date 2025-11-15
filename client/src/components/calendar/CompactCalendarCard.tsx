@@ -2,8 +2,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { useState } from "react";
+import { Edit2, Trash2, Bell, MoreVertical } from "lucide-react";
 import type { SmartCase } from "@shared/schema";
 
 type Team = {
@@ -21,6 +28,9 @@ type CompactCalendarCardProps = {
   propertyStreet?: string;
   onDoubleClick?: () => void;
   onTeamChange?: (teamId: string) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onCreateReminder?: () => void;
 };
 
 // Convert hex to pastel by lightening it
@@ -51,6 +61,9 @@ export default function CompactCalendarCard({
   propertyStreet,
   onDoubleClick,
   onTeamChange,
+  onEdit,
+  onDelete,
+  onCreateReminder,
 }: CompactCalendarCardProps) {
   const [teamPopoverOpen, setTeamPopoverOpen] = useState(false);
 
@@ -61,12 +74,15 @@ export default function CompactCalendarCard({
   // Determine urgency styling
   const isUrgent = workOrder.priority === "Urgent";
   const isHigh = workOrder.priority === "High";
+  const isNormal = workOrder.priority === "Normal";
   
   let leftBorderClass = "";
   if (isUrgent) {
     leftBorderClass = "border-l-4 border-l-red-400";
   } else if (isHigh) {
     leftBorderClass = "border-l-4 border-l-orange-400";
+  } else if (isNormal) {
+    leftBorderClass = "border-l-4 border-l-blue-400";
   }
 
   // Create tooltip content with full details
@@ -148,6 +164,40 @@ export default function CompactCalendarCard({
               <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate leading-tight">
                 {format(new Date(workOrder.scheduledStartAt), "h:mm a")}
               </p>
+            )}
+
+            {/* Actions menu in top right */}
+            {(onEdit || onDelete || onCreateReminder) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover:opacity-80 hover:!opacity-100 hover:bg-white/50 transition-all"
+                    data-testid={`button-actions-menu-${workOrder.id}`}
+                  >
+                    <MoreVertical className="h-3 w-3 text-gray-700" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                  {onEdit && (
+                    <DropdownMenuItem onClick={onEdit}>
+                      <Edit2 className="h-3 w-3 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
+                  {onCreateReminder && (
+                    <DropdownMenuItem onClick={onCreateReminder}>
+                      <Bell className="h-3 w-3 mr-2" />
+                      Create Reminder
+                    </DropdownMenuItem>
+                  )}
+                  {onDelete && (
+                    <DropdownMenuItem onClick={onDelete} className="text-red-600">
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             {/* Team selector circle in bottom right - subtle, visible on hover */}

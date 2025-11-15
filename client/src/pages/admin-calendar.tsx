@@ -762,6 +762,16 @@ export default function AdminCalendarPage() {
                                     propertyStreet={propertyStreet}
                                     onDoubleClick={() => handleCaseDoubleClick(caseItem.id)}
                                     onTeamChange={firstJob ? (teamId) => updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId }) : undefined}
+                                    onEdit={() => navigate(`/maintenance?caseId=${caseItem.id}`)}
+                                    onDelete={() => {
+                                      if (confirm(`Delete work order "${caseItem.title}"?`)) {
+                                        deleteCaseMutation.mutate(caseItem.id);
+                                      }
+                                    }}
+                                    onCreateReminder={() => {
+                                      setSelectedCaseForReminder(caseItem.id);
+                                      setShowReminderDialog(true);
+                                    }}
                                   />
                                 </div>
                               </DraggableCalendarItem>
@@ -1473,6 +1483,16 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                                 propertyStreet={propertyStreet}
                                 onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
                                 onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
+                                onEdit={() => navigate(`/maintenance?caseId=${caseItem.id}`)}
+                                onDelete={() => {
+                                  if (confirm(`Delete work order "${caseItem.title}"?`)) {
+                                    deleteCaseMutation.mutate(caseItem.id);
+                                  }
+                                }}
+                                onCreateReminder={() => {
+                                  setSelectedCaseForReminder(caseItem.id);
+                                  setShowReminderDialog(true);
+                                }}
                               />
                             </div>
                           </DraggableCalendarItem>
@@ -1575,6 +1595,16 @@ function WeekView({ currentDate, getItemsForDate, hideWeekends = false, properti
                                 propertyStreet={propertyStreet}
                                 onDoubleClick={onCaseDoubleClick ? () => onCaseDoubleClick(caseItem.id) : undefined}
                                 onTeamChange={firstJob && onTeamChange ? (teamId) => onTeamChange(firstJob.id, teamId) : undefined}
+                                onEdit={() => navigate(`/maintenance?caseId=${caseItem.id}`)}
+                                onDelete={() => {
+                                  if (confirm(`Delete work order "${caseItem.title}"?`)) {
+                                    deleteCaseMutation.mutate(caseItem.id);
+                                  }
+                                }}
+                                onCreateReminder={() => {
+                                  setSelectedCaseForReminder(caseItem.id);
+                                  setShowReminderDialog(true);
+                                }}
                               />
                             </div>
                           </DraggableCalendarItem>
