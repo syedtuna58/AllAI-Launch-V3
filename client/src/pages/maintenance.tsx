@@ -144,7 +144,18 @@ const createCaseSchema = z.object({
   teamId: z.string().optional(),
   scheduledStartAt: z.string().optional(),
   createReminder: z.boolean().default(false),
-});
+}).refine(
+  (data) => {
+    if (data.scheduledStartAt && !data.teamId) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: "Team assignment is required when scheduling a date & time",
+    path: ["teamId"],
+  }
+);
 
 const proposeThreeSlotsSchema = z.object({
   slot1Date: z.date({
@@ -398,13 +409,17 @@ export default function Maintenance() {
       description: editingCase.description || "",
       propertyId: editingCase.propertyId || "",
       unitId: editingCase.unitId || "",
-      priority: editingCase.priority || "Medium",
+      priority: editingCase.priority || "Normal",
       category: editingCase.category || "",
+      teamId: editingCase.teamId || "",
+      scheduledStartAt: editingCase.scheduledStartAt || "",
       createReminder: false,
     } : {
       title: "",
       description: "",
-      priority: "Medium",
+      priority: "Normal",
+      teamId: "",
+      scheduledStartAt: "",
       createReminder: false,
     },
   });
@@ -1638,6 +1653,103 @@ export default function Maintenance() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Team Assignment */}
+                      <FormField
+                        control={form.control}
+                        name="teamId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Assign Team (Optional)</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-case-team">
+                                  <SelectValue placeholder="Select a team" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {teams?.map((team) => (
+                                  <SelectItem key={team.id} value={team.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div 
+                                        className="w-3 h-3 rounded-full" 
+                                        style={{ backgroundColor: team.color || '#3b82f6' }}
+                                      />
+                                      <span>{team.name}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Scheduled Start Date & Time */}
+                      <FormField
+                        control={form.control}
+                        name="scheduledStartAt"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Schedule Date & Time (Optional)</FormLabel>
+                            <div className="flex gap-2">
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <FormControl>
+                                    <Button
+                                      variant="outline"
+                                      className="w-full justify-start text-left font-normal"
+                                      data-testid="button-schedule-date"
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {field.value ? format(parseISO(field.value), 'PPP p') : <span>Pick date & time</span>}
+                                    </Button>
+                                  </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value ? parseISO(field.value) : undefined}
+                                    onSelect={(date) => {
+                                      if (date) {
+                                        const currentTime = field.value ? parseISO(field.value) : new Date();
+                                        date.setHours(currentTime.getHours());
+                                        date.setMinutes(currentTime.getMinutes());
+                                        field.onChange(date.toISOString());
+                                      }
+                                    }}
+                                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                                    initialFocus
+                                  />
+                                  <div className="p-3 border-t">
+                                    <TimePicker15Min
+                                      date={field.value ? parseISO(field.value) : undefined}
+                                      setDate={(date) => {
+                                        if (date) {
+                                          field.onChange(date.toISOString());
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                              {field.value && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => field.onChange(undefined)}
+                                  data-testid="button-clear-schedule"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
                             <FormMessage />
                           </FormItem>
                         )}
