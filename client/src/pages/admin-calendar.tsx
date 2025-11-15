@@ -226,6 +226,9 @@ export default function AdminCalendarPage() {
     retry: false,
   });
 
+  // Debug teams data
+  console.log('📋 Teams loaded:', teams.length, teams.map(t => ({ id: t.id, name: t.name, specialty: t.specialty })));
+
   // Fetch maintenance cases - use contractor endpoint for contractors
   const casesEndpoint = role === 'contractor' ? '/api/contractor/cases' : '/api/cases';
   const { data: cases = [], isLoading: casesLoading } = useQuery<MaintenanceCase[]>({
@@ -771,7 +774,7 @@ export default function AdminCalendarPage() {
                                     }}
                                     onCreateReminder={() => {
                                       setSelectedCaseForReminder(caseItem.id);
-                                      setShowReminderDialog(true);
+                                      setShowReminderForm(true);
                                     }}
                                   />
                                 </div>
