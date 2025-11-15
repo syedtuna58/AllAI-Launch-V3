@@ -183,7 +183,7 @@ export default function AdminCalendarPage() {
   const [showReminderForm, setShowReminderForm] = useState(false);
   const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
   const [showTeamDialog, setShowTeamDialog] = useState(false);
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<MaintenanceCase | null>(null);
+  const [selectedWorkOrderId, setSelectedWorkOrderId] = useState<string | null>(null);
   const [showWorkOrderDialog, setShowWorkOrderDialog] = useState(false);
 
   // Ref for scroll container (used in collision detection)
@@ -412,11 +412,8 @@ export default function AdminCalendarPage() {
 
   // Handler function for case double-click
   const handleCaseDoubleClick = (caseId: string) => {
-    const workOrder = filteredCases.find(c => c.id === caseId);
-    if (workOrder) {
-      setSelectedWorkOrder(workOrder);
-      setShowWorkOrderDialog(true);
-    }
+    setSelectedWorkOrderId(caseId);
+    setShowWorkOrderDialog(true);
   };
 
   // Filter cases by team
@@ -1023,6 +1020,42 @@ export default function AdminCalendarPage() {
         </DialogContent>
       </Dialog>
     )}
+
+    {/* Work Order Details Dialog */}
+    <Dialog open={showWorkOrderDialog} onOpenChange={(open) => {
+      setShowWorkOrderDialog(open);
+      if (!open) {
+        setSelectedWorkOrderId(null);
+      }
+    }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Work Order Details</DialogTitle>
+        </DialogHeader>
+        {(() => {
+          const selectedWorkOrder = selectedWorkOrderId 
+            ? cases.find(c => c.id === selectedWorkOrderId)
+            : null;
+          
+          if (!selectedWorkOrder) {
+            return <div className="py-8 text-center text-muted-foreground">Work order not found</div>;
+          }
+          
+          return (
+            <WorkOrderCard
+              workOrder={selectedWorkOrder}
+              properties={properties}
+              units={units}
+              onEdit={() => {
+                setShowWorkOrderDialog(false);
+                setSelectedWorkOrderId(null);
+                navigate(`/maintenance?caseId=${selectedWorkOrder.id}`);
+              }}
+            />
+          );
+        })()}
+      </DialogContent>
+    </Dialog>
 
     {/* Team Management Dialog */}
     <Dialog open={showTeamDialog} onOpenChange={(open) => {
