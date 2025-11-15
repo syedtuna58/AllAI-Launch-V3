@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "@tantml:parameter>
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import Sidebar from "@/components/layout/sidebar";

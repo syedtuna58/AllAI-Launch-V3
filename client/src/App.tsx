@@ -43,6 +43,7 @@ import ChannelSettings from "@/pages/channel-settings";
 import Customers from "@/pages/customers";
 import Quotes from "@/pages/quotes";
 import QuoteForm from "@/pages/quote-form";
+import QuoteApproval from "@/pages/quote-approval";
 import NotFound from "@/pages/not-found";
 
 function RoleBasedHome() {
@@ -85,6 +86,7 @@ function Router() {
           <Route path="/property-owner-signup" component={PropertyOwnerSignup} />
           <Route path="/contractor-signup" component={ContractorSignup} />
           <Route path="/auth/verify-email" component={VerifyEmail} />
+          <Route path="/quote-approval/:id/:token" component={QuoteApproval} />
           <Route component={LandingPage} />
         </>
       ) : (
@@ -110,6 +112,7 @@ function Router() {
           <Route path="/quotes" component={Quotes} />
           <Route path="/quotes/new" component={QuoteForm} />
           <Route path="/quotes/:id" component={QuoteForm} />
+          <Route path="/quote-approval/:id/:token" component={QuoteApproval} />
           <Route path="/admin-dashboard" component={AdminDashboard} />
           <Route path="/admin-calendar" component={AdminCalendar} />
           <Route path="/expenses" component={Expenses} />

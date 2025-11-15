@@ -1,13 +1,23 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, DollarSign, Calendar, User } from "lucide-react";
+import { Plus, FileText, DollarSign, Calendar, Send, Copy, Check } from "lucide-react";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type QuoteStatus = 'draft' | 'sent' | 'awaiting_response' | 'approved' | 'declined' | 'expired';
 
@@ -24,9 +34,38 @@ type Quote = {
 export default function QuotesPage() {
   const [_, setLocation] = useLocation();
   const [filterStatus, setFilterStatus] = useState<'all' | QuoteStatus>('all');
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [approvalLink, setApprovalLink] = useState<string>('');
+  const [linkCopied, setLinkCopied] = useState(false);
+  const { toast } = useToast();
 
   const { data: quotes = [], isLoading } = useQuery<Quote[]>({
     queryKey: ['/api/contractor/quotes'],
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: async (quoteId: string) => {
+      return await apiRequest('POST', `/api/contractor/quotes/${quoteId}/send`, {
+        method: 'link',
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractor/quotes'] });
+      setApprovalLink(data.approvalLink);
+      setSendDialogOpen(true);
+      toast({
+        title: "Quote sent",
+        description: "Quote status updated to awaiting response",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send quote",
+        variant: "destructive",
+      });
+    },
   });
 
   const getStatusColor = (status: QuoteStatus) => {
@@ -52,6 +91,29 @@ export default function QuotesPage() {
     }
     return true;
   });
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(approvalLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+      toast({
+        title: "Link copied",
+        description: "Approval link copied to clipboard",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendQuote = (e: React.MouseEvent, quoteId: string) => {
+    e.stopPropagation(); // Prevent card click
+    sendMutation.mutate(quoteId);
+  };
 
   return (
     <div className="flex h-screen bg-background">
@@ -200,6 +262,20 @@ export default function QuotesPage() {
                           {format(new Date(quote.createdAt), 'MMM d, yyyy')}
                         </span>
                       </div>
+                      {quote.status === 'draft' && (
+                        <div className="pt-3 border-t mt-3">
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={(e) => handleSendQuote(e, quote.id)}
+                            disabled={sendMutation.isPending}
+                            data-testid={`button-send-${quote.id}`}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            Send Quote
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -224,6 +300,49 @@ export default function QuotesPage() {
           )}
         </main>
       </div>
+
+      {/* Approval Link Dialog */}
+      <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
+        <DialogContent data-testid="dialog-approval-link">
+          <DialogHeader>
+            <DialogTitle>Quote Sent Successfully!</DialogTitle>
+            <DialogDescription>
+              Copy the approval link below and share it with your customer
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={approvalLink}
+                readOnly
+                className="flex-1 px-3 py-2 text-sm bg-muted rounded border"
+                data-testid="input-approval-link"
+              />
+              <Button
+                size="sm"
+                onClick={handleCopyLink}
+                data-testid="button-copy-link"
+              >
+                {linkCopied ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Your customer can approve or decline the quote using this link.
+              The quote status has been updated to "Awaiting Response".
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setSendDialogOpen(false)} data-testid="button-close-dialog">
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

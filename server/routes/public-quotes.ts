@@ -22,11 +22,7 @@ router.get('/:id/:token', async (req, res) => {
       return res.status(403).json({ error: 'Invalid approval link' });
     }
 
-    // Fetch customer details
-    const [customer] = await db.select().from(contractorCustomers)
-      .where(eq(contractorCustomers.id, quoteData.quote.customerId));
-
-    // Return only public-safe information
+    // Return only public-safe information (no customer PII)
     res.json({
       id: quoteData.quote.id,
       title: quoteData.quote.title,
@@ -42,11 +38,6 @@ router.get('/:id/:token', async (req, res) => {
       clientMessage: quoteData.quote.clientMessage,
       expiresAt: quoteData.quote.expiresAt,
       createdAt: quoteData.quote.createdAt,
-      customer: customer ? {
-        firstName: customer.firstName,
-        lastName: customer.lastName,
-        companyName: customer.companyName,
-      } : null,
       lineItems: quoteData.lineItems,
     });
   } catch (error) {

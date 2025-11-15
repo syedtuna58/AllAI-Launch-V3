@@ -5,6 +5,7 @@ import { db } from '../db';
 import { smartCases, contractorOrgLinks, organizationMembers, users, properties, contractorCustomers, insertContractorCustomerSchema, vendors, quotes, quoteLineItems, insertQuoteSchema, insertQuoteLineItemSchema } from '@shared/schema';
 import { eq, and, inArray, or, sql } from 'drizzle-orm';
 import { storage } from '../storage';
+import { generateApprovalToken } from '../utils/tokens';
 
 const router = Router();
 
@@ -277,10 +278,11 @@ router.post('/quotes', requireAuth, requireRole('contractor'), async (req: Authe
       }
     }
     
-    // Validate quote data
+    // Validate quote data and add approval token
     const validatedQuoteData = insertQuoteSchema.parse({
       ...quoteData,
       contractorId: contractorUserId,
+      approvalToken: generateApprovalToken(),
     });
     
     // Create quote using storage
@@ -373,6 +375,62 @@ router.delete('/quotes/:id', requireAuth, requireRole('contractor'), async (req:
   } catch (error) {
     console.error('Error deleting quote:', error);
     res.status(500).json({ error: 'Failed to delete quote' });
+  }
+});
+
+// Send quote (update status to awaiting_response)
+router.post('/quotes/:id/send', requireAuth, requireRole('contractor'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const contractorUserId = req.user!.id;
+    const { id } = req.params;
+    const { method } = req.body; // 'email', 'sms', or 'link'
+    
+    // Verify ownership using storage
+    const quoteData = await storage.getQuoteWithLineItems(id);
+    
+    if (!quoteData || quoteData.quote.contractorId !== contractorUserId) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    
+    const { quote } = quoteData;
+    
+    // Validate quote can be sent
+    if (quote.status !== 'draft') {
+      return res.status(400).json({ error: 'Only draft quotes can be sent' });
+    }
+    
+    // Fetch customer details for sending
+    const customer = await db.query.contractorCustomers.findFirst({
+      where: eq(contractorCustomers.id, quote.customerId),
+    });
+    
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    
+    // Generate approval link
+    const approvalLink = `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'http://localhost:5000'}/quote-approval/${quote.id}/${quote.approvalToken}`;
+    
+    // Update quote status
+    await storage.updateQuote(id, {
+      status: 'awaiting_response',
+      sentVia: method || 'link',
+      sentAt: new Date(),
+    });
+    
+    // TODO: Send notification via email/SMS when configured
+    console.log(`📧 Quote sent to customer via ${method || 'link'}`);
+    console.log(`   Approval link: ${approvalLink}`);
+    console.log(`   Customer: ${customer.firstName} ${customer.lastName} (${customer.email || customer.phone || 'no contact'})`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Quote sent successfully',
+      approvalLink, // Return link for contractor to copy if needed
+    });
+  } catch (error) {
+    console.error('Error sending quote:', error);
+    res.status(500).json({ error: 'Failed to send quote' });
   }
 });
 
