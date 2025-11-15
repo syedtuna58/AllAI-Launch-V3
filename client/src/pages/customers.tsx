@@ -50,11 +50,24 @@ type CustomerFormData = z.infer<typeof customerFormSchema>;
 function extractErrorMessage(error: any): string {
   if (!error?.message) return "";
   
-  // Error message format: "400: {\"error\":\"message\"}"
+  // Error message format: "400: {\"error\":\"message\", \"details\": [...]}"
   const match = error.message.match(/\d+:\s*(\{.*\})/);
   if (match) {
     try {
       const errorObj = JSON.parse(match[1]);
+      
+      // If there are validation details, format them nicely
+      if (errorObj.details && Array.isArray(errorObj.details)) {
+        const detailMessages = errorObj.details.map((d: any) => {
+          if (d.path && d.message) {
+            return `${d.path.join('.')}: ${d.message}`;
+          }
+          return d.message || JSON.stringify(d);
+        }).join(', ');
+        
+        return errorObj.error ? `${errorObj.error}. ${detailMessages}` : detailMessages;
+      }
+      
       return errorObj.error || "";
     } catch {
       return "";
