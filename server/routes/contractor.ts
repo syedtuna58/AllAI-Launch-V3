@@ -2,8 +2,9 @@ import { Router } from 'express';
 import { requireAuth, requireRole, AuthenticatedRequest } from '../middleware/rbac';
 import { getMarketplaceCases, acceptCase } from '../services/contractorMarketplace';
 import { db } from '../db';
-import { smartCases, contractorOrgLinks, organizationMembers, users, properties, contractorCustomers, insertContractorCustomerSchema } from '@shared/schema';
+import { smartCases, contractorOrgLinks, organizationMembers, users, properties, contractorCustomers, insertContractorCustomerSchema, vendors } from '@shared/schema';
 import { eq, and, inArray, or, sql } from 'drizzle-orm';
+import { storage } from '../storage';
 
 const router = Router();
 
@@ -71,11 +72,15 @@ router.get('/customers', requireAuth, requireRole('contractor'), async (req: Aut
       orderBy: (customers, { desc }) => [desc(customers.createdAt)],
     });
     
+    // Get vendor IDs for this contractor (they may work across multiple orgs)
+    const contractorVendors = await storage.getContractorVendorsByUserId(contractorUserId);
+    const vendorIds = contractorVendors.map(v => v.id);
+    
     // Get active job counts for each customer
     const customerIds = customers.map(c => c.id);
     let activeJobCounts: { customerId: string; count: number }[] = [];
     
-    if (customerIds.length > 0) {
+    if (customerIds.length > 0 && vendorIds.length > 0) {
       activeJobCounts = await db
         .select({
           customerId: smartCases.customerId,
@@ -85,7 +90,7 @@ router.get('/customers', requireAuth, requireRole('contractor'), async (req: Aut
         .where(
           and(
             inArray(smartCases.customerId, customerIds),
-            eq(smartCases.assignedContractorId, contractorUserId),
+            inArray(smartCases.assignedContractorId, vendorIds),
             sql`${smartCases.status} NOT IN ('Closed', 'Resolved')`
           )
         )
