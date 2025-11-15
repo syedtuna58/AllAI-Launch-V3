@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { User, Briefcase, Plus, Mail, Phone, Building2, Trash2, Edit } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User, Briefcase, Plus, Mail, Phone, Building2, Trash2, Edit, ArrowUpDown, Filter } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -23,7 +24,10 @@ type Customer = {
   companyName: string | null;
   email: string | null;
   phone: string | null;
-  address: string | null;
+  streetAddress: string | null;
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -36,7 +40,10 @@ const customerFormSchema = z.object({
   companyName: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
-  address: z.string().optional(),
+  streetAddress: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
   notes: z.string().optional(),
 }).refine(
   (data) => data.firstName || data.lastName || data.companyName,
@@ -82,6 +89,9 @@ function extractErrorMessage(error: any): string {
 export default function CustomersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'company' | 'city'>('name');
+  const [filterCity, setFilterCity] = useState<string>('');
+  const [filterActiveJobs, setFilterActiveJobs] = useState<'all' | 'with-jobs' | 'no-jobs'>('all');
   const { toast } = useToast();
 
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
@@ -96,7 +106,10 @@ export default function CustomersPage() {
       companyName: "",
       email: "",
       phone: "",
-      address: "",
+      streetAddress: "",
+      city: "",
+      state: "",
+      zipCode: "",
       notes: "",
     },
   });
@@ -184,7 +197,10 @@ export default function CustomersPage() {
       companyName: customer.companyName || "",
       email: customer.email || "",
       phone: customer.phone || "",
-      address: customer.address || "",
+      streetAddress: customer.streetAddress || "",
+      city: customer.city || "",
+      state: customer.state || "",
+      zipCode: customer.zipCode || "",
       notes: customer.notes || "",
     });
   };
@@ -205,13 +221,59 @@ export default function CustomersPage() {
     return "Unnamed Customer";
   };
 
+  // Get unique cities for filter dropdown
+  const uniqueCities = Array.from(
+    new Set(
+      customers
+        .map(c => c.city)
+        .filter(Boolean)
+    )
+  ).sort();
+
+  // Apply filters and sorting
+  const filteredAndSortedCustomers = customers
+    .filter(customer => {
+      // Filter by city
+      if (filterCity && customer.city !== filterCity) {
+        return false;
+      }
+      
+      // Filter by active jobs
+      if (filterActiveJobs === 'with-jobs' && customer.activeJobCount === 0) {
+        return false;
+      }
+      if (filterActiveJobs === 'no-jobs' && customer.activeJobCount > 0) {
+        return false;
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        const nameA = getCustomerDisplayName(a).toLowerCase();
+        const nameB = getCustomerDisplayName(b).toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      if (sortBy === 'company') {
+        const companyA = (a.companyName || '').toLowerCase();
+        const companyB = (b.companyName || '').toLowerCase();
+        return companyA.localeCompare(companyB);
+      }
+      if (sortBy === 'city') {
+        const cityA = (a.city || '').toLowerCase();
+        const cityB = (b.city || '').toLowerCase();
+        return cityA.localeCompare(cityB);
+      }
+      return 0;
+    });
+
   return (
     <div className="flex h-screen bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Customers" />
         <main className="flex-1 p-6 overflow-auto">
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2" data-testid="text-page-title">
                 Customers
@@ -311,17 +373,58 @@ export default function CustomersPage() {
                     />
                     <FormField
                       control={form.control}
-                      name="address"
+                      name="streetAddress"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Address</FormLabel>
+                          <FormLabel>Street Address</FormLabel>
                           <FormControl>
-                            <Input placeholder="123 Main St, City, ST 12345" {...field} data-testid="input-address" />
+                            <Input placeholder="123 Main St" {...field} data-testid="input-street-address" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                    <div className="grid grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Boston" {...field} data-testid="input-city" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State</FormLabel>
+                            <FormControl>
+                              <Input placeholder="MA" {...field} data-testid="input-state" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="zipCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Zip Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="02108" {...field} data-testid="input-zip-code" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     <FormField
                       control={form.control}
                       name="notes"
@@ -362,6 +465,73 @@ export default function CustomersPage() {
             </Dialog>
           </div>
 
+          {/* Filter and Sort Controls */}
+          {customers.length > 0 && (
+            <div className="mb-6 flex flex-wrap gap-4 items-center" data-testid="filter-sort-controls">
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                <Select value={sortBy} onValueChange={(value: 'name' | 'company' | 'city') => setSortBy(value)}>
+                  <SelectTrigger className="w-40" data-testid="select-sort">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="company">Company</SelectItem>
+                    <SelectItem value="city">City</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Select value={filterActiveJobs} onValueChange={(value: 'all' | 'with-jobs' | 'no-jobs') => setFilterActiveJobs(value)}>
+                  <SelectTrigger className="w-40" data-testid="select-active-jobs">
+                    <SelectValue placeholder="Active Jobs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Customers</SelectItem>
+                    <SelectItem value="with-jobs">With Jobs</SelectItem>
+                    <SelectItem value="no-jobs">No Jobs</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {uniqueCities.length > 0 && (
+                <Select value={filterCity} onValueChange={setFilterCity}>
+                  <SelectTrigger className="w-40" data-testid="select-city">
+                    <SelectValue placeholder="Filter by City" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Cities</SelectItem>
+                    {uniqueCities.map((city) => (
+                      <SelectItem key={city} value={city!}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {(filterCity || filterActiveJobs !== 'all') && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setFilterCity('');
+                    setFilterActiveJobs('all');
+                  }}
+                  data-testid="button-clear-filters"
+                >
+                  Clear Filters
+                </Button>
+              )}
+
+              <div className="ml-auto text-sm text-muted-foreground">
+                Showing {filteredAndSortedCustomers.length} of {customers.length} customers
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -383,9 +553,29 @@ export default function CustomersPage() {
                 </Button>
               </CardContent>
             </Card>
+          ) : filteredAndSortedCustomers.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Filter className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No customers match your filters</h3>
+                <p className="text-muted-foreground text-center max-w-md mb-4">
+                  Try adjusting your filters to see more results.
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setFilterCity('');
+                    setFilterActiveJobs('all');
+                  }}
+                  data-testid="button-clear-all-filters"
+                >
+                  Clear All Filters
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {customers.map((customer) => (
+              {filteredAndSortedCustomers.map((customer) => (
                 <Card key={customer.id} className="hover:shadow-lg transition-shadow" data-testid={`card-customer-${customer.id}`}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
