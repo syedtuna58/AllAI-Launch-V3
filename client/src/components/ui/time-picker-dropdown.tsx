@@ -14,6 +14,17 @@ export function TimePickerDropdown({ date, setDate, className, disabled }: TimeP
   const minutes = ["00", "15", "30", "45"];
   const periods = ["AM", "PM"];
 
+  // Normalize minutes to nearest 15-minute increment
+  const normalizeMinutes = (mins: number): string => {
+    const validMinutes = [0, 15, 30, 45];
+    if (validMinutes.includes(mins)) {
+      return mins.toString().padStart(2, "0");
+    }
+    // Round to nearest 15-minute increment
+    const rounded = Math.round(mins / 15) * 15;
+    return (rounded % 60).toString().padStart(2, "0");
+  };
+
   const getCurrentHour = () => {
     if (!date) return "12";
     const hour = date.getHours();
@@ -25,7 +36,7 @@ export function TimePickerDropdown({ date, setDate, className, disabled }: TimeP
   const getCurrentMinute = () => {
     if (!date) return "00";
     const minute = date.getMinutes();
-    return minute.toString().padStart(2, "0");
+    return normalizeMinutes(minute);
   };
 
   const getCurrentPeriod = () => {
