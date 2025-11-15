@@ -142,6 +142,20 @@ export const contractorOrgLinks = pgTable("contractor_org_links", {
   index("idx_contractor_org_links_unique").on(table.contractorUserId, table.orgId).where(sql`${table.status} = 'active'`),
 ]);
 
+// Contractor Customers - Contractors manually manage their customer list
+export const contractorCustomers = pgTable("contractor_customers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull().references(() => users.id),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  companyName: varchar("company_name"),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Favorite Contractors - Landlords mark their preferred contractors
 export const favoriteContractors = pgTable("favorite_contractors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -516,6 +530,7 @@ export const smartCases = pgTable("smart_cases", {
   actualCost: decimal("actual_cost", { precision: 10, scale: 2 }),
   // Contractor assignment fields
   assignedContractorId: varchar("assigned_contractor_id").references(() => vendors.id),
+  customerId: varchar("customer_id").references(() => contractorCustomers.id), // For contractor customer management
   scheduledStartAt: timestamp("scheduled_start_at"),
   scheduledEndAt: timestamp("scheduled_end_at"),
   estimatedDuration: varchar("estimated_duration"),
@@ -1691,6 +1706,7 @@ export const insertContractorSpecialtySchema = createInsertSchema(contractorSpec
 export const insertContractorProfileSchema = createInsertSchema(contractorProfiles).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserContractorSpecialtySchema = createInsertSchema(userContractorSpecialties).omit({ id: true, createdAt: true });
 export const insertContractorOrgLinkSchema = createInsertSchema(contractorOrgLinks).omit({ id: true, createdAt: true });
+export const insertContractorCustomerSchema = createInsertSchema(contractorCustomers).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertFavoriteContractorSchema = createInsertSchema(favoriteContractors).omit({ id: true, createdAt: true });
 export const insertVerificationTokenSchema = createInsertSchema(verificationTokens).omit({ id: true, createdAt: true });
 export const insertUserSessionSchema = createInsertSchema(userSessions).omit({ id: true, createdAt: true });
@@ -1708,6 +1724,8 @@ export type UserContractorSpecialty = typeof userContractorSpecialties.$inferSel
 export type InsertUserContractorSpecialty = z.infer<typeof insertUserContractorSpecialtySchema>;
 export type ContractorOrgLink = typeof contractorOrgLinks.$inferSelect;
 export type InsertContractorOrgLink = z.infer<typeof insertContractorOrgLinkSchema>;
+export type ContractorCustomer = typeof contractorCustomers.$inferSelect;
+export type InsertContractorCustomer = z.infer<typeof insertContractorCustomerSchema>;
 export type FavoriteContractor = typeof favoriteContractors.$inferSelect;
 export type InsertFavoriteContractor = z.infer<typeof insertFavoriteContractorSchema>;
 export type VerificationToken = typeof verificationTokens.$inferSelect;
