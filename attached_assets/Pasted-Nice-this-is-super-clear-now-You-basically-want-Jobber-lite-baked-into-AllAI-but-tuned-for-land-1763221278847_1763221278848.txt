@@ -1,0 +1,728 @@
+Nice, this is super clear now. You basically want “Jobber-lite” baked into AllAI, but tuned for landlords + contractors.
+
+Below is a developer-ready blueprint you can hand to whoever is building this in Replit.
+
+1. End-to-end flow we’re copying (adapted for AllAI)
+
+From your screenshots, the full lifecycle is:
+
+Create client + property
+
+Create quote (line items, discounts, tax, deposit)
+
+Send quote (SMS / email / link)
+
+Client approves + pays deposit
+
+Convert quote → job
+
+Schedule job on calendar
+
+Do the work + internal notes
+
+Mark job complete → generate invoice
+
+Invoice applies deposit and any extras
+
+Collect final payment + send receipt
+
+We’ll mirror that exactly, but with AllAI’s AI router feeding in clients/issues.
+
+2. Core data model (tables) you need
+
+Think in terms of 7 main tables plus a couple helpers.
+
+2.1 Client
+
+Represents owner or tenant.
+
+id
+
+type ('owner' | 'tenant' | 'manager')
+
+first_name
+
+last_name
+
+company_name (optional)
+
+phone
+
+email
+
+receives_text (boolean)
+
+lead_source
+
+notes
+
+created_at, updated_at
+
+2.2 Property
+
+id
+
+client_id (owner)
+
+label (e.g. “Unit 3B”, “Wheeling Clinic”)
+
+street_1
+
+street_2
+
+city
+
+state
+
+zip
+
+country
+
+billing_same_as_property (bool)
+
+billing_address_json (if different)
+
+extra_details_json (has gas, has boiler, etc.)
+
+created_at, updated_at
+
+2.3 Contractor
+
+id
+
+business_name
+
+contact_name
+
+email
+
+phone
+
+contractor_types (array: ["plumber","hvac"])
+
+service_areas (ZIPs or geo)
+
+rating (float)
+
+active (bool)
+
+notes
+
+created_at, updated_at
+
+2.4 Quote
+
+id
+
+client_id
+
+property_id
+
+contractor_id
+
+title (e.g. “Stump Grinding & Tree Removal”)
+
+status
+
+'draft' | 'sent' | 'awaiting_response' | 'approved' | 'declined' | 'converted_to_job'
+
+subtotal
+
+discount_amount
+
+tax_amount
+
+total
+
+deposit_type ('none' | 'percent' | 'fixed')
+
+deposit_value (e.g. 50 or 500)
+
+required_deposit_amount (computed)
+
+deposit_paid_amount (sum of payments linked to this quote)
+
+expires_at
+
+client_message (email body)
+
+contract_disclaimer
+
+internal_notes (only internal)
+
+sent_via ('sms' | 'email' | 'link' | null)
+
+sent_at
+
+created_at, updated_at
+
+2.5 QuoteLineItem
+
+id
+
+quote_id
+
+name (e.g. “Tree Removal”)
+
+description
+
+quantity
+
+unit_price
+
+total
+
+is_optional (bool)
+
+is_taxable (bool)
+
+service_date (optional, copied to job)
+
+image_url (optional)
+
+Later you can reuse this schema for Invoice line items.
+
+2.6 Job
+
+id
+
+quote_id (nullable if created directly)
+
+client_id
+
+property_id
+
+contractor_id
+
+title
+
+status
+'draft' | 'scheduled' | 'in_progress' | 'completed' | 'requires_invoicing' | 'closed'
+
+required_deposit_amount (copy from quote)
+
+deposit_paid_amount (copy/payments)
+
+outstanding_deposit_amount (computed)
+
+instructions (from quote description)
+
+start_datetime
+
+end_datetime
+
+schedule_later (bool)
+
+team_assigned_json (array of workers)
+
+internal_notes (like Jobber’s “Internal notes”)
+
+created_at, updated_at
+
+In UI, show Total price / Required deposit / Outstanding deposit like in your screenshot.
+
+2.7 Invoice
+
+id
+
+job_id
+
+quote_id
+
+client_id
+
+property_id
+
+contractor_id
+
+subject (e.g. “Stump Grinding & Tree Removal”)
+
+status
+'draft' | 'sent' | 'partial_paid' | 'paid' | 'void'
+
+issue_date
+
+payment_due ('upon_receipt' | 'net_7' | 'net_30' | etc.)
+
+subtotal
+
+discount_amount
+
+tax_amount
+
+total
+
+deposits_applied_amount (from payments tied as deposit)
+
+balance_due (= total - deposits_applied_amount - normal_payments)
+
+client_message
+
+internal_notes
+
+created_at, updated_at
+
+2.8 InvoiceLineItem
+
+id
+
+invoice_id
+
+name
+
+description
+
+quantity
+
+unit_price
+
+total
+
+is_taxable
+
+service_date (optional)
+
+Usually auto-created from QuoteLineItem, with ability to add extra lines for change orders (“Additional stump” in your screenshot).
+
+2.9 Payment
+
+id
+
+client_id
+
+invoice_id (nullable if deposit only)
+
+quote_id (nullable, for pre-job deposits)
+
+job_id (optional helper reference)
+
+amount
+
+type ('deposit' | 'final' | 'partial' | 'refund')
+
+method ('ach' | 'credit_card' | 'cash' | 'check' | 'cash_app' | 'paypal' | 'venmo' | 'zelle' | 'other')
+
+transaction_date
+
+reference_number
+
+details
+
+status ('recorded' | 'void')
+
+created_at, updated_at
+
+That lets you:
+
+Track required vs outstanding deposit on Quote + Job.
+
+Apply “Add Deposit” on invoice, like Jobber does.
+
+Show invoice balance at the bottom.
+
+3. Status transitions (the important logic)
+
+Use simple rules so devs don’t improvise:
+
+3.1 Quote status
+
+draft → sent (when SMS/email/link sent)
+
+sent → awaiting_response (when you choose “Mark as awaiting response”)
+
+awaiting_response → approved (client clicks Approve)
+
+awaiting_response → declined (client rejects)
+
+approved → converted_to_job (when you “Convert to Job”)
+
+If a deposit is required:
+
+When client approves but hasn’t paid yet:
+
+keep approved, but deposit_paid_amount < required_deposit_amount
+
+job may be created but flagged as “Deposit outstanding”.
+
+3.2 Job status
+
+draft → scheduled (start/end date set)
+
+scheduled → in_progress (contractor checks in)
+
+in_progress → completed (work done checkbox)
+
+completed → requires_invoicing (auto)
+
+requires_invoicing → closed (after invoice paid)
+
+3.3 Invoice status
+
+draft → sent (email/SMS)
+
+sent → partial_paid (payment < total)
+
+sent → paid (payments cover total − deposits)
+
+partial_paid → paid
+
+Any → void
+
+When an invoice is paid, close the job if not already closed.
+
+4. Screen-by-screen UX for AllAI
+4.1 Dashboard (“Home”)
+
+Borrow from Jobber:
+
+To-do tiles:
+
+“Create quote”
+
+“Get paid with fast invoicing”
+
+“Set up client portal”
+
+Business performance:
+
+Receivables ($ outstanding)
+
+Upcoming jobs
+
+Revenue this month
+
+You can keep this simple for now—just counts and sums.
+
+4.2 New Client / Property Screen
+
+Mirror the “New Client” screen:
+
+Left panel: Client details
+
+Title, first/last name
+
+Company name
+
+Checkbox “Use company name as primary”
+
+Main phone + “Receives text messages” toggle
+
+Main email
+
+Lead source
+
+(Expandable) automated notifications / extra client details
+
+Right panel: Property details
+
+Street 1/2, city, state, zip, country
+
+Checkbox “Billing address is the same as property address”
+
+Additional property details (unit, access notes, gate code)
+
+When you save, redirect to Client detail screen.
+
+4.3 Client Detail Screen
+
+Exactly like your screenshot:
+
+Header: name, lead badge.
+
+Left / center:
+
+Properties list
+
+Tabs: Active Work | Requests | Quotes | Jobs | Invoices
+
+Right:
+
+Contact info
+
+Tags
+
+Last communication
+
+Billing history / current balance
+
+CTA buttons:
+
+“New Quote”
+
+“New Job”
+
+“New Invoice” (for one-off things)
+
+4.4 New Quote Screen
+
+Layout similar to what you captured:
+
+Top:
+
+Property address
+
+Contact details
+
+Main grid:
+
+Product / Service (text area with description)
+
+Qty, Unit Price, Total
+
+Add photo
+
+Buttons:
+
+“Add Line Item”
+
+“Add Optional Line Item”
+
+“Add Text”
+
+Right column:
+
+Subtotal
+
+Discount (link: “Add Discount”)
+
+Tax (link: “Add Tax”)
+
+Total
+
+“Required Deposit” → “Add Required Deposit”
+
+Input: value
+
+Dropdown: % or $
+
+Below line items:
+
+Client message (email/SMS)
+
+Contract / Disclaimer (terms)
+
+Internal notes + file upload (link to Job and Invoice checkboxes like Jobber)
+
+Save area:
+
+“Save Quote”
+
+“Save and…” dropdown:
+
+Send as Text Message
+
+Send as Email
+
+Mark as awaiting response
+
+Convert to Job (only if approved)
+
+4.5 Deposit Logic in UI
+
+When you Add Required Deposit:
+
+If 50 % of $2,000 → compute $1,000 and store in required_deposit_amount.
+
+Show:
+
+“Required deposit: $1,000”
+
+After any payments:
+
+“Deposit paid: $X”
+
+“Outstanding deposit: $1,000 − X”
+
+On the Job screen (like your screenshot) show:
+
+Total price
+
+Required deposit
+
+Outstanding deposit
+
+(read-only summary pulled from quote/payments).
+
+4.6 Job Creation & Internal Notes
+
+When converting quote → job:
+
+Copy:
+
+client, property, contractor
+
+title
+
+line items
+
+deposit data
+
+Job screen:
+
+Job title & instructions
+
+Line items panel
+
+Internal notes box + file upload
+
+Checkbox “Link notes to invoices”
+
+Schedule:
+
+Start date/time
+
+End date/time
+
+“Schedule later”
+
+Button: Save Job, Save and…
+
+4.7 Calendar View
+
+Like your calendar screenshot:
+
+Month view
+
+Each scheduled job shows as block
+
+Clicking an event opens detail card:
+
+Completed checkbox
+
+Job title
+
+Details (from quote)
+
+Team
+
+Location
+
+Starts / Ends
+
+Buttons: “Edit”, “View Details”
+
+When “Completed” is checked:
+
+Set job status → completed and requires_invoicing.
+
+Show banner in Job screen: Requires invoicing with Generate Invoice button.
+
+4.8 Generate Invoice From Job
+
+From the job screen:
+
+Button Generate Invoice:
+
+Create Invoice with line items copied from quote.
+
+Pre-fill subject, billing address, property, contact details.
+
+Set status draft.
+
+Invoice edit screen includes:
+
+Subject
+
+Billing address / property address / contact
+
+Issue date (default: today)
+
+Payment due (“Upon receipt” etc.)
+
+Salesperson
+
+Invoice follow-ups box (later you can automate reminders)
+
+Line items list:
+
+Copy from quote
+
+You can add new line items (e.g. “Additional Stump”)
+
+Right side: Subtotal, Discount, Tax, Total
+
+Deposits: “Add Deposit” link (adds deposit applied to invoice)
+
+Bottom:
+
+Client message
+
+Internal notes
+
+Buttons:
+
+“Save Invoice”
+
+“Save and…” (Send Email / Send Text / Mark as Sent)
+
+4.9 Collect Payment
+
+From Invoice view:
+
+Button: Collect Payment
+
+Modal like your screenshot:
+
+Fields:
+
+Method (dropdown):
+
+Other, ACH bank payment, Cash, Check,
+
+Credit/debit card, Cash App, PayPal, Venmo, Zelle
+
+Amount (defaults to outstanding balance)
+
+Transaction date
+
+Reference #
+
+Details
+
+Note: “Payment applied to Invoice #X”
+
+Buttons:
+
+Save
+
+Save and Email Receipt
+
+Back-end action:
+
+POST /payments
+  - if invoice_id set:
+      update invoice.balance_due
+      update invoice.status (partial_paid / paid)
+  - if quote_id & type='deposit':
+      update quote.deposit_paid_amount
+      update job.deposit_paid_amount
+
+5. API endpoints (for a Replit backend)
+
+Whatever language you choose (FastAPI / Flask / Express), you’ll want at least:
+
+POST /clients, GET /clients/:id
+
+POST /properties, GET /properties/:id
+
+POST /contractors
+
+POST /quotes, GET /quotes/:id
+
+POST /quotes/:id/send (marks sent + triggers SMS/email)
+
+POST /quotes/:id/approve (client action)
+
+POST /quotes/:id/convert-to-job
+
+POST /jobs, GET /jobs/:id
+
+POST /jobs/:id/complete (sets requires_invoicing)
+
+POST /jobs/:id/generate-invoice
+
+POST /invoices, GET /invoices/:id
+
+POST /invoices/:id/send
+
+POST /payments (handles both deposit + invoice payments)

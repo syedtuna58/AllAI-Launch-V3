@@ -26,6 +26,8 @@ import {
   messages,
   contractorAvailability,
   contractorBlackouts,
+  quotes,
+  quoteLineItems,
   appointments,
   triageConversations,
   triageMessages,
@@ -76,6 +78,10 @@ import {
   type InsertContractorAvailability,
   type ContractorBlackout,
   type InsertContractorBlackout,
+  type Quote,
+  type InsertQuote,
+  type QuoteLineItem,
+  type InsertQuoteLineItem,
   type Appointment,
   type InsertAppointment,
   type TriageConversation,
@@ -262,6 +268,18 @@ export interface IStorage {
   createContractorBlackout(blackout: InsertContractorBlackout): Promise<ContractorBlackout>;
   updateContractorBlackout(id: string, blackout: Partial<InsertContractorBlackout>): Promise<ContractorBlackout>;
   deleteContractorBlackout(id: string): Promise<void>;
+  
+  // Quote operations
+  getContractorQuotes(contractorId: string): Promise<Quote[]>;
+  getQuote(id: string): Promise<Quote | undefined>;
+  getQuoteWithLineItems(id: string): Promise<{ quote: Quote; lineItems: QuoteLineItem[] } | undefined>;
+  createQuote(quote: InsertQuote): Promise<Quote>;
+  updateQuote(id: string, quote: Partial<InsertQuote>): Promise<Quote>;
+  deleteQuote(id: string): Promise<void>;
+  getQuoteLineItems(quoteId: string): Promise<QuoteLineItem[]>;
+  createQuoteLineItem(lineItem: InsertQuoteLineItem): Promise<QuoteLineItem>;
+  updateQuoteLineItem(id: string, lineItem: Partial<InsertQuoteLineItem>): Promise<QuoteLineItem>;
+  deleteQuoteLineItem(id: string): Promise<void>;
   
   // Appointment operations
   getAppointments(orgId: string): Promise<Appointment[]>;
@@ -3259,6 +3277,68 @@ export class DatabaseStorage implements IStorage {
 
   async deleteContractorBlackout(id: string): Promise<void> {
     await db.delete(contractorBlackouts).where(eq(contractorBlackouts.id, id));
+  }
+
+  // Quote operations
+  async getContractorQuotes(contractorId: string): Promise<Quote[]> {
+    return db.select().from(quotes)
+      .where(eq(quotes.contractorId, contractorId))
+      .orderBy(desc(quotes.createdAt));
+  }
+
+  async getQuote(id: string): Promise<Quote | undefined> {
+    const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
+    return quote;
+  }
+
+  async getQuoteWithLineItems(id: string): Promise<{ quote: Quote; lineItems: QuoteLineItem[] } | undefined> {
+    const quote = await this.getQuote(id);
+    if (!quote) return undefined;
+    
+    const lineItems = await this.getQuoteLineItems(id);
+    return { quote, lineItems };
+  }
+
+  async createQuote(quoteData: InsertQuote): Promise<Quote> {
+    const [quote] = await db.insert(quotes).values(quoteData).returning();
+    return quote;
+  }
+
+  async updateQuote(id: string, quoteData: Partial<InsertQuote>): Promise<Quote> {
+    const [quote] = await db
+      .update(quotes)
+      .set({ ...quoteData, updatedAt: new Date() })
+      .where(eq(quotes.id, id))
+      .returning();
+    return quote;
+  }
+
+  async deleteQuote(id: string): Promise<void> {
+    await db.delete(quotes).where(eq(quotes.id, id));
+  }
+
+  async getQuoteLineItems(quoteId: string): Promise<QuoteLineItem[]> {
+    return db.select().from(quoteLineItems)
+      .where(eq(quoteLineItems.quoteId, quoteId))
+      .orderBy(asc(quoteLineItems.displayOrder));
+  }
+
+  async createQuoteLineItem(lineItemData: InsertQuoteLineItem): Promise<QuoteLineItem> {
+    const [lineItem] = await db.insert(quoteLineItems).values(lineItemData).returning();
+    return lineItem;
+  }
+
+  async updateQuoteLineItem(id: string, lineItemData: Partial<InsertQuoteLineItem>): Promise<QuoteLineItem> {
+    const [lineItem] = await db
+      .update(quoteLineItems)
+      .set(lineItemData)
+      .where(eq(quoteLineItems.id, id))
+      .returning();
+    return lineItem;
+  }
+
+  async deleteQuoteLineItem(id: string): Promise<void> {
+    await db.delete(quoteLineItems).where(eq(quoteLineItems.id, id));
   }
 
   // Appointment operations

@@ -160,6 +160,57 @@ export const contractorCustomers = pgTable("contractor_customers", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ============================================================================
+// QUOTE SYSTEM (Phase 1)
+// ============================================================================
+
+// Quote enums
+export const quoteStatusEnum = pgEnum("quote_status", ["draft", "sent", "awaiting_response", "approved", "declined", "expired"]);
+export const depositTypeEnum = pgEnum("deposit_type", ["none", "percent", "fixed"]);
+
+// Quotes - Contractor quotes sent to customers
+export const quotes = pgTable("quotes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contractorId: varchar("contractor_id").notNull().references(() => users.id),
+  customerId: varchar("customer_id").notNull().references(() => contractorCustomers.id),
+  propertyId: varchar("property_id").references(() => properties.id), // Optional link to AllAI properties
+  title: varchar("title").notNull(),
+  status: quoteStatusEnum("status").default("draft"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull().default("0"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).default("0"),
+  taxPercent: decimal("tax_percent", { precision: 5, scale: 2 }).default("0"),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).default("0"),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull().default("0"),
+  depositType: depositTypeEnum("deposit_type").default("none"),
+  depositValue: decimal("deposit_value", { precision: 10, scale: 2 }),
+  requiredDepositAmount: decimal("required_deposit_amount", { precision: 10, scale: 2 }).default("0"),
+  expiresAt: timestamp("expires_at"),
+  clientMessage: text("client_message"),
+  internalNotes: text("internal_notes"),
+  sentVia: varchar("sent_via"), // 'sms', 'email', 'link'
+  sentAt: timestamp("sent_at"),
+  approvedAt: timestamp("approved_at"),
+  declinedAt: timestamp("declined_at"),
+  approvalToken: varchar("approval_token"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Quote Line Items - Individual items in a quote
+export const quoteLineItems = pgTable("quote_line_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  quoteId: varchar("quote_id").notNull().references(() => quotes.id, { onDelete: "cascade" }),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull().default("1"),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  isOptional: boolean("is_optional").default(false),
+  isTaxable: boolean("is_taxable").default(true),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Favorite Contractors - Landlords mark their preferred contractors
 export const favoriteContractors = pgTable("favorite_contractors", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1711,6 +1762,8 @@ export const insertContractorProfileSchema = createInsertSchema(contractorProfil
 export const insertUserContractorSpecialtySchema = createInsertSchema(userContractorSpecialties).omit({ id: true, createdAt: true });
 export const insertContractorOrgLinkSchema = createInsertSchema(contractorOrgLinks).omit({ id: true, createdAt: true });
 export const insertContractorCustomerSchema = createInsertSchema(contractorCustomers).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItems).omit({ id: true, createdAt: true });
 export const insertFavoriteContractorSchema = createInsertSchema(favoriteContractors).omit({ id: true, createdAt: true });
 export const insertVerificationTokenSchema = createInsertSchema(verificationTokens).omit({ id: true, createdAt: true });
 export const insertUserSessionSchema = createInsertSchema(userSessions).omit({ id: true, createdAt: true });
@@ -1730,6 +1783,10 @@ export type ContractorOrgLink = typeof contractorOrgLinks.$inferSelect;
 export type InsertContractorOrgLink = z.infer<typeof insertContractorOrgLinkSchema>;
 export type ContractorCustomer = typeof contractorCustomers.$inferSelect;
 export type InsertContractorCustomer = z.infer<typeof insertContractorCustomerSchema>;
+export type Quote = typeof quotes.$inferSelect;
+export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+export type QuoteLineItem = typeof quoteLineItems.$inferSelect;
+export type InsertQuoteLineItem = z.infer<typeof insertQuoteLineItemSchema>;
 export type FavoriteContractor = typeof favoriteContractors.$inferSelect;
 export type InsertFavoriteContractor = z.infer<typeof insertFavoriteContractorSchema>;
 export type VerificationToken = typeof verificationTokens.$inferSelect;
