@@ -48,7 +48,7 @@ export default function VerifyEmail() {
             if (role === 'contractor') {
               window.location.href = '/contractor-dashboard';
             } else if (role === 'tenant') {
-              window.location.href = '/tenant-dashboard-new';
+              window.location.href = '/tenant-dashboard';
             } else {
               // Platform admins, landlords, and property owners use the main dashboard
               window.location.href = '/dashboard';

@@ -71,7 +71,7 @@ export default function Dashboard() {
         return;
       }
       if (user.primaryRole === "tenant") {
-        setLocation("/tenant-dashboard-new");
+        setLocation("/tenant-dashboard");
         return;
       }
     }
