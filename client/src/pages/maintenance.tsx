@@ -22,7 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign, Settings, GripVertical, Users } from "lucide-react";
+import { Plus, Wrench, AlertTriangle, Clock, CheckCircle, XCircle, Trash2, Bell, LayoutGrid, CalendarDays, Map, BarChart3, List, MapPin, Home, Tag, Eye, Play, Calendar as CalendarIcon, MessageSquare, Mail, Phone, TrendingUp, Target, DollarSign, Settings, GripVertical, Users, Star } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReminderForm from "@/components/forms/reminder-form";
