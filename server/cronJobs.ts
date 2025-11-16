@@ -134,5 +134,16 @@ export function startCronJobs() {
     }
   });
 
+  // Cleanup old notifications daily at 5 AM
+  cron.schedule('0 5 * * *', async () => {
+    console.log('🗑️ Cleaning up old notifications (30+ days)...');
+    try {
+      const deleted = await storage.deleteOldNotifications(30);
+      console.log(`✅ Deleted ${deleted} old notifications`);
+    } catch (error) {
+      console.error('Error cleaning up old notifications:', error);
+    }
+  });
+
   console.log('Cron jobs started successfully');
 }
