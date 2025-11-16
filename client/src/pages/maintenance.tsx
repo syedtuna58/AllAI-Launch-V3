@@ -1094,10 +1094,22 @@ export default function Maintenance() {
                               {case_.description}
                             </p>
                             {(case_.buildingName || case_.roomNumber) && (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
                                 <MapPin className="h-4 w-4" />
                                 <span>{case_.buildingName} {case_.roomNumber && `Room ${case_.roomNumber}`}</span>
                               </div>
+                            )}
+                            {case_.status === 'New' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => setCaseToDelete(case_.id)}
+                                data-testid={`button-cancel-case-${case_.id}`}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Cancel Request
+                              </Button>
                             )}
                           </CardContent>
                         </Card>
