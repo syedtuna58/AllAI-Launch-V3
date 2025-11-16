@@ -6,6 +6,7 @@ import { validateSession } from '../services/sessionService';
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
+  sessionId?: string;
   user?: {
     id: string;
     email: string | null;
@@ -85,9 +86,10 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     }
     
     req.userId = user.id;
+    req.sessionId = session.sessionId;
     
-    // Check if superadmin is impersonating an organization
-    const viewAsOrgId = req.session?.viewAsOrgId;
+    // Check if superadmin is impersonating an organization (from session data)
+    const viewAsOrgId = session.viewAsOrgId;
     const effectiveOrgId = (user.isPlatformSuperAdmin && viewAsOrgId) ? viewAsOrgId : orgMembership?.orgId;
     
     req.user = {

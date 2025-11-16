@@ -3,6 +3,7 @@ import { requireAuth, requirePlatformAdmin, AuthenticatedRequest } from '../midd
 import { db } from '../db';
 import { users, organizations, properties, contractorProfiles, smartCases, tenants, tenantGroups, userContractorSpecialties, contractorSpecialties, favoriteContractors, scheduledJobs, vendors } from '@shared/schema';
 import { eq, count, sql, and, ne, gte, desc, isNull } from 'drizzle-orm';
+import { startOrgImpersonation, stopImpersonation } from '../services/sessionService';
 
 const router = Router();
 
@@ -245,16 +246,16 @@ router.post('/impersonate/:orgId', requireAuth, requirePlatformAdmin, async (req
       return res.status(404).json({ error: 'Organization not found' });
     }
 
-    // Store in session
-    req.session.viewAsOrgId = orgId;
-    req.session.viewAsOrgName = org.name;
+    // Store in session via sessionService
+    if (!req.sessionId) {
+      return res.status(500).json({ error: 'Session ID not found' });
+    }
+
+    const success = await startOrgImpersonation(req.sessionId, orgId, org.name);
     
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) reject(err);
-        else resolve(undefined);
-      });
-    });
+    if (!success) {
+      return res.status(500).json({ error: 'Failed to start impersonation' });
+    }
 
     res.json({
       success: true,
@@ -271,15 +272,15 @@ router.post('/impersonate/:orgId', requireAuth, requirePlatformAdmin, async (req
 // Superadmin: Stop impersonating and return to superadmin view
 router.post('/stop-impersonation', requireAuth, requirePlatformAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    delete req.session.viewAsOrgId;
-    delete req.session.viewAsOrgName;
+    if (!req.sessionId) {
+      return res.status(500).json({ error: 'Session ID not found' });
+    }
+
+    const success = await stopImpersonation(req.sessionId);
     
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) reject(err);
-        else resolve(undefined);
-      });
-    });
+    if (!success) {
+      return res.status(500).json({ error: 'Failed to stop impersonation' });
+    }
 
     res.json({
       success: true,
@@ -294,11 +295,16 @@ router.post('/stop-impersonation', requireAuth, requirePlatformAdmin, async (req
 // Get current impersonation status
 router.get('/impersonation-status', requireAuth, requirePlatformAdmin, async (req: AuthenticatedRequest, res) => {
   try {
-    if (req.session.viewAsOrgId) {
+    if (req.user?.viewAsOrgId) {
+      // Get org name from database
+      const org = await db.query.organizations.findFirst({
+        where: eq(organizations.id, req.user.viewAsOrgId),
+      });
+
       res.json({
         isImpersonating: true,
-        orgId: req.session.viewAsOrgId,
-        orgName: req.session.viewAsOrgName,
+        orgId: req.user.viewAsOrgId,
+        orgName: org?.name || 'Unknown Organization',
       });
     } else {
       res.json({

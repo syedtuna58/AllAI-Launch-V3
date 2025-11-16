@@ -249,6 +249,11 @@ export const userSessions = pgTable("user_sessions", {
   lastActiveAt: timestamp("last_active_at").defaultNow(),
   userAgent: text("user_agent"),
   ipAddress: varchar("ip_address"),
+  // Superadmin impersonation fields
+  viewAsOrgId: varchar("view_as_org_id").references(() => organizations.id),
+  viewAsOrgName: varchar("view_as_org_name"),
+  viewAsRole: varchar("view_as_role"),
+  viewAsUserId: varchar("view_as_user_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

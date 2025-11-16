@@ -18,6 +18,16 @@ interface SessionData {
   refreshToken: string;
 }
 
+interface SessionValidation {
+  valid: boolean;
+  userId?: string;
+  sessionId?: string;
+  viewAsOrgId?: string;
+  viewAsOrgName?: string;
+  viewAsRole?: string;
+  viewAsUserId?: string;
+}
+
 export async function createSession({ 
   userId, 
   userAgent, 
@@ -47,7 +57,7 @@ export async function createSession({
   };
 }
 
-export async function validateSession(refreshToken: string): Promise<{ valid: boolean; userId?: string; sessionId?: string }> {
+export async function validateSession(refreshToken: string): Promise<SessionValidation> {
   try {
     const refreshTokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
     
@@ -72,7 +82,15 @@ export async function validateSession(refreshToken: string): Promise<{ valid: bo
       .set({ lastActiveAt: new Date() })
       .where(eq(userSessions.id, session.id));
 
-    return { valid: true, userId: session.userId, sessionId: session.id };
+    return {
+      valid: true,
+      userId: session.userId,
+      sessionId: session.id,
+      viewAsOrgId: session.viewAsOrgId || undefined,
+      viewAsOrgName: session.viewAsOrgName || undefined,
+      viewAsRole: session.viewAsRole || undefined,
+      viewAsUserId: session.viewAsUserId || undefined,
+    };
   } catch (error) {
     console.error('Error validating session:', error);
     return { valid: false };
@@ -110,5 +128,37 @@ export async function cleanupExpiredSessions(): Promise<number> {
   } catch (error) {
     console.error('Error cleaning up sessions:', error);
     return 0;
+  }
+}
+
+export async function startOrgImpersonation(sessionId: string, orgId: string, orgName: string): Promise<boolean> {
+  try {
+    await db.update(userSessions)
+      .set({
+        viewAsOrgId: orgId,
+        viewAsOrgName: orgName,
+      })
+      .where(eq(userSessions.id, sessionId));
+    return true;
+  } catch (error) {
+    console.error('Error starting org impersonation:', error);
+    return false;
+  }
+}
+
+export async function stopImpersonation(sessionId: string): Promise<boolean> {
+  try {
+    await db.update(userSessions)
+      .set({
+        viewAsOrgId: null,
+        viewAsOrgName: null,
+        viewAsRole: null,
+        viewAsUserId: null,
+      })
+      .where(eq(userSessions.id, sessionId));
+    return true;
+  } catch (error) {
+    console.error('Error stopping impersonation:', error);
+    return false;
   }
 }
