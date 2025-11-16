@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requirePlatformAdmin, AuthenticatedRequest } from '../middleware/rbac';
 import { db } from '../db';
-import { users, organizations, properties, contractorProfiles, smartCases, tenants, tenantGroups, userContractorSpecialties, contractorSpecialties, favoriteContractors, scheduledJobs } from '@shared/schema';
+import { users, organizations, properties, contractorProfiles, smartCases, tenants, tenantGroups, userContractorSpecialties, contractorSpecialties, favoriteContractors, scheduledJobs, vendors } from '@shared/schema';
 import { eq, count, sql, and, ne, gte, desc, isNull } from 'drizzle-orm';
 
 const router = Router();
@@ -188,13 +188,11 @@ router.get('/contractors', requireAuth, requirePlatformAdmin, async (req: Authen
         .from(favoriteContractors)
         .where(eq(favoriteContractors.contractorUserId, contractor.userId));
 
-      // Get scheduled jobs count
+      // Get scheduled jobs count (join through vendors table)
       const [scheduledJobsResult] = await db.select({ count: count() })
         .from(scheduledJobs)
-        .where(and(
-          eq(scheduledJobs.contractorUserId, contractor.userId),
-          eq(scheduledJobs.status, 'confirmed')
-        ));
+        .innerJoin(vendors, eq(scheduledJobs.contractorId, vendors.id))
+        .where(eq(vendors.userId, contractor.userId));
 
       // Calculate activity status
       const lastLogin = contractor.updatedAt;
@@ -233,8 +231,8 @@ router.get('/contractors', requireAuth, requirePlatformAdmin, async (req: Authen
   }
 });
 
-// Get organization screens for navigation
-router.get('/org-screens/:orgId', requireAuth, requirePlatformAdmin, async (req: AuthenticatedRequest, res) => {
+// Superadmin: Impersonate/view as an organization
+router.post('/impersonate/:orgId', requireAuth, requirePlatformAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { orgId } = req.params;
 
@@ -247,26 +245,69 @@ router.get('/org-screens/:orgId', requireAuth, requirePlatformAdmin, async (req:
       return res.status(404).json({ error: 'Organization not found' });
     }
 
-    // Return available screens for this org
-    const screens = [
-      { name: 'Dashboard', path: '/dashboard', description: 'Main dashboard overview' },
-      { name: 'Properties', path: '/properties', description: 'Property management' },
-      { name: 'Tenants', path: '/tenants', description: 'Tenant management' },
-      { name: 'Maintenance', path: '/maintenance', description: 'Maintenance requests' },
-      { name: 'Calendar', path: '/admin-calendar', description: 'Calendar and appointments' },
-      { name: 'Finances', path: '/finances', description: 'Financial tracking' },
-      { name: 'Reminders', path: '/reminders', description: 'Automated reminders' },
-      { name: 'Entities', path: '/entities', description: 'Ownership entities' },
-    ];
+    // Store in session
+    req.session.viewAsOrgId = orgId;
+    req.session.viewAsOrgName = org.name;
+    
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve(undefined);
+      });
+    });
 
     res.json({
+      success: true,
       orgId,
       orgName: org.name,
-      screens,
+      message: `Now viewing as organization: ${org.name}`,
     });
   } catch (error) {
-    console.error('Error fetching org screens:', error);
-    res.status(500).json({ error: 'Failed to fetch organization screens' });
+    console.error('Error starting org impersonation:', error);
+    res.status(500).json({ error: 'Failed to impersonate organization' });
+  }
+});
+
+// Superadmin: Stop impersonating and return to superadmin view
+router.post('/stop-impersonation', requireAuth, requirePlatformAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    delete req.session.viewAsOrgId;
+    delete req.session.viewAsOrgName;
+    
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve(undefined);
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Returned to superadmin view',
+    });
+  } catch (error) {
+    console.error('Error stopping org impersonation:', error);
+    res.status(500).json({ error: 'Failed to stop impersonation' });
+  }
+});
+
+// Get current impersonation status
+router.get('/impersonation-status', requireAuth, requirePlatformAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    if (req.session.viewAsOrgId) {
+      res.json({
+        isImpersonating: true,
+        orgId: req.session.viewAsOrgId,
+        orgName: req.session.viewAsOrgName,
+      });
+    } else {
+      res.json({
+        isImpersonating: false,
+      });
+    }
+  } catch (error) {
+    console.error('Error getting impersonation status:', error);
+    res.status(500).json({ error: 'Failed to get impersonation status' });
   }
 });
 

@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import type { Property, OwnershipEntity, Unit } from "@shared/schema";
+import ImpersonationBanner from "@/components/admin/impersonation-banner";
 
 // Extended property type that includes ownership information  
 type PropertyWithOwnerships = Property & {
@@ -424,6 +425,8 @@ export default function Properties() {
 
   return (
     <div data-testid="page-properties">
+      <ImpersonationBanner />
+      
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Properties</h1>

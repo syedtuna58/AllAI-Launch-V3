@@ -38,6 +38,7 @@ import TenantAvailabilitySelector from "@/components/TenantAvailabilitySelector"
 import ContractorCalendarMatch from "@/components/ContractorCalendarMatch";
 import { ThumbsUp, ThumbsDown, CalendarClock, X } from "lucide-react";
 import WorkOrderCard from "@/components/cards/work-order-card";
+import ImpersonationBanner from "@/components/admin/impersonation-banner";
 
 // Helper function to convert days to human-friendly relative time
 function formatDaysToRelativeTime(days: number): string {
@@ -1438,6 +1439,8 @@ export default function Maintenance() {
         </div>
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
+              <ImpersonationBanner />
+              
               {/* Header */}
               <div className="mb-6">
                 <div>

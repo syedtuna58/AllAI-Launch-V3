@@ -14,6 +14,7 @@ export interface AuthenticatedRequest extends Request {
     role: 'platform_super_admin' | 'org_admin' | 'contractor' | 'tenant' | null;
     isPlatformSuperAdmin: boolean;
     orgId?: string;
+    viewAsOrgId?: string; // Superadmin impersonation
   };
 }
 
@@ -84,6 +85,11 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     }
     
     req.userId = user.id;
+    
+    // Check if superadmin is impersonating an organization
+    const viewAsOrgId = req.session?.viewAsOrgId;
+    const effectiveOrgId = (user.isPlatformSuperAdmin && viewAsOrgId) ? viewAsOrgId : orgMembership?.orgId;
+    
     req.user = {
       id: user.id,
       email: user.email,
@@ -91,7 +97,8 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       lastName: user.lastName,
       role: user.primaryRole,
       isPlatformSuperAdmin: user.isPlatformSuperAdmin || false,
-      orgId: orgMembership?.orgId,
+      orgId: effectiveOrgId,
+      viewAsOrgId: user.isPlatformSuperAdmin ? viewAsOrgId : undefined,
     };
     
     next();

@@ -20,6 +20,7 @@ import RemindersWidget from "@/components/widgets/reminders-widget";
 import NotificationsWidget from "@/components/widgets/notifications-widget";
 import ReminderForm from "@/components/forms/reminder-form";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import ImpersonationBanner from "@/components/admin/impersonation-banner";
 
 type DashboardStats = {
   totalProperties: number;
@@ -169,6 +170,8 @@ export default function Dashboard() {
         <Header title="Dashboard" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
+          <ImpersonationBanner />
+          
           {/* Overview Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card data-testid="card-total-properties">

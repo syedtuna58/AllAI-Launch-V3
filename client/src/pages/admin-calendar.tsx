@@ -45,6 +45,7 @@ import { calculateTimePosition, isTimeInRange } from "@/lib/calendarUtils";
 import { REMINDER_TYPE_COLORS, STATUS_COLORS, CASE_STATUS_COLORS, getReminderStatus, getStatusBadgeClasses, type ReminderType, type CaseStatus } from "@/lib/colorTokens";
 import type { Reminder } from "@shared/schema";
 import AvailabilityCalendar from "@/components/contractor/availability-calendar";
+import ImpersonationBanner from "@/components/admin/impersonation-banner";
 
 type MaintenanceCase = {
   id: string;
@@ -655,6 +656,10 @@ export default function AdminCalendarPage() {
   return (
     <>
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="px-4 pt-4">
+        <ImpersonationBanner />
+      </div>
+      
       {/* Top Navigation Bar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

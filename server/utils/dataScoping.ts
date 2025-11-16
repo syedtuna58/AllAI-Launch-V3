@@ -14,10 +14,16 @@ export interface UserScope {
   role: 'platform_super_admin' | 'org_admin' | 'contractor' | 'tenant' | null;
   isPlatformSuperAdmin: boolean;
   orgId?: string;
+  viewAsOrgId?: string; // For superadmin impersonation
 }
 
 export function scopePropertiesByRole(scope: UserScope): SQL<unknown> | undefined {
-  // Platform super admins see everything
+  // Superadmin impersonating an org - show that org's data
+  if (scope.isPlatformSuperAdmin && scope.viewAsOrgId) {
+    return eq(properties.orgId, scope.viewAsOrgId);
+  }
+  
+  // Platform super admins see everything (when not impersonating)
   if (scope.isPlatformSuperAdmin) {
     return undefined;
   }
@@ -43,7 +49,12 @@ export function scopePropertiesByRole(scope: UserScope): SQL<unknown> | undefine
 }
 
 export function scopeCasesByRole(scope: UserScope): SQL<unknown> | undefined {
-  // Platform super admins see everything
+  // Superadmin impersonating an org - show that org's data
+  if (scope.isPlatformSuperAdmin && scope.viewAsOrgId) {
+    return eq(smartCases.orgId, scope.viewAsOrgId);
+  }
+  
+  // Platform super admins see everything (when not impersonating)
   if (scope.isPlatformSuperAdmin) {
     return undefined;
   }

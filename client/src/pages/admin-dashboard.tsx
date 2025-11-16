@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Building2, 
   Users, 
@@ -21,11 +22,14 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Star
+  Star,
+  Eye,
+  LogOut
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import Header from "@/components/layout/header";
 import Sidebar from "@/components/layout/sidebar";
 import PropertyAssistant from "@/components/ai/property-assistant";
@@ -150,6 +154,71 @@ export default function AdminDashboard() {
   const { data: contractors = [], isLoading: contractorsLoading } = useQuery<ContractorDetail[]>({
     queryKey: ["/api/admin/contractors"],
     retry: false,
+  });
+
+  // Check impersonation status
+  const { data: impersonationStatus } = useQuery<{ isImpersonating: boolean; orgId?: string; orgName?: string }>({
+    queryKey: ["/api/admin/impersonation-status"],
+    retry: false,
+  });
+
+  // Impersonate organization mutation
+  const impersonateMutation = useMutation({
+    mutationFn: async (orgId: string) => {
+      return await apiRequest(`/api/admin/impersonate/${orgId}`, "POST");
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Now Viewing Organization",
+        description: `You're now viewing ${data.orgName}. Navigate to any page to see their data.`,
+      });
+      // Invalidate specific queries that will change when impersonating
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/impersonation-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      // Redirect to main dashboard to show org data
+      setLocation("/dashboard");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Impersonation Failed",
+        description: error.message || "Failed to switch to organization view",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Stop impersonation mutation
+  const stopImpersonationMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/admin/stop-impersonation", "POST");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Returned to Superadmin View",
+        description: "You're now viewing all platform data",
+      });
+      // Invalidate specific queries that will change when stopping impersonation
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/impersonation-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/units"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setLocation("/admin-dashboard");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to return to superadmin view",
+        variant: "destructive",
+      });
+    },
   });
 
   const roleColors: Record<string, string> = {
@@ -309,6 +378,37 @@ export default function AdminDashboard() {
         <Header title="Super Admin Dashboard" subtitle="Platform Overview & Analytics" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
+          {/* Impersonation Banner */}
+          {impersonationStatus?.isImpersonating && (
+            <Alert className="mb-6 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
+              <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <AlertDescription className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                    Viewing as Organization:
+                  </span>
+                  <Badge className="bg-purple-600 text-white">
+                    {impersonationStatus.orgName}
+                  </Badge>
+                  <span className="text-xs text-purple-700 dark:text-purple-300">
+                    Navigate to any page to see their data
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => stopImpersonationMutation.mutate()}
+                  disabled={stopImpersonationMutation.isPending}
+                  className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                  data-testid="button-stop-impersonation"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Return to Superadmin
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6">
               <TabsTrigger value="overview" data-testid="tab-overview">
@@ -905,15 +1005,11 @@ export default function AdminDashboard() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => {
-                                    toast({
-                                      title: "Organization Access",
-                                      description: "Organization screen access coming soon. You'll be able to view all org screens (dashboard, properties, maintenance, calendar) from here.",
-                                    });
-                                  }}
+                                  onClick={() => impersonateMutation.mutate(org.id)}
+                                  disabled={impersonateMutation.isPending}
                                   data-testid={`button-view-org-${org.id}`}
                                 >
-                                  <ExternalLink className="h-4 w-4 mr-1" />
+                                  <Eye className="h-4 w-4 mr-1" />
                                   View Screens
                                 </Button>
                               </TableCell>
