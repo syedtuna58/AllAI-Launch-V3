@@ -92,7 +92,7 @@ export default function Header({ title }: HeaderProps) {
   const { data: tenantInfo } = useQuery<TenantInfo>({
     queryKey: ["/api/tenant/info"],
     retry: false,
-    enabled: user?.role === 'tenant',
+    enabled: user?.primaryRole === 'tenant',
   });
 
   const createReminderMutation = useMutation({
@@ -143,7 +143,7 @@ export default function Header({ title }: HeaderProps) {
             <span className="text-sm text-muted-foreground" data-testid="text-welcome">
               Welcome back, {user?.firstName || "User"}
             </span>
-            {user?.role === 'tenant' && tenantInfo && (
+            {user?.primaryRole === 'tenant' && tenantInfo && (
               <>
                 <span className="text-muted-foreground">•</span>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="text-tenant-unit">
