@@ -1104,7 +1104,10 @@ export default function Maintenance() {
                                 variant="outline" 
                                 size="sm"
                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => setCaseToDelete(case_.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCaseToDelete(case_.id);
+                                }}
                                 data-testid={`button-cancel-case-${case_.id}`}
                               >
                                 <XCircle className="h-4 w-4 mr-2" />
