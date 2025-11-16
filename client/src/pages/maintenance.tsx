@@ -294,6 +294,20 @@ export default function Maintenance() {
     retry: false,
   });
 
+  // Fetch reminders for calendar dots
+  const { data: reminders = [] } = useQuery<any[]>({
+    queryKey: ["/api/reminders"],
+    enabled: !!user,
+    retry: false,
+  });
+
+  // Fetch favorite contractors for landlords and property owners
+  const { data: allContractors = [] } = useQuery<any[]>({
+    queryKey: ["/api/marketplace/contractors"],
+    enabled: role !== "contractor" && role !== "tenant",
+    retry: false,
+  });
+
   // Tenant-specific queries
   const { data: tenantCases = [], isLoading: tenantCasesLoading } = useQuery<any[]>({
     queryKey: ['/api/tenant/cases'],
@@ -2899,40 +2913,123 @@ export default function Maintenance() {
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-3">
                       <Calendar
                         mode="single"
-                        className="rounded-md border"
+                        className="rounded-md border-0 p-0"
+                        classNames={{
+                          months: "flex flex-col",
+                          month: "space-y-2",
+                          caption: "flex justify-center pt-1 relative items-center px-2",
+                          caption_label: "text-sm font-medium",
+                          nav: "space-x-1 flex items-center",
+                          nav_button: "h-6 w-6 bg-transparent p-0 opacity-50 hover:opacity-100",
+                          nav_button_previous: "absolute left-1",
+                          nav_button_next: "absolute right-1",
+                          table: "w-full border-collapse",
+                          head_row: "flex justify-between",
+                          head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.7rem]",
+                          row: "flex w-full mt-1 justify-between",
+                          cell: "relative p-0 text-center text-xs focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent",
+                          day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md",
+                          day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                          day_today: "bg-accent text-accent-foreground",
+                          day_outside: "text-muted-foreground opacity-30",
+                          day_disabled: "text-muted-foreground opacity-30",
+                          day_hidden: "invisible",
+                        }}
+                        hidden={{ dayOfWeek: [0, 6] }}
+                        modifiers={{
+                          hasEvents: (() => {
+                            const eventDates: Date[] = [];
+                            smartCases?.forEach(c => {
+                              if (c.scheduledStartAt) {
+                                const startDate = new Date(c.scheduledStartAt);
+                                startDate.setHours(0, 0, 0, 0);
+                                eventDates.push(startDate);
+                              }
+                            });
+                            reminders?.forEach((r: any) => {
+                              if (r.dueAt) {
+                                const reminderDate = new Date(r.dueAt);
+                                reminderDate.setHours(0, 0, 0, 0);
+                                eventDates.push(reminderDate);
+                              }
+                            });
+                            return eventDates;
+                          })()
+                        }}
+                        modifiersClassNames={{
+                          hasEvents: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-blue-500 after:rounded-full"
+                        }}
                       />
-                      <p className="text-xs text-muted-foreground mt-3 text-center">
-                        Click "Open" to view full calendar with reminders and appointments
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Blue dots indicate scheduled work
                       </p>
                     </CardContent>
                   </Card>
 
                   {/* Favorite Contractors */}
-                  {role !== 'contractor' && (
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-lg">Favorite Contractors</CardTitle>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => navigate('/favorite-contractors')}
-                            data-testid="button-manage-favorites"
-                          >
-                            Manage
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          Your favorite contractors will appear here. Click "Manage" to add or remove favorites.
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
+                  {role !== 'contractor' && (() => {
+                    const favoriteContractors = allContractors?.filter((c: any) => c.isFavorite) || [];
+                    return (
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg">Favorite Contractors</CardTitle>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => navigate('/favorite-contractors')}
+                              data-testid="button-manage-favorites"
+                            >
+                              Manage
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-4">
+                          {favoriteContractors.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-2">
+                              No favorites yet. Click "Manage" to add contractors.
+                            </p>
+                          ) : (
+                            <div className="space-y-2">
+                              {favoriteContractors.slice(0, 3).map((contractor: any) => (
+                                <div 
+                                  key={contractor.id} 
+                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-accent/50 cursor-pointer transition-colors"
+                                  onClick={() => navigate('/favorite-contractors')}
+                                  data-testid={`favorite-contractor-${contractor.id}`}
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                    <Users className="h-4 w-4 text-primary" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">
+                                      {contractor.firstName && contractor.lastName 
+                                        ? `${contractor.firstName} ${contractor.lastName}` 
+                                        : contractor.email}
+                                    </p>
+                                    {contractor.contractorSpecialties && contractor.contractorSpecialties.length > 0 && (
+                                      <p className="text-xs text-muted-foreground truncate">
+                                        {contractor.contractorSpecialties[0]}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                                </div>
+                              ))}
+                              {favoriteContractors.length > 3 && (
+                                <p className="text-xs text-muted-foreground text-center pt-1">
+                                  +{favoriteContractors.length - 3} more
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
                 </div>
                 {/* End of right column */}
               </div>
