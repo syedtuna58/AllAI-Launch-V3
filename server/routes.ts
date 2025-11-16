@@ -2757,6 +2757,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/marketplace/cases', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.primaryRole !== 'contractor') {
+        return res.status(403).json({ message: "Only contractors can view marketplace jobs" });
+      }
+      
+      const cases = await storage.getAvailableMarketplaceCases(userId);
+      res.json(cases);
+    } catch (error) {
+      console.error("Error fetching marketplace cases:", error);
+      res.status(500).json({ message: "Failed to fetch marketplace cases" });
+    }
+  });
+
+  app.post('/api/marketplace/cases/:id/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.primaryRole !== 'contractor') {
+        return res.status(403).json({ message: "Only contractors can accept marketplace jobs" });
+      }
+      
+      const smartCase = await storage.getSmartCase(req.params.id);
+      if (!smartCase) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+      
+      if (smartCase.assignedContractorId) {
+        return res.status(400).json({ message: "Case already assigned to another contractor" });
+      }
+      
+      const updatedCase = await storage.acceptMarketplaceCase(req.params.id, userId);
+      res.json(updatedCase);
+    } catch (error) {
+      console.error("Error accepting marketplace case:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to accept marketplace case" });
+    }
+  });
+
   // Vendor routes
   app.get('/api/vendors', isAuthenticated, async (req: any, res) => {
     try {

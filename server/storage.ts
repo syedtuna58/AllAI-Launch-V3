@@ -4085,6 +4085,26 @@ export class DatabaseStorage implements IStorage {
 
   async acceptMarketplaceCase(caseId: string, contractorUserId: string): Promise<SmartCase> {
     return await db.transaction(async (tx) => {
+      const [smartCase] = await tx.select()
+        .from(smartCases)
+        .where(eq(smartCases.id, caseId))
+        .limit(1);
+      
+      if (!smartCase) {
+        throw new Error('Case not found');
+      }
+      
+      if (smartCase.assignedContractorId) {
+        throw new Error('Case already assigned');
+      }
+      
+      if (smartCase.restrictToFavorites && !smartCase.isUrgent) {
+        const isFavorite = await this.isFavoriteContractor(smartCase.orgId, contractorUserId);
+        if (!isFavorite) {
+          throw new Error('This job is restricted to favorite contractors only');
+        }
+      }
+      
       const vendorRecords = await tx.select()
         .from(vendors)
         .where(eq(vendors.userId, contractorUserId));
