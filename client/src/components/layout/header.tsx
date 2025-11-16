@@ -149,7 +149,7 @@ export default function Header({ title }: HeaderProps) {
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="text-tenant-unit">
                   <Home className="h-3.5 w-3.5" />
                   <span>
-                    {tenantInfo.unit.label} at {tenantInfo.unit.property.name}
+                    {tenantInfo.unit.property.street} {tenantInfo.unit.label}
                   </span>
                 </div>
               </>
