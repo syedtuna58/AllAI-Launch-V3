@@ -5232,6 +5232,9 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
         let propertyMatches = [];
         let properties = [];
         
+        // Store tenant info for later use in response
+        let tenantUnitInfo = null;
+        
         if (userRole === 'tenant') {
           // Get tenant's unit and property
           const tenant = await db.query.tenants.findFirst({
@@ -5248,6 +5251,18 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
           if (!tenant || !tenant.unit || !tenant.unit.property) {
             return res.status(400).json({ message: "Tenant unit or property not found" });
           }
+
+          // Store unit info for confirmation message
+          tenantUnitInfo = {
+            unitLabel: tenant.unit.label,
+            unitId: tenant.unitId,
+            propertyName: tenant.unit.property.name || tenant.unit.property.street,
+            propertyId: tenant.unit.property.id,
+            propertyStreet: tenant.unit.property.street,
+            propertyCity: tenant.unit.property.city,
+            propertyState: tenant.unit.property.state,
+            propertyZip: tenant.unit.property.zip
+          };
 
           // Auto-fill the tenant's property
           propertyMatches = [{
@@ -5311,7 +5326,29 @@ Response format:
         }
 
         // Generate conversational, empathetic response using GPT-4
-        const conversationalPrompt = `You are Maya, a friendly and supportive AI maintenance assistant for tenants. A tenant just reported this issue: "${message}"
+        const conversationalPrompt = tenantUnitInfo 
+          ? `You are Maya, a friendly and supportive AI maintenance assistant for tenants. A tenant just reported this issue: "${message}"
+
+Based on the analysis:
+- Category: ${triageResult.category} (${triageResult.subcategory})
+- Urgency: ${triageResult.urgency}
+- Safety Risk: ${triageResult.safetyRisk}
+- Estimated Duration: ${triageResult.estimatedDuration}
+- Preliminary Diagnosis: ${triageResult.preliminaryDiagnosis}
+- Troubleshooting Steps: ${triageResult.troubleshootingSteps.join(', ')}
+
+Tenant's Unit: ${tenantUnitInfo.unitLabel}
+Property Address: ${tenantUnitInfo.propertyStreet}, ${tenantUnitInfo.propertyCity}, ${tenantUnitInfo.propertyState} ${tenantUnitInfo.propertyZip || ''}
+
+Write a warm, supportive response (2-3 short paragraphs) that:
+1. Acknowledges their issue empathetically
+2. ${triageResult.safetyRisk !== 'None' ? 'IMMEDIATELY provides safety warnings and damage mitigation tips (e.g., for leaks: turn off water, use towels, place bucket)' : 'Provides helpful immediate damage mitigation tips if relevant'}
+3. ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? 'Emphasizes urgency and reassures them help is coming fast' : 'Reassures them we will get it fixed'}
+4. Mentions photos/videos are optional but helpful - say something like "If you can snap a quick photo or video, that's helpful but totally optional"
+5. Ends by asking them to confirm their unit and address before submitting: "Before I create your maintenance request, can you confirm this is for Unit ${tenantUnitInfo.unitLabel} at ${tenantUnitInfo.propertyStreet}, ${tenantUnitInfo.propertyCity}, ${tenantUnitInfo.propertyState}?"
+
+Use natural, conversational language. Be warm and supportive. Keep it concise. Don't use ** markdown for emphasis.`
+          : `You are Maya, a friendly and supportive AI maintenance assistant for tenants. A tenant just reported this issue: "${message}"
 
 Based on the analysis:
 - Category: ${triageResult.category} (${triageResult.subcategory})
@@ -5369,7 +5406,15 @@ Which property is this for? Let me know and I'll get the right person on it:`;
             name: m.name,
             address: m.address,
             confidence: m.confidence
-          }))
+          })),
+          // Include tenant unit info for confirmation display
+          tenantUnitInfo: tenantUnitInfo ? {
+            unitLabel: tenantUnitInfo.unitLabel,
+            unitId: tenantUnitInfo.unitId,
+            propertyName: tenantUnitInfo.propertyName,
+            propertyId: tenantUnitInfo.propertyId,
+            fullAddress: `${tenantUnitInfo.propertyStreet}, ${tenantUnitInfo.propertyCity}, ${tenantUnitInfo.propertyState}${tenantUnitInfo.propertyZip ? ' ' + tenantUnitInfo.propertyZip : ''}`
+          } : null
         });
       } else {
         res.status(400).json({ message: "Invalid step" });
