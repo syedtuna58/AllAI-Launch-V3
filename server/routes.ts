@@ -2638,6 +2638,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Marketplace routes
+  app.get('/api/favorites', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      
+      const user = await storage.getUser(userId);
+      if (!user || !['org_admin', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization admins can manage favorites" });
+      }
+      
+      const favorites = await storage.getFavoriteContractors(org.id);
+      res.json(favorites);
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+      res.status(500).json({ message: "Failed to fetch favorites" });
+    }
+  });
+
+  app.post('/api/favorites', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      
+      const user = await storage.getUser(userId);
+      if (!user || !['org_admin', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization admins can manage favorites" });
+      }
+      
+      const { contractorUserId, notes } = req.body;
+      if (!contractorUserId) {
+        return res.status(400).json({ message: "Contractor user ID required" });
+      }
+
+      const favorite = await storage.addFavoriteContractor(org.id, contractorUserId, userId, notes);
+      res.json(favorite);
+    } catch (error) {
+      console.error("Error adding favorite:", error);
+      res.status(500).json({ message: "Failed to add favorite contractor" });
+    }
+  });
+
+  app.delete('/api/favorites/:contractorUserId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      
+      const user = await storage.getUser(userId);
+      if (!user || !['org_admin', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization admins can manage favorites" });
+      }
+      
+      await storage.removeFavoriteContractor(org.id, req.params.contractorUserId);
+      res.json({ message: "Favorite removed successfully" });
+    } catch (error) {
+      console.error("Error removing favorite:", error);
+      res.status(500).json({ message: "Failed to remove favorite" });
+    }
+  });
+
+  app.post('/api/cases/:id/post-to-marketplace', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      
+      const user = await storage.getUser(userId);
+      if (!user || !['org_admin', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization admins can post cases to marketplace" });
+      }
+      
+      const { restrictToFavorites = false, isUrgent = false } = req.body;
+      
+      const smartCase = await storage.getSmartCase(req.params.id);
+      if (!smartCase) {
+        return res.status(404).json({ message: "Case not found" });
+      }
+      if (smartCase.orgId !== org.id) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      const updatedCase = await storage.postCaseToMarketplace(req.params.id, restrictToFavorites, isUrgent);
+      res.json(updatedCase);
+    } catch (error) {
+      console.error("Error posting case to marketplace:", error);
+      res.status(500).json({ message: "Failed to post case to marketplace" });
+    }
+  });
+
   // Vendor routes
   app.get('/api/vendors', isAuthenticated, async (req: any, res) => {
     try {

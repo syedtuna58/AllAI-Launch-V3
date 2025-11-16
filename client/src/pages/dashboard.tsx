@@ -288,15 +288,15 @@ export default function Dashboard() {
           )}
 
           {/* Main Dashboard Grid - New Layout: Cases Left, Reminders/Notifications Right */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-32rem)]">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
             {/* Left Half - Cases with Filtering (Scrollable) */}
-            <div className="h-full">
+            <div className="h-[600px]">
               <CasesWidget />
             </div>
 
             {/* Right Half - Reminders (Top) and Notifications (Bottom) */}
-            <div className="grid grid-rows-2 gap-6 h-full">
+            <div className="grid grid-rows-2 gap-6 h-[600px]">
               <RemindersWidget 
                 onCreateReminder={() => setShowReminderForm(true)}
                 onEditReminder={(reminder) => {

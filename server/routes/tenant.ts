@@ -4,6 +4,7 @@ import { db } from '../db';
 import { tenants, smartCases, caseMedia } from '@shared/schema';
 import { eq, and, or } from 'drizzle-orm';
 import { z } from 'zod';
+import { notificationService } from '../notificationService.js';
 
 const router = Router();
 
@@ -207,6 +208,37 @@ router.post('/cases', requireAuth, requireRole('tenant'), async (req: Authentica
         }))
       );
     }
+
+    // Send notifications (works via WebSocket & database even without SendGrid)
+    await Promise.allSettled([
+      // Notify tenant (confirmation)
+      notificationService.notifyTenant(
+        {
+          type: 'case_created',
+          subject: `Work Order Created: ${newCase.title}`,
+          message: `Your maintenance request has been submitted and is being reviewed. We'll notify you when it's assigned to a contractor.`,
+          title: 'Request Submitted',
+          caseId: newCase.id,
+          timestamp: new Date().toISOString(),
+        },
+        tenant.email,
+        userId,
+        derivedOrgId
+      ),
+      // Notify landlord (new case alert)
+      notificationService.notifyAdmins(
+        {
+          type: 'case_created',
+          subject: `New Work Order: ${newCase.title}`,
+          message: `${tenant.firstName} ${tenant.lastName} reported: ${newCase.description?.substring(0, 100)}`,
+          title: 'New Maintenance Request',
+          caseId: newCase.id,
+          caseNumber: newCase.caseNumber || undefined,
+          timestamp: new Date().toISOString(),
+        },
+        derivedOrgId
+      ),
+    ]);
 
     res.json(newCase);
   } catch (error) {

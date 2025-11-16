@@ -44,10 +44,17 @@ import {
   predictiveInsights,
   channelSettings,
   equipment,
+  favoriteContractors,
+  jobOffers,
+  contractorOrgLinks,
   type User,
   type UpsertUser,
   type Organization,
   type InsertOrganization,
+  type FavoriteContractor,
+  type InsertFavoriteContractor,
+  type JobOffer,
+  type InsertJobOffer,
   type OwnershipEntity,
   type InsertOwnershipEntity,
   type Property,
@@ -125,7 +132,7 @@ import {
   type InsertCounterProposal,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, asc, sql, gte, lte, count, like, isNull } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, gte, lte, count, like, isNull, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -385,6 +392,20 @@ export interface IStorage {
   getCounterProposalsByJob(jobId: string): Promise<CounterProposal[]>;
   getCounterProposal(id: string): Promise<CounterProposal | undefined>;
   updateCounterProposal(id: string, proposal: Partial<InsertCounterProposal>): Promise<CounterProposal>;
+
+  // Favorite Contractor operations
+  getFavoriteContractors(orgId: string): Promise<FavoriteContractor[]>;
+  addFavoriteContractor(orgId: string, contractorUserId: string, addedBy: string, notes?: string): Promise<FavoriteContractor>;
+  removeFavoriteContractor(orgId: string, contractorUserId: string): Promise<void>;
+  isFavoriteContractor(orgId: string, contractorUserId: string): Promise<boolean>;
+
+  // Job Marketplace operations
+  postCaseToMarketplace(caseId: string, restrictToFavorites: boolean, isUrgent: boolean): Promise<SmartCase>;
+  getAvailableMarketplaceCases(contractorUserId: string): Promise<SmartCase[]>;
+  acceptMarketplaceCase(caseId: string, contractorUserId: string): Promise<SmartCase>;
+  createJobOffer(caseId: string, contractorUserId: string, offeredBy: string, expiresAt?: Date): Promise<JobOffer>;
+  getContractorJobOffers(contractorUserId: string, status?: string): Promise<JobOffer[]>;
+  updateJobOfferStatus(id: string, status: string): Promise<JobOffer>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3954,6 +3975,179 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(counterProposals)
       .set(proposalData)
       .where(eq(counterProposals.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Favorite Contractor operations
+  async getFavoriteContractors(orgId: string): Promise<FavoriteContractor[]> {
+    return db.select()
+      .from(favoriteContractors)
+      .where(eq(favoriteContractors.orgId, orgId))
+      .orderBy(desc(favoriteContractors.createdAt));
+  }
+
+  async addFavoriteContractor(orgId: string, contractorUserId: string, addedBy: string, notes?: string): Promise<FavoriteContractor> {
+    const [favorite] = await db.insert(favoriteContractors)
+      .values({ orgId, contractorUserId, addedBy, notes })
+      .returning();
+    return favorite;
+  }
+
+  async removeFavoriteContractor(orgId: string, contractorUserId: string): Promise<void> {
+    await db.delete(favoriteContractors)
+      .where(and(
+        eq(favoriteContractors.orgId, orgId),
+        eq(favoriteContractors.contractorUserId, contractorUserId)
+      ));
+  }
+
+  async isFavoriteContractor(orgId: string, contractorUserId: string): Promise<boolean> {
+    const [favorite] = await db.select()
+      .from(favoriteContractors)
+      .where(and(
+        eq(favoriteContractors.orgId, orgId),
+        eq(favoriteContractors.contractorUserId, contractorUserId)
+      ))
+      .limit(1);
+    return !!favorite;
+  }
+
+  // Job Marketplace operations
+  async postCaseToMarketplace(caseId: string, restrictToFavorites: boolean, isUrgent: boolean): Promise<SmartCase> {
+    const [updatedCase] = await db.update(smartCases)
+      .set({
+        postedAt: new Date(),
+        restrictToFavorites,
+        isUrgent,
+        updatedAt: new Date(),
+      })
+      .where(eq(smartCases.id, caseId))
+      .returning();
+    return updatedCase;
+  }
+
+  async getAvailableMarketplaceCases(contractorUserId: string): Promise<SmartCase[]> {
+    const contractorOrgLinks = await db.select()
+      .from(contractorOrgLinks)
+      .where(and(
+        eq(contractorOrgLinks.contractorUserId, contractorUserId),
+        eq(contractorOrgLinks.status, 'active')
+      ));
+    
+    const accessibleOrgIds = contractorOrgLinks.map(link => link.orgId);
+    
+    if (accessibleOrgIds.length === 0) {
+      return [];
+    }
+
+    const allCases = await db.query.smartCases.findMany({
+      where: and(
+        isNull(smartCases.assignedContractorId),
+        sql`${smartCases.postedAt} IS NOT NULL`,
+        or(
+          eq(smartCases.status, 'New'),
+          eq(smartCases.status, 'In Review')
+        ),
+        inArray(smartCases.orgId, accessibleOrgIds)
+      ),
+      with: {
+        property: true,
+        unit: true,
+      },
+      orderBy: [desc(smartCases.isUrgent), desc(smartCases.postedAt)],
+    });
+
+    const favoriteCases: SmartCase[] = [];
+    const publicCases: SmartCase[] = [];
+
+    for (const smartCase of allCases) {
+      if (smartCase.restrictToFavorites) {
+        const isFav = await this.isFavoriteContractor(smartCase.orgId, contractorUserId);
+        if (isFav || smartCase.isUrgent) {
+          favoriteCases.push(smartCase);
+        }
+      } else {
+        publicCases.push(smartCase);
+      }
+    }
+
+    return [...favoriteCases, ...publicCases];
+  }
+
+  async acceptMarketplaceCase(caseId: string, contractorUserId: string): Promise<SmartCase> {
+    return await db.transaction(async (tx) => {
+      const vendorRecords = await tx.select()
+        .from(vendors)
+        .where(eq(vendors.userId, contractorUserId));
+      
+      if (vendorRecords.length === 0) {
+        throw new Error('Contractor vendor record not found');
+      }
+
+      const vendorId = vendorRecords[0].id;
+
+      const [updatedCase] = await tx.update(smartCases)
+        .set({
+          assignedContractorId: vendorId,
+          status: 'In Review',
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(smartCases.id, caseId),
+          isNull(smartCases.assignedContractorId)
+        ))
+        .returning();
+
+      if (!updatedCase) {
+        throw new Error('Case already assigned or not found');
+      }
+
+      await tx.insert(jobOffers)
+        .values({
+          caseId,
+          contractorUserId,
+          offeredBy: contractorUserId,
+          status: 'accepted',
+          respondedAt: new Date(),
+        });
+
+      return updatedCase;
+    });
+  }
+
+  async createJobOffer(caseId: string, contractorUserId: string, offeredBy: string, expiresAt?: Date): Promise<JobOffer> {
+    const [offer] = await db.insert(jobOffers)
+      .values({
+        caseId,
+        contractorUserId,
+        offeredBy,
+        status: 'pending',
+        expiresAt: expiresAt || new Date(Date.now() + 48 * 60 * 60 * 1000),
+      })
+      .returning();
+    return offer;
+  }
+
+  async getContractorJobOffers(contractorUserId: string, status?: string): Promise<JobOffer[]> {
+    const conditions = [eq(jobOffers.contractorUserId, contractorUserId)];
+    if (status) {
+      conditions.push(eq(jobOffers.status, status));
+    }
+
+    return db.select()
+      .from(jobOffers)
+      .where(and(...conditions))
+      .orderBy(desc(jobOffers.createdAt));
+  }
+
+  async updateJobOfferStatus(id: string, status: string): Promise<JobOffer> {
+    const [updated] = await db.update(jobOffers)
+      .set({
+        status,
+        respondedAt: new Date(),
+      })
+      .where(eq(jobOffers.id, id))
       .returning();
     return updated;
   }
