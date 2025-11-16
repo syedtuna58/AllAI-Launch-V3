@@ -1412,6 +1412,20 @@ export default function Maintenance() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Maintenance Requests" />
         
+        {/* Back to Dashboard Link */}
+        <div className="px-6 pt-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(role === 'contractor' ? '/contractor-dashboard' : '/dashboard')}
+            className="text-muted-foreground hover:text-foreground"
+            data-testid="button-back-dashboard"
+          >
+            <Home className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
+        
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
               {/* Header */}
               <div className="mb-6">
@@ -2908,7 +2922,7 @@ export default function Maintenance() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => navigate('/favorites')}
+                            onClick={() => navigate('/favorite-contractors')}
                             data-testid="button-manage-favorites"
                           >
                             Manage
