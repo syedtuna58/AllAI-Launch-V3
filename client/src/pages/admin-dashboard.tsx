@@ -165,7 +165,8 @@ export default function AdminDashboard() {
   // Impersonate organization mutation
   const impersonateMutation = useMutation({
     mutationFn: async (orgId: string) => {
-      return await apiRequest(`/api/admin/impersonate/${orgId}`, "POST");
+      const response = await apiRequest("POST", `/api/admin/impersonate/${orgId}`);
+      return await response.json();
     },
     onSuccess: (data: any) => {
       toast({
@@ -195,7 +196,8 @@ export default function AdminDashboard() {
   // Stop impersonation mutation
   const stopImpersonationMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/admin/stop-impersonation", "POST");
+      const response = await apiRequest("POST", "/api/admin/stop-impersonation");
+      return await response.json();
     },
     onSuccess: () => {
       toast({

@@ -20,7 +20,8 @@ export default function ImpersonationBanner() {
   // Stop impersonation mutation
   const stopImpersonationMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("/api/admin/stop-impersonation", "POST");
+      const response = await apiRequest("POST", "/api/admin/stop-impersonation");
+      return await response.json();
     },
     onSuccess: () => {
       toast({
