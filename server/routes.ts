@@ -5326,29 +5326,7 @@ Response format:
         }
 
         // Generate conversational, empathetic response using GPT-4
-        const conversationalPrompt = tenantUnitInfo 
-          ? `You are Maya, a friendly and supportive AI maintenance assistant for tenants. A tenant just reported this issue: "${message}"
-
-Based on the analysis:
-- Category: ${triageResult.category} (${triageResult.subcategory})
-- Urgency: ${triageResult.urgency}
-- Safety Risk: ${triageResult.safetyRisk}
-- Estimated Duration: ${triageResult.estimatedDuration}
-- Preliminary Diagnosis: ${triageResult.preliminaryDiagnosis}
-- Troubleshooting Steps: ${triageResult.troubleshootingSteps.join(', ')}
-
-Tenant's Unit: ${tenantUnitInfo.unitLabel}
-Property Address: ${tenantUnitInfo.propertyStreet}, ${tenantUnitInfo.propertyCity}, ${tenantUnitInfo.propertyState} ${tenantUnitInfo.propertyZip || ''}
-
-Write a warm, supportive response (2-3 short paragraphs) that:
-1. Acknowledges their issue empathetically
-2. ${triageResult.safetyRisk !== 'None' ? 'IMMEDIATELY provides safety warnings and damage mitigation tips (e.g., for leaks: turn off water, use towels, place bucket)' : 'Provides helpful immediate damage mitigation tips if relevant'}
-3. ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? 'Emphasizes urgency and reassures them help is coming fast' : 'Reassures them we will get it fixed'}
-4. Mentions photos/videos are optional but helpful - say something like "If you can snap a quick photo or video, that's helpful but totally optional"
-5. Ends by asking them to confirm their unit and address before submitting: "Before I create your maintenance request, can you confirm this is for Unit ${tenantUnitInfo.unitLabel} at ${tenantUnitInfo.propertyStreet}, ${tenantUnitInfo.propertyCity}, ${tenantUnitInfo.propertyState}?"
-
-Use natural, conversational language. Be warm and supportive. Keep it concise. Don't use ** markdown for emphasis.`
-          : `You are Maya, a friendly and supportive AI maintenance assistant for tenants. A tenant just reported this issue: "${message}"
+        const conversationalPrompt = `You are Maya, a friendly and supportive AI maintenance assistant for tenants. A tenant just reported this issue: "${message}"
 
 Based on the analysis:
 - Category: ${triageResult.category} (${triageResult.subcategory})
@@ -5363,7 +5341,6 @@ Write a warm, supportive response (2-3 short paragraphs) that:
 2. ${triageResult.safetyRisk !== 'None' ? 'IMMEDIATELY provides safety warnings and damage mitigation tips (e.g., for leaks: turn off water, use towels, place bucket)' : 'Provides helpful immediate damage mitigation tips if relevant'}
 3. ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? 'Emphasizes urgency and reassures them help is coming fast' : 'Reassures them we will get it fixed'}
 4. Mentions photos/videos are optional but helpful - say something like "If you can snap a quick photo or video, that's helpful but totally optional"
-5. Ends by asking which property this is for
 
 Use natural, conversational language. Be warm and supportive. Keep it concise. Don't use ** markdown for emphasis.`;
 
@@ -5383,11 +5360,17 @@ Use natural, conversational language. Be warm and supportive. Keep it concise. D
           mayaResponse = ''; // Ensure fallback
         }
 
-        const response = mayaResponse || `Oh no, a leaking sink! ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? "I'm marking this as high priority." : "Don't worry, we'll get this taken care of."} ${triageResult.safetyRisk !== 'None' ? 'First things first - if water is actively flowing, turn off the shutoff valves under the sink (turn them clockwise). Grab some towels and a bucket to catch any drips and protect your floors. ' : ''}
+        // Build the final response
+        let response = mayaResponse || `Oh no, a leaking sink! ${triageResult.urgency === 'High' || triageResult.urgency === 'Critical' ? "I'm marking this as high priority." : "Don't worry, we'll get this taken care of."} ${triageResult.safetyRisk !== 'None' ? 'First things first - if water is actively flowing, turn off the shutoff valves under the sink (turn them clockwise). Grab some towels and a bucket to catch any drips and protect your floors. ' : ''}
 
-I've analyzed this as a ${triageResult.category.toLowerCase()} issue that should take about ${triageResult.estimatedDuration.toLowerCase()} to fix. If you can snap a quick photo or video, that would be really helpful, but it's totally optional.
+I've analyzed this as a ${triageResult.category.toLowerCase()} issue that should take about ${triageResult.estimatedDuration.toLowerCase()} to fix. If you can snap a quick photo or video, that would be really helpful, but it's totally optional.`;
 
-Which property is this for? Let me know and I'll get the right person on it:`;
+        // For tenants, append confirmation message with full address
+        if (tenantUnitInfo) {
+          response += `\n\nBefore I create your maintenance request, can you confirm this is for your ${tenantUnitInfo.unitLabel.toLowerCase().startsWith('unit') || tenantUnitInfo.unitLabel.toLowerCase().startsWith('apt') ? '' : 'Unit '}${tenantUnitInfo.unitLabel} at ${tenantUnitInfo.propertyStreet}, in ${tenantUnitInfo.propertyCity}?`;
+        } else {
+          response += `\n\nWhich property is this for? Let me know and I'll get the right person on it:`;
+        }
 
         res.json({
           response,

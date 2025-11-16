@@ -182,14 +182,21 @@ export default function TenantDashboard() {
           timestamp: new Date(),
           data: {
             triage: data.triage,
-            properties: data.propertyMatches
+            properties: data.propertyMatches,
+            tenantUnitInfo: data.tenantUnitInfo
           }
         };
 
         setMessages(prev => [...prev, assistantMessage]);
-        setConversationState("property_matching");
+        
+        // For tenants with auto-filled unit info, go straight to confirming
+        if (data.tenantUnitInfo) {
+          setConversationState("tenant_confirming");
+        } else {
+          setConversationState("property_matching");
+        }
 
-      } else if (conversationState === "confirming") {
+      } else if (conversationState === "confirming" || conversationState === "tenant_confirming") {
         if (content.toLowerCase().includes("yes") || content.toLowerCase().includes("confirm")) {
           setConversationState("creating");
           const caseRes = await apiRequest('POST', '/api/tenant/cases', {
@@ -248,6 +255,51 @@ export default function TenantDashboard() {
     
     setMessages(prev => [...prev, confirmMessage]);
     setConversationState("confirming");
+  };
+
+  const handleTenantConfirm = async () => {
+    setIsProcessing(true);
+    try {
+      const caseRes = await apiRequest('POST', '/api/tenant/cases', {
+        title: triageData?.suggestedTitle || "Maintenance Request",
+        description: issueDescription,
+        priority: triageData?.urgency || "Normal",
+        category: triageData?.category || "general",
+        aiTriageJson: triageData,
+        mediaUrls: uploadedMedia,
+      });
+
+      if (caseRes.ok) {
+        const successMessage: Message = {
+          id: (Date.now() + 2).toString(),
+          role: "assistant",
+          content: `✅ Your maintenance request has been submitted successfully${uploadedMedia.length > 0 ? ` with ${uploadedMedia.length} photo(s)` : ''}! Check the "Cases" tab below to track its progress.`,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, successMessage]);
+        queryClient.invalidateQueries({ queryKey: ['/api/tenant/cases'] });
+        setTimeout(() => {
+          setMayaOpen(false);
+          setConversationState("initial");
+          setUploadedMedia([]);
+          setMessages([{
+            id: "welcome",
+            role: "assistant",
+            content: "Hi! I'm Maya 👋 Tell me about your maintenance issue and I'll help you submit a request.",
+            timestamp: new Date(),
+          }]);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Create case error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create maintenance request. Please try again.",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -324,7 +376,20 @@ export default function TenantDashboard() {
                             <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                           </div>
                           
-                          {message.data?.properties && message.data.properties.length > 0 && (
+                          {message.data?.tenantUnitInfo ? (
+                            <div className="w-full mt-2">
+                              <Button
+                                variant="default"
+                                className="w-full"
+                                onClick={handleTenantConfirm}
+                                disabled={isProcessing}
+                                data-testid="button-confirm-tenant-unit"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Yes, that's correct
+                              </Button>
+                            </div>
+                          ) : message.data?.properties && message.data.properties.length > 0 ? (
                             <div className="w-full space-y-2 mt-2">
                               {message.data.properties.map((property: PropertyMatch) => (
                                 <Button
@@ -353,7 +418,7 @@ export default function TenantDashboard() {
                                 </Button>
                               ))}
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     ))}
