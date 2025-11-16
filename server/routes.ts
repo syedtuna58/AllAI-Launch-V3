@@ -2,9 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { requireAuth, AuthenticatedRequest } from "./middleware/rbac";
 import { ObjectStorageService } from "./objectStorage";
 import { db } from "./db";
-import { users, organizationMembers, vendors, counterProposals } from "@shared/schema";
+import { users, organizationMembers, vendors, counterProposals, tenants } from "@shared/schema";
 import { z } from "zod";
 import authRouter from "./routes/auth";
 import contractorRouter from "./routes/contractor";
@@ -5200,11 +5201,15 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
   });
 
   // Conversational Maya AI triage chat endpoint
-  app.post('/api/triage/chat', isAuthenticated, async (req: any, res) => {
+  app.post('/api/triage/chat', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const org = await storage.getUserOrganization(userId);
-      if (!org) return res.status(404).json({ message: "Organization not found" });
+      const userId = req.user!.id;
+      const userRole = req.user!.role;
+      const orgId = req.user!.orgId;
+      
+      if (!orgId) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
 
       const { message, step } = req.body;
 
@@ -5218,20 +5223,54 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
         const triageResult = await aiTriageService.analyzeMaintenanceRequest({
           title: message.substring(0, 100),
           description: message,
-          orgId: org.id
+          orgId: orgId
         });
 
-        const properties = await storage.getProperties(org.id);
-        
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const propertyContext = properties.map((p: any) => ({
-          id: p.id,
-          name: p.address || p.name || 'Property',
-          address: p.address || '',
-          type: p.type
-        }));
 
-        const matchPrompt = `Given this maintenance issue: "${message}"
+        // For tenants, automatically use their unit/property
+        let propertyMatches = [];
+        let properties = [];
+        
+        if (userRole === 'tenant') {
+          // Get tenant's unit and property
+          const tenant = await db.query.tenants.findFirst({
+            where: eq(tenants.userId, userId),
+            with: {
+              unit: {
+                with: {
+                  property: true,
+                },
+              },
+            },
+          });
+
+          if (!tenant || !tenant.unit || !tenant.unit.property) {
+            return res.status(400).json({ message: "Tenant unit or property not found" });
+          }
+
+          // Auto-fill the tenant's property
+          propertyMatches = [{
+            id: tenant.unit.property.id,
+            name: tenant.unit.property.name || tenant.unit.property.street || 'Your Property',
+            address: `${tenant.unit.property.street}, ${tenant.unit.property.city}, ${tenant.unit.property.state}`,
+            confidence: 1.0,
+            reasoning: "Your assigned property"
+          }];
+          
+          properties = [tenant.unit.property];
+        } else {
+          // For non-tenants, get all properties and do AI matching
+          properties = await storage.getProperties(orgId);
+          
+          const propertyContext = properties.map((p: any) => ({
+            id: p.id,
+            name: p.address || p.name || 'Property',
+            address: p.address || '',
+            type: p.type
+          }));
+
+          const matchPrompt = `Given this maintenance issue: "${message}"
 
 And these properties:
 ${propertyContext.map(p => `- ${p.name} (${p.address}) [ID: ${p.id}]`).join('\n')}
@@ -5245,30 +5284,30 @@ Response format:
   ]
 }`;
 
-        let propertyMatches = [];
-        try {
-          const matchResponse = await openai.chat.completions.create({
-            model: "gpt-4o",
-            messages: [
-              { role: "system", content: "You are an AI assistant helping match maintenance requests to properties." },
-              { role: "user", content: matchPrompt }
-            ],
-            response_format: { type: "json_object" }
-          });
+          try {
+            const matchResponse = await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                { role: "system", content: "You are an AI assistant helping match maintenance requests to properties." },
+                { role: "user", content: matchPrompt }
+              ],
+              response_format: { type: "json_object" }
+            });
 
-          const matchContent = matchResponse.choices[0].message.content;
-          if (matchContent) {
-            const matchResult = JSON.parse(matchContent);
-            propertyMatches = matchResult.matches || [];
+            const matchContent = matchResponse.choices[0].message.content;
+            if (matchContent) {
+              const matchResult = JSON.parse(matchContent);
+              propertyMatches = matchResult.matches || [];
+            }
+          } catch (error) {
+            console.error("Property matching error:", error);
+            propertyMatches = propertyContext.slice(0, 3).map(p => ({
+              id: p.id,
+              name: p.name,
+              address: p.address,
+              confidence: 0.5
+            }));
           }
-        } catch (error) {
-          console.error("Property matching error:", error);
-          propertyMatches = propertyContext.slice(0, 3).map(p => ({
-            id: p.id,
-            name: p.name,
-            address: p.address,
-            confidence: 0.5
-          }));
         }
 
         // Generate conversational, empathetic response using GPT-4
