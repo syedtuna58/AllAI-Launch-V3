@@ -2646,8 +2646,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
       const user = await storage.getUser(userId);
-      if (!user || !['org_admin', 'platform_super_admin'].includes(user.primaryRole)) {
-        return res.status(403).json({ message: "Only organization admins can manage favorites" });
+      if (!user || !['org_admin', 'admin', 'property_owner', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization members can manage favorites" });
       }
       
       const favorites = await storage.getFavoriteContractors(org.id);
@@ -2665,8 +2665,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
       const user = await storage.getUser(userId);
-      if (!user || !['org_admin', 'platform_super_admin'].includes(user.primaryRole)) {
-        return res.status(403).json({ message: "Only organization admins can manage favorites" });
+      if (!user || !['org_admin', 'admin', 'property_owner', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization members can manage favorites" });
       }
       
       const { contractorUserId, notes } = req.body;
@@ -2689,8 +2689,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!org) return res.status(404).json({ message: "Organization not found" });
       
       const user = await storage.getUser(userId);
-      if (!user || !['org_admin', 'platform_super_admin'].includes(user.primaryRole)) {
-        return res.status(403).json({ message: "Only organization admins can manage favorites" });
+      if (!user || !['org_admin', 'admin', 'property_owner', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization members can manage favorites" });
       }
       
       await storage.removeFavoriteContractor(org.id, req.params.contractorUserId);
@@ -2698,6 +2698,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error removing favorite:", error);
       res.status(500).json({ message: "Failed to remove favorite" });
+    }
+  });
+
+  app.get('/api/marketplace/contractors', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const org = await storage.getUserOrganization(userId);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      
+      const user = await storage.getUser(userId);
+      if (!user || !['org_admin', 'admin', 'property_owner', 'platform_super_admin'].includes(user.primaryRole)) {
+        return res.status(403).json({ message: "Only organization members can view contractor marketplace" });
+      }
+      
+      const contractors = await storage.getAllContractorUsers();
+      const favorites = await storage.getFavoriteContractors(org.id);
+      const favoriteIds = new Set(favorites.map(f => f.contractorUserId));
+      
+      const contractorsWithFavoriteStatus = contractors.map(contractor => ({
+        ...contractor,
+        isFavorite: favoriteIds.has(contractor.id),
+      }));
+      
+      res.json(contractorsWithFavoriteStatus);
+    } catch (error) {
+      console.error("Error fetching contractors:", error);
+      res.status(500).json({ message: "Failed to fetch contractors" });
     }
   });
 

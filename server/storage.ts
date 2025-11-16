@@ -394,6 +394,7 @@ export interface IStorage {
   updateCounterProposal(id: string, proposal: Partial<InsertCounterProposal>): Promise<CounterProposal>;
 
   // Favorite Contractor operations
+  getAllContractorUsers(): Promise<User[]>;
   getFavoriteContractors(orgId: string): Promise<FavoriteContractor[]>;
   addFavoriteContractor(orgId: string, contractorUserId: string, addedBy: string, notes?: string): Promise<FavoriteContractor>;
   removeFavoriteContractor(orgId: string, contractorUserId: string): Promise<void>;
@@ -3980,6 +3981,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Favorite Contractor operations
+  async getAllContractorUsers(): Promise<User[]> {
+    return db.select()
+      .from(users)
+      .where(eq(users.primaryRole, 'contractor'))
+      .orderBy(asc(users.firstName), asc(users.lastName));
+  }
+
   async getFavoriteContractors(orgId: string): Promise<FavoriteContractor[]> {
     return db.select()
       .from(favoriteContractors)
