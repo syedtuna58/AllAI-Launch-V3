@@ -3065,13 +3065,18 @@ export default function Maintenance() {
       <AlertDialog open={!!caseToDelete} onOpenChange={(open) => !open && setCaseToDelete(null)}>
         <AlertDialogContent data-testid="dialog-delete-case">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Case</AlertDialogTitle>
+            <AlertDialogTitle>
+              {role === 'tenant' ? 'Cancel Request' : 'Delete Case'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this case? This action cannot be undone.
+              {role === 'tenant' 
+                ? 'Are you sure you want to cancel this maintenance request? This action cannot be undone.'
+                : 'Are you sure you want to delete this case? This action cannot be undone.'
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete">No, keep it</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (caseToDelete) {
@@ -3082,7 +3087,7 @@ export default function Maintenance() {
               className="bg-red-600 hover:bg-red-700"
               data-testid="button-confirm-delete"
             >
-              Delete
+              {role === 'tenant' ? 'Yes, cancel request' : 'Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
