@@ -2,6 +2,7 @@ import { db } from '../db';
 import { smartCases, organizationMembers, users } from '@shared/schema';
 import { eq, and, lt, isNull } from 'drizzle-orm';
 import { sendEmail } from './emailService';
+import { storage } from '../storage';
 
 const TIMEOUT_HOURS = 4;
 
@@ -75,6 +76,21 @@ async function sendNotificationEmail(email: string, caseItem: any, adminUserId: 
   
   const caseUrl = `${BASE_URL}/cases/${caseItem.id}`;
   const propertyName = caseItem.property?.name || caseItem.property?.street || 'Unknown Property';
+  
+  // Create in-app notification
+  try {
+    await storage.createNotification(
+      adminUserId,
+      `⏰ Case Timeout: ${caseItem.title || 'Maintenance Request'}`,
+      `Work order has been waiting ${TIMEOUT_HOURS}+ hours without contractor assignment. Property: ${propertyName}`,
+      'warning',
+      'admin',
+      email
+    );
+    console.log(`✅ In-app notification created for ${email}`);
+  } catch (error) {
+    console.error('Failed to create in-app notification:', error);
+  }
   
   const html = `
     <h2>Action Required: Case Needs Attention</h2>

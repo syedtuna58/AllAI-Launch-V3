@@ -667,7 +667,7 @@ export default function AdminCalendarPage() {
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                {role === 'org_admin' ? 'Admin Calendar' : 'Calendar'}
+                {role === 'contractor' ? 'Admin Calendar' : 'Calendar'}
               </h1>
             </div>
           </div>
@@ -676,10 +676,12 @@ export default function AdminCalendarPage() {
               <Plus className="h-4 w-4 mr-2" />
               Quick Add
             </Button>
-            <Button variant="outline" onClick={() => setShowTeamDialog(true)} data-testid="button-manage-teams">
-              <Users className="h-4 w-4 mr-2" />
-              Manage Teams
-            </Button>
+            {role === 'contractor' && (
+              <Button variant="outline" onClick={() => setShowTeamDialog(true)} data-testid="button-manage-teams">
+                <Users className="h-4 w-4 mr-2" />
+                Manage Teams
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -791,17 +793,17 @@ export default function AdminCalendarPage() {
                                   <CompactCalendarCard
                                     workOrder={caseItem}
                                     team={team}
-                                    teams={teams}
+                                    teams={role === 'contractor' ? teams : []}
                                     tenantName={tenantName}
                                     propertyStreet={propertyStreet}
                                     onDoubleClick={() => handleCaseDoubleClick(caseItem.id)}
-                                    onTeamChange={(teamId) => {
+                                    onTeamChange={role === 'contractor' ? (teamId) => {
                                       if (firstJob) {
                                         updateJobTeamMutation.mutate({ jobId: firstJob.id, teamId });
                                       } else {
                                         assignTeamToCaseMutation.mutate({ caseId: caseItem.id, teamId });
                                       }
-                                    }}
+                                    } : undefined}
                                     onEdit={() => navigate(`/maintenance?caseId=${caseItem.id}`)}
                                     onDelete={() => {
                                       if (confirm(`Delete work order "${caseItem.title}"?`)) {
@@ -971,7 +973,7 @@ export default function AdminCalendarPage() {
                       </SelectContent>
                     </Select>
 
-                    {filterMode !== 'reminders' && (
+                    {role === 'contractor' && filterMode !== 'reminders' && (
                       <Select value={teamFilter} onValueChange={setTeamFilter}>
                         <SelectTrigger className="w-40">
                           <SelectValue />
@@ -1015,7 +1017,7 @@ export default function AdminCalendarPage() {
                   <div className="py-12 text-center text-gray-500">Loading...</div>
                 ) : (
                   <>
-                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={teams} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onEditCase={(caseId) => navigate(`/maintenance?caseId=${caseId}`)} onDeleteCase={(caseId) => { const caseItem = cases.find(c => c.id === caseId); if (caseItem && confirm(`Delete work order "${caseItem.title}"?`)) { deleteCaseMutation.mutate(caseId); } }} onCreateCaseReminder={(caseId) => { setSelectedCaseForReminder(caseId); setShowReminderForm(true); }} onTeamChange={(jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId })} scrollRef={weekViewScrollRef} />}
+                    {view === 'week' && <WeekView currentDate={currentDate} getItemsForDate={getItemsForDate} hideWeekends={hideWeekends} properties={properties} units={units} teams={role === 'contractor' ? teams : []} canReschedule={canReschedule} onEditReminder={handleEditReminder} onCompleteReminder={handleCompleteReminder} onCancelReminder={handleCancelReminder} onCaseDoubleClick={handleCaseDoubleClick} onEditCase={(caseId) => navigate(`/maintenance?caseId=${caseId}`)} onDeleteCase={(caseId) => { const caseItem = cases.find(c => c.id === caseId); if (caseItem && confirm(`Delete work order "${caseItem.title}"?`)) { deleteCaseMutation.mutate(caseId); } }} onCreateCaseReminder={(caseId) => { setSelectedCaseForReminder(caseId); setShowReminderForm(true); }} onTeamChange={role === 'contractor' ? (jobId, teamId) => updateJobTeamMutation.mutate({ jobId, teamId }) : undefined} scrollRef={weekViewScrollRef} />}
                     {view === 'month' && <MonthView currentDate={currentDate} getItemsForDate={getItemsForDate} properties={properties} units={units} />}
                   </>
                 )}
