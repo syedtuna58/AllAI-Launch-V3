@@ -1992,9 +1992,9 @@ export default function Maintenance() {
               </div>
 
               {/* Main 2-Column Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Maintenance Cards (60% width) */}
-                <div className="lg:col-span-2">
+              <div className="grid grid-cols-1 lg:grid-cols-[72%_26%] gap-6">
+                {/* Left Column: Maintenance Cards (72% width) */}
+                <div>
                   {/* View Toggle Row */}
                   <div className="flex items-center gap-2 mb-4">
                     <Button
@@ -2881,8 +2881,8 @@ export default function Maintenance() {
                 </div>
                 {/* End of left column */}
 
-                {/* Right Column: Calendar Overview & Favorites (40% width) */}
-                <div className="lg:col-span-1 space-y-6">
+                {/* Right Column: Calendar Overview & Favorites (26% width) */}
+                <div className="space-y-6">
                   {/* Mini Calendar Overview */}
                   <Card>
                     <CardHeader className="pb-3">
