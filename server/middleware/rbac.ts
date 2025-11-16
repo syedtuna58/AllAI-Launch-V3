@@ -54,15 +54,31 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
         ),
       });
     } else if (user.primaryRole === 'tenant') {
-      // Tenants don't have org memberships - they're linked via tenants table
-      // Get orgId from tenant record
+      // Tenants don't have org memberships - derive orgId via tenant → unit → property → org chain
       const tenant = await db.query.tenants.findFirst({
         where: eq(tenants.userId, user.id),
+        with: {
+          unit: {
+            with: {
+              property: true,
+            },
+          },
+        },
       });
       
-      if (tenant) {
-        orgMembership = { orgId: tenant.orgId };
+      if (!tenant) {
+        return res.status(403).json({ error: 'Tenant record not found' });
       }
+      
+      // Derive orgId from property chain (preferred) or direct tenant.orgId (legacy)
+      const derivedOrgId = tenant.unit?.property?.orgId || tenant.orgId;
+      
+      if (!derivedOrgId) {
+        console.error(`Tenant ${tenant.id} has no orgId via unit/property chain or direct field`);
+        return res.status(403).json({ error: 'Organization not found for tenant' });
+      }
+      
+      orgMembership = { orgId: derivedOrgId };
     } else {
       // For platform admins and contractors, they may have org memberships but don't need them
     }

@@ -20,6 +20,7 @@ const createCaseSchema = z.object({
 router.get('/info', requireAuth, requireRole('tenant'), async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id;
+    const userOrgId = req.user!.orgId;
     
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.userId, userId),
@@ -34,6 +35,12 @@ router.get('/info', requireAuth, requireRole('tenant'), async (req: Authenticate
 
     if (!tenant || !tenant.unit) {
       return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Validate that the property belongs to the user's organization
+    if (tenant.unit.property.orgId !== userOrgId) {
+      console.error(`Tenant ${tenant.id} unit/property orgId mismatch: ${tenant.unit.property.orgId} !== ${userOrgId}`);
+      return res.status(403).json({ error: 'Organization mismatch' });
     }
 
     res.json({
@@ -78,6 +85,7 @@ router.get('/unit', requireAuth, requireRole('tenant'), async (req: Authenticate
 router.get('/cases', requireAuth, requireRole('tenant'), async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user!.id;
+    const userOrgId = req.user!.orgId;
     
     // Get tenant record to access unitId for legacy cases
     const tenant = await db.query.tenants.findFirst({
@@ -106,7 +114,17 @@ router.get('/cases', requireAuth, requireRole('tenant'), async (req: Authenticat
       orderBy: (cases, { desc }) => [desc(cases.createdAt)],
     });
 
-    res.json(cases);
+    // Filter cases to ensure they belong to the user's organization
+    const scopedCases = cases.filter(c => {
+      const caseOrgId = c.property?.orgId || c.orgId;
+      if (caseOrgId !== userOrgId) {
+        console.warn(`Filtering out case ${c.id} with orgId ${caseOrgId} (expected ${userOrgId})`);
+        return false;
+      }
+      return true;
+    });
+
+    res.json(scopedCases);
   } catch (error) {
     console.error('Error fetching tenant cases:', error);
     res.status(500).json({ error: 'Failed to fetch cases' });
@@ -123,11 +141,15 @@ router.post('/cases', requireAuth, requireRole('tenant'), async (req: Authentica
       return res.status(400).json({ error: 'Invalid request data' });
     }
 
-    // Get tenant record
+    // Get tenant record with full property chain
     const tenant = await db.query.tenants.findFirst({
       where: eq(tenants.userId, userId),
       with: {
-        unit: true,
+        unit: {
+          with: {
+            property: true,
+          },
+        },
       },
     });
 
@@ -139,11 +161,25 @@ router.post('/cases', requireAuth, requireRole('tenant'), async (req: Authentica
       return res.status(400).json({ error: 'No unit assigned' });
     }
 
+    // Derive orgId from property chain (preferred) or direct tenant.orgId (legacy)
+    const derivedOrgId = tenant.unit.property.orgId || tenant.orgId;
+    
+    if (!derivedOrgId) {
+      console.error(`Tenant ${tenant.id} cannot create case - no orgId`);
+      return res.status(403).json({ error: 'Organization not found for tenant' });
+    }
+
+    // Validate derived orgId matches authenticated user's orgId
+    if (derivedOrgId !== req.user!.orgId) {
+      console.error(`Tenant ${tenant.id} orgId mismatch: derived ${derivedOrgId} !== auth ${req.user!.orgId}`);
+      return res.status(403).json({ error: 'Organization mismatch' });
+    }
+
     // Create the case
     const [newCase] = await db.insert(smartCases).values({
       title: parsed.data.title,
       description: parsed.data.description,
-      orgId: tenant.orgId,
+      orgId: derivedOrgId,
       propertyId: tenant.unit.propertyId,
       unitId: tenant.unitId,
       reporterUserId: userId,
