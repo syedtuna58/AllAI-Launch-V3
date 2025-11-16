@@ -1345,6 +1345,39 @@ export default function Maintenance() {
             </div>
           </main>
         </div>
+
+        {/* Delete Case Confirmation Dialog for Tenants */}
+        <AlertDialog 
+          open={!!caseToDelete} 
+          onOpenChange={(open) => {
+            console.log('🔵 AlertDialog onOpenChange:', open, 'caseToDelete:', caseToDelete);
+            if (!open) setCaseToDelete(null);
+          }}
+        >
+          <AlertDialogContent data-testid="dialog-delete-case">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel Request</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to cancel this maintenance request? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-delete">No, keep it</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (caseToDelete) {
+                    deleteCaseMutation.mutate(caseToDelete);
+                    setCaseToDelete(null);
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700"
+                data-testid="button-confirm-delete"
+              >
+                Yes, cancel request
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
