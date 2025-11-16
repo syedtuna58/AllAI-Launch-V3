@@ -362,10 +362,10 @@ export default function Maintenance() {
       navigate(newPath, { replace: true });
     } else {
       // Case not found - warn but don't block future attempts
-      console.warn(`Work order with ID ${caseId} not found`);
+      console.warn(`Maintenance request with ID ${caseId} not found`);
       toast({
-        title: "Work Order Not Found",
-        description: "The requested work order could not be found or you don't have access to it.",
+        title: "Maintenance Request Not Found",
+        description: "The requested maintenance request could not be found or you don't have access to it.",
         variant: "destructive",
       });
       // Clear caseId but allow retry in case data loads later
@@ -450,7 +450,7 @@ export default function Maintenance() {
       form.reset();
       toast({
         title: "Success",
-        description: "Work order created successfully",
+        description: "Maintenance request created successfully",
       });
     },
     onError: (error) => {
@@ -467,7 +467,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to create work order",
+        description: "Failed to create maintenance request",
         variant: "destructive",
       });
     },
@@ -486,7 +486,7 @@ export default function Maintenance() {
       form.reset();
       toast({
         title: "Success",
-        description: "Work order updated successfully",
+        description: "Maintenance request updated successfully",
       });
     },
     onError: (error) => {
@@ -503,7 +503,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to update work order",
+        description: "Failed to update maintenance request",
         variant: "destructive",
       });
     },
@@ -519,7 +519,7 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       toast({
         title: "Success",
-        description: "Work order status updated successfully",
+        description: "Maintenance request status updated successfully",
       });
     },
     onError: (error) => {
@@ -536,7 +536,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to update work order status",
+        description: "Failed to update maintenance request status",
         variant: "destructive",
       });
     },
@@ -552,7 +552,7 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       toast({
         title: "AI Triage Complete",
-        description: "Work order has been analyzed and categorized",
+        description: "Maintenance request has been analyzed and categorized",
       });
     },
     onError: (error: any) => {
@@ -574,7 +574,7 @@ export default function Maintenance() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
       toast({
         title: "Contractor Assigned",
-        description: "Best contractor has been assigned to this work order",
+        description: "Best contractor has been assigned to this maintenance request",
       });
     },
     onError: (error: any) => {
@@ -598,14 +598,14 @@ export default function Maintenance() {
       setShowAcceptDialog(false);
       setAcceptingCase(null);
       toast({
-        title: "Work Order Accepted",
+        title: "Maintenance Request Accepted",
         description: "Appointment has been scheduled. Tenant will be notified for approval.",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to accept work order",
+        description: error.message || "Failed to accept maintenance request",
         variant: "destructive",
       });
     },
@@ -625,7 +625,7 @@ export default function Maintenance() {
       setSelectedCase(null);
       toast({
         title: "Success", 
-        description: "Work order deleted successfully",
+        description: "Maintenance request deleted successfully",
       });
     },
     onError: (error) => {
@@ -642,7 +642,7 @@ export default function Maintenance() {
       }
       toast({
         title: "Error",
-        description: "Failed to delete work order",
+        description: "Failed to delete maintenance request",
         variant: "destructive",
       });
     },
@@ -666,8 +666,8 @@ export default function Maintenance() {
       toast({
         title: "Posted to Marketplace",
         description: marketplaceOptions.restrictToFavorites 
-          ? "Work order posted to your favorite contractors" 
-          : "Work order posted to all available contractors",
+          ? "Maintenance request posted to your favorite contractors" 
+          : "Maintenance request posted to all available contractors",
       });
     },
     onError: (error: any) => {
@@ -947,7 +947,7 @@ export default function Maintenance() {
     const categoryMatch = categoryFilter === "all" || smartCase.category === categoryFilter;
     const unitMatch = unitFilter.length === 0 || (smartCase.unitId && unitFilter.includes(smartCase.unitId)) || (unitFilter.includes("common") && !smartCase.unitId);
     
-    // Team filter - only show work orders assigned to the selected team
+    // Team filter - only show maintenance requests assigned to the selected team
     // Check both scheduledJobs array and case-level team assignment
     const teamMatch = teamFilter === "all" || (
       (smartCase as any).scheduledJobs?.some((job: any) => job.teamId === teamFilter)
@@ -999,7 +999,7 @@ export default function Maintenance() {
       form.reset();
       toast({
         title: "Success",
-        description: "Work order created successfully",
+        description: "Maintenance request created successfully",
       });
     }
   };
@@ -1078,7 +1078,7 @@ export default function Maintenance() {
                       <Card>
                         <CardContent className="p-6 text-center text-muted-foreground">
                           <Wrench className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>No work order requests yet</p>
+                          <p>No maintenance requests yet</p>
                           <Button 
                             onClick={() => navigate("/tenant-request")} 
                             className="mt-4"
@@ -1410,14 +1410,14 @@ export default function Maintenance() {
       <Sidebar />
       
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header title="Work Orders" />
+        <Header title="Maintenance Requests" />
         
         <main className="flex-1 overflow-auto p-6 bg-muted/30">
               {/* Header */}
               <div className="mb-6">
                 <div>
-                  <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Work Orders</h1>
-                  <p className="text-muted-foreground">Track and manage work order requests</p>
+                  <h1 className="text-2xl font-bold text-foreground" data-testid="text-page-title">Maintenance Requests</h1>
+                  <p className="text-muted-foreground">Track and manage maintenance requests</p>
                 </div>
               </div>
 
@@ -1591,12 +1591,12 @@ export default function Maintenance() {
                   <DialogTrigger asChild>
                     <Button data-testid="button-add-case">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add a Work Order
+                      Add a Request
                     </Button>
                   </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>{editingCase ? "Edit Work Order" : "Add a Work Order"}</DialogTitle>
+                    <DialogTitle>{editingCase ? "Edit Maintenance Request" : "Add a Maintenance Request"}</DialogTitle>
                   </DialogHeader>
                   
                   <Form {...form}>
@@ -1970,7 +1970,7 @@ export default function Maintenance() {
                         <Button type="submit" disabled={createCaseMutation.isPending || updateCaseMutation.isPending} data-testid="button-submit-case">
                           {(createCaseMutation.isPending || updateCaseMutation.isPending) 
                             ? (editingCase ? "Updating..." : "Adding...") 
-                            : (editingCase ? "Update Work Order" : "Add Work Order")
+                            : (editingCase ? "Update Request" : "Add Request")
                           }
                         </Button>
                       </div>
@@ -1980,45 +1980,52 @@ export default function Maintenance() {
               </Dialog>
               </div>
 
-              {/* View Toggle Row */}
-              <div className="flex items-center gap-2 mb-6">
-                <Button
-                  variant={currentView === "cards" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("cards")}
-                  data-testid="button-view-cards"
-                >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Cards
-                </Button>
-                <Button
-                  variant={currentView === "list" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("list")}
-                  data-testid="button-view-list"
-                >
-                  <List className="h-4 w-4 mr-1" />
-                  List
-                </Button>
-                <Button
-                  variant={currentView === "heat-map" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("heat-map")}
-                  data-testid="button-view-heat-map"
-                >
-                  <Map className="h-4 w-4 mr-1" />
-                  Heat Map
-                </Button>
-                <Button
-                  variant={currentView === "kanban" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentView("kanban")}
-                  data-testid="button-view-kanban"
-                >
-                  <BarChart3 className="h-4 w-4 mr-1" />
-                  Kanban
-                </Button>
-              </div>
+              {/* Main 2-Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Left Column: Maintenance Cards (60% width) */}
+                <div className="lg:col-span-2">
+                  {/* View Toggle Row */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <Button
+                      variant={currentView === "cards" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("cards")}
+                      data-testid="button-view-cards"
+                    >
+                      <LayoutGrid className="h-4 w-4 mr-1" />
+                      Cards
+                    </Button>
+                    <Button
+                      variant={currentView === "list" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("list")}
+                      data-testid="button-view-list"
+                    >
+                      <List className="h-4 w-4 mr-1" />
+                      List
+                    </Button>
+                    <Button
+                      variant={currentView === "heat-map" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("heat-map")}
+                      data-testid="button-view-heat-map"
+                    >
+                      <Map className="h-4 w-4 mr-1" />
+                      Heat Map
+                    </Button>
+                    <Button
+                      variant={currentView === "kanban" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentView("kanban")}
+                      data-testid="button-view-kanban"
+                    >
+                      <BarChart3 className="h-4 w-4 mr-1" />
+                      Kanban
+                    </Button>
+                  </div>
+
+                  {/* Scrollable Cards Container */}
+                  <div className="max-h-[calc(100vh-20rem)] overflow-y-auto pr-2" style={{ scrollbarGutter: 'stable' }}>
 
           {casesLoading ? (
             <div className="grid grid-cols-1 gap-6">
@@ -2317,7 +2324,7 @@ export default function Maintenance() {
                   {/* List Header */}
                   <div className="bg-background border rounded-lg p-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">Work Orders</h3>
+                      <h3 className="text-lg font-semibold">Maintenance Requests</h3>
                       <Badge variant="outline" data-testid="list-total-count">
                         {filteredCases.length} cases
                       </Badge>
@@ -2747,17 +2754,17 @@ export default function Maintenance() {
             <Card>
               <CardContent className="p-12 text-center">
                 <Wrench className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2" data-testid="text-no-cases">No Work Orders</h3>
-                <p className="text-muted-foreground mb-4">Add your first work order to start tracking issues and repairs.</p>
+                <h3 className="text-lg font-semibold text-foreground mb-2" data-testid="text-no-cases">No Maintenance Requests</h3>
+                <p className="text-muted-foreground mb-4">Add your first maintenance request to start tracking issues and repairs.</p>
                 <Button onClick={() => setShowCaseForm(true)} data-testid="button-add-first-case">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add a Work Order
+                  Add a Request
                 </Button>
               </CardContent>
             </Card>
           )}
 
-          {/* Maya AI Assistant - placed below work orders */}
+          {/* Maya AI Assistant - placed below maintenance requests */}
           <div className="mt-6">
             <PropertyAssistant 
               key="maintenance"
@@ -2835,7 +2842,7 @@ export default function Maintenance() {
               const unit = bestUnitMatch.unit;
 
               const newCaseData = {
-                title: caseData.title || "Work Order",
+                title: caseData.title || "Maintenance Request",
                 description: caseData.description || "",
                 propertyId: property.id,
                 unitId: unit.id,
@@ -2848,16 +2855,77 @@ export default function Maintenance() {
               
               const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
               const matchMessage = isExactMatch 
-                ? `Creating work order for ${property.name}, ${unit.label}...`
-                : `Matched to ${property.name}, ${unit.label}. Creating work order...`;
+                ? `Creating maintenance request for ${property.name}, ${unit.label}...`
+                : `Matched to ${property.name}, ${unit.label}. Creating maintenance request...`;
               
               toast({
-                title: "Creating Work Order",
+                title: "Creating Maintenance Request",
                 description: matchMessage,
               });
             }}
           />
           </div>
+                  </div>
+                  {/* End of scrollable cards container */}
+                </div>
+                {/* End of left column */}
+
+                {/* Right Column: Calendar Overview & Favorites (40% width) */}
+                <div className="lg:col-span-1 space-y-6">
+                  {/* Mini Calendar Overview */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Calendar</CardTitle>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => navigate('/admin-calendar')}
+                          data-testid="button-open-calendar"
+                        >
+                          <CalendarIcon className="h-4 w-4 mr-1" />
+                          Open
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <Calendar
+                        mode="single"
+                        className="rounded-md border"
+                      />
+                      <p className="text-xs text-muted-foreground mt-3 text-center">
+                        Click "Open" to view full calendar with reminders and appointments
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Favorite Contractors */}
+                  {role !== 'contractor' && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">Favorite Contractors</CardTitle>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate('/favorites')}
+                            data-testid="button-manage-favorites"
+                          >
+                            Manage
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Your favorite contractors will appear here. Click "Manage" to add or remove favorites.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+                {/* End of right column */}
+              </div>
+              {/* End of 2-column grid */}
       
       {/* Case Detail Dialog */}
       <Dialog open={showCaseDialog} onOpenChange={setShowCaseDialog}>
@@ -3172,7 +3240,7 @@ export default function Maintenance() {
           <DialogHeader>
             <DialogTitle>Post to Contractor Marketplace</DialogTitle>
             <DialogDescription>
-              Choose how to broadcast this work order to contractors
+              Choose how to broadcast this maintenance request to contractors
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

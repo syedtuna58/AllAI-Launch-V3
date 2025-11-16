@@ -145,7 +145,7 @@ export default function WorkOrderCard({
   const propertyName = property ? (property.name || `${property.street}, ${property.city}`) : null;
   const unitLabel = unit?.label;
 
-  // Get customer information (for contractors) - using customerId from work order
+  // Get customer information (for contractors) - using customerId from maintenance request
   const customer = userRole === 'contractor' && workOrder.customerId ? 
     customers.find(c => c.id === workOrder.customerId) : 
     null;

@@ -1,4 +1,4 @@
-// Shared work order filtering logic
+// Shared maintenance request filtering logic
 // Used by both maintenance.tsx and admin-calendar.tsx to ensure consistent filtering
 
 // Active statuses exclude "On Hold" and "Closed"
