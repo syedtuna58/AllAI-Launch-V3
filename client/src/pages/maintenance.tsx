@@ -7,7 +7,6 @@ import { Component, ErrorInfo, ReactNode } from "react";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import Sidebar from "@/components/layout/sidebar";
 import Header from "@/components/layout/header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1407,8 +1406,6 @@ export default function Maintenance() {
   // Admin/Contractor view
   return (
     <div className="flex h-screen bg-background" data-testid="page-maintenance">
-      <Sidebar />
-      
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header title="Maintenance Requests" />
         
