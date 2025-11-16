@@ -3805,6 +3805,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/notifications/clear-read', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const deletedCount = await storage.deleteReadNotifications(userId);
+      res.json({ success: true, deletedCount });
+    } catch (error) {
+      console.error("Error clearing read notifications:", error);
+      res.status(500).json({ message: "Failed to clear read notifications" });
+    }
+  });
+
   // Test endpoint to create a notification
   app.post('/api/notifications/test', isAuthenticated, async (req: any, res) => {
     try {

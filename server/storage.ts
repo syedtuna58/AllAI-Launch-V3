@@ -234,6 +234,8 @@ export interface IStorage {
   getUserNotifications(userId: string): Promise<Notification[]>;
   createNotification(userId: string, title: string, message: string, type?: string, targetRole?: string, targetName?: string): Promise<Notification>;
   markNotificationAsRead(id: string): Promise<void>;
+  deleteReadNotifications(userId: string): Promise<number>;
+  deleteOldNotifications(daysOld: number): Promise<number>;
   
   // Dashboard operations
   getDashboardStats(orgId: string): Promise<{
@@ -2906,6 +2908,28 @@ export class DatabaseStorage implements IStorage {
       .update(notifications)
       .set({ isRead: true })
       .where(eq(notifications.id, id));
+  }
+
+  async deleteReadNotifications(userId: string): Promise<number> {
+    const deleted = await db
+      .delete(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.isRead, true)
+      ))
+      .returning();
+    return deleted.length;
+  }
+
+  async deleteOldNotifications(daysOld: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+    
+    const deleted = await db
+      .delete(notifications)
+      .where(lt(notifications.createdAt, cutoffDate))
+      .returning();
+    return deleted.length;
   }
 
   // Dashboard operations
