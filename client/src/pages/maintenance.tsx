@@ -2050,7 +2050,7 @@ export default function Maintenance() {
                   </div>
 
                   {/* Scrollable Cards Container */}
-                  <div className="max-h-[calc(100vh-20rem)] overflow-y-auto pr-2" style={{ scrollbarGutter: 'stable' }}>
+                  <div className="max-h-[calc(100vh-30rem)] overflow-y-auto pr-2" style={{ scrollbarGutter: 'stable' }}>
 
           {casesLoading ? (
             <div className="grid grid-cols-1 gap-6">
@@ -2071,7 +2071,7 @@ export default function Maintenance() {
               {/* Render different views based on currentView state */}
               {currentView === "cards" && (
                 <VisualizationErrorBoundary>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {filteredCases.map((smartCase, index) => (
                     <WorkOrderCard
                       key={smartCase.id}
@@ -2111,7 +2111,7 @@ export default function Maintenance() {
               {/* BACKUP: old card rendering code to be removed */}
               {false && currentView === "cards-old" && (
                 <VisualizationErrorBoundary>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {filteredCases.map((smartCase, index) => (
                 <Card key={smartCase.id} className={`group hover:shadow-lg transition-all duration-200 border border-transparent border-l-4 ${getPriorityBorderClass(smartCase.priority)}`} data-testid={`card-case-${index}`}>
                   <CardHeader className="pb-3">
@@ -2788,110 +2788,110 @@ export default function Maintenance() {
               </CardContent>
             </Card>
           )}
-
-          {/* Maya AI Assistant - placed below maintenance requests */}
-          <div className="mt-6">
-            <PropertyAssistant 
-              key="maintenance"
-              context="maintenance"
-              exampleQuestions={[
-                "What maintenance is overdue or urgent?",
-                "Which property needs the most attention?",
-              "Any recurring maintenance patterns I should address?",
-              "What repairs are costing me the most?"
-            ]}
-            onCreateCase={(caseData) => {
-              // Validate case data
-              if (!caseData?.property || !caseData?.unit) {
-                toast({
-                  title: "Incomplete Information",
-                  description: "Maya needs property and unit information to create the case. Please provide these details.",
-                  variant: "destructive",
-                });
-                return;
-              }
-
-              // Fuzzy matching helper function
-              const fuzzyMatch = (search: string, target: string): number => {
-                const searchLower = search.toLowerCase().trim();
-                const targetLower = target.toLowerCase().trim();
-                
-                if (!searchLower || searchLower.length === 0) return 0;
-                if (!targetLower || targetLower.length === 0) return 0;
-                if (searchLower === targetLower) return 100;
-                if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
-                
-                const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
-                const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
-                const overlap = searchWords.filter(w => targetWords.includes(w)).length;
-                if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
-                
-                return 0;
-              };
-
-              const bestPropertyMatch = properties?.reduce((best, prop) => {
-                const nameScore = fuzzyMatch(caseData.property, prop.name || '');
-                const addressScore = fuzzyMatch(caseData.property, `${prop.street}, ${prop.city}`);
-                const score = Math.max(nameScore, addressScore);
-                return score > best.score ? { property: prop, score } : best;
-              }, { property: null as Property | null, score: 0 });
-
-              if (!bestPropertyMatch?.property || bestPropertyMatch.score < 50) {
-                toast({
-                  title: "Property Not Found",
-                  description: `Could not find a property matching "${caseData.property}". Please create the case manually.`,
-                  variant: "destructive",
-                });
-                setShowCaseForm(true);
-                return;
-              }
-
-              const property = bestPropertyMatch.property;
-              const propertyUnits = units?.filter(u => u.propertyId === property.id) || [];
-
-              const bestUnitMatch = propertyUnits.reduce((best, unit) => {
-                const score = fuzzyMatch(caseData.unit, unit.label || '');
-                return score > best.score ? { unit, score } : best;
-              }, { unit: null as Unit | null, score: 0 });
-
-              if (!bestUnitMatch?.unit || bestUnitMatch.score < 50) {
-                toast({
-                  title: "Unit Not Found",
-                  description: `Could not find a unit matching "${caseData.unit}" in ${property.name}. Please create the case manually.`,
-                  variant: "destructive",
-                });
-                setShowCaseForm(true);
-                return;
-              }
-
-              const unit = bestUnitMatch.unit;
-
-              const newCaseData = {
-                title: caseData.title || "Maintenance Request",
-                description: caseData.description || "",
-                propertyId: property.id,
-                unitId: unit.id,
-                priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
-                category: caseData.category || "",
-                createReminder: false
-              };
-
-              createCaseMutation.mutate(newCaseData);
-              
-              const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
-              const matchMessage = isExactMatch 
-                ? `Creating maintenance request for ${property.name}, ${unit.label}...`
-                : `Matched to ${property.name}, ${unit.label}. Creating maintenance request...`;
-              
-              toast({
-                title: "Creating Maintenance Request",
-                description: matchMessage,
-              });
-            }}
-          />
-          </div>
                   </div>
                   {/* End of scrollable cards container */}
+
+                  {/* Maya AI Assistant - stays visible at bottom */}
+                  <div className="mt-4">
+                    <PropertyAssistant 
+                      key="maintenance"
+                      context="maintenance"
+                      exampleQuestions={[
+                        "What maintenance is overdue or urgent?",
+                        "Which property needs the most attention?",
+                        "Any recurring maintenance patterns I should address?",
+                        "What repairs are costing me the most?"
+                      ]}
+                      onCreateCase={(caseData) => {
+                        // Validate case data
+                        if (!caseData?.property || !caseData?.unit) {
+                          toast({
+                            title: "Incomplete Information",
+                            description: "Maya needs property and unit information to create the case. Please provide these details.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        // Fuzzy matching helper function
+                        const fuzzyMatch = (search: string, target: string): number => {
+                          const searchLower = search.toLowerCase().trim();
+                          const targetLower = target.toLowerCase().trim();
+                          
+                          if (!searchLower || searchLower.length === 0) return 0;
+                          if (!targetLower || targetLower.length === 0) return 0;
+                          if (searchLower === targetLower) return 100;
+                          if (targetLower.includes(searchLower) || searchLower.includes(targetLower)) return 80;
+                          
+                          const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+                          const targetWords = targetLower.split(/\s+/).filter(w => w.length > 0);
+                          const overlap = searchWords.filter(w => targetWords.includes(w)).length;
+                          if (overlap > 0) return Math.min(60 + (overlap * 10), 75);
+                          
+                          return 0;
+                        };
+
+                        const bestPropertyMatch = properties?.reduce((best, prop) => {
+                          const nameScore = fuzzyMatch(caseData.property, prop.name || '');
+                          const addressScore = fuzzyMatch(caseData.property, `${prop.street}, ${prop.city}`);
+                          const score = Math.max(nameScore, addressScore);
+                          return score > best.score ? { property: prop, score } : best;
+                        }, { property: null as Property | null, score: 0 });
+
+                        if (!bestPropertyMatch?.property || bestPropertyMatch.score < 50) {
+                          toast({
+                            title: "Property Not Found",
+                            description: `Could not find a property matching "${caseData.property}". Please create the case manually.`,
+                            variant: "destructive",
+                          });
+                          setShowCaseForm(true);
+                          return;
+                        }
+
+                        const property = bestPropertyMatch.property;
+                        const propertyUnits = units?.filter(u => u.propertyId === property.id) || [];
+
+                        const bestUnitMatch = propertyUnits.reduce((best, unit) => {
+                          const score = fuzzyMatch(caseData.unit, unit.label || '');
+                          return score > best.score ? { unit, score } : best;
+                        }, { unit: null as Unit | null, score: 0 });
+
+                        if (!bestUnitMatch?.unit || bestUnitMatch.score < 50) {
+                          toast({
+                            title: "Unit Not Found",
+                            description: `Could not find a unit matching "${caseData.unit}" in ${property.name}. Please create the case manually.`,
+                            variant: "destructive",
+                          });
+                          setShowCaseForm(true);
+                          return;
+                        }
+
+                        const unit = bestUnitMatch.unit;
+
+                        const newCaseData = {
+                          title: caseData.title || "Maintenance Request",
+                          description: caseData.description || "",
+                          propertyId: property.id,
+                          unitId: unit.id,
+                          priority: (caseData.priority as "Low" | "Medium" | "High" | "Urgent") || "Medium",
+                          category: caseData.category || "",
+                          createReminder: false
+                        };
+
+                        createCaseMutation.mutate(newCaseData);
+                        
+                        const isExactMatch = bestPropertyMatch.score === 100 && bestUnitMatch.score === 100;
+                        const matchMessage = isExactMatch 
+                          ? `Creating maintenance request for ${property.name}, ${unit.label}...`
+                          : `Matched to ${property.name}, ${unit.label}. Creating maintenance request...`;
+                        
+                        toast({
+                          title: "Creating Maintenance Request",
+                          description: matchMessage,
+                        });
+                      }}
+                    />
+                  </div>
                 </div>
                 {/* End of left column */}
 
