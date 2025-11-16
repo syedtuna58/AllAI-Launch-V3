@@ -16,6 +16,37 @@ const createCaseSchema = z.object({
   mediaUrls: z.array(z.string()).optional(),
 });
 
+// Get tenant info with unit and property
+router.get('/info', requireAuth, requireRole('tenant'), async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user!.id;
+    
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(tenants.userId, userId),
+      with: {
+        unit: {
+          with: {
+            property: true,
+          },
+        },
+      },
+    });
+
+    if (!tenant || !tenant.unit) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    res.json({
+      id: tenant.id,
+      unitId: tenant.unitId,
+      unit: tenant.unit,
+    });
+  } catch (error) {
+    console.error('Error fetching tenant info:', error);
+    res.status(500).json({ error: 'Failed to fetch tenant info' });
+  }
+});
+
 // Get tenant's unit
 router.get('/unit', requireAuth, requireRole('tenant'), async (req: AuthenticatedRequest, res) => {
   try {

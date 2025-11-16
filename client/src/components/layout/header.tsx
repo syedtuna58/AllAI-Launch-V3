@@ -13,8 +13,22 @@ import NotificationDropdown from "@/components/notifications/notification-dropdo
 import ReminderDropdown from "@/components/reminders/reminder-dropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
-import { Plus, Bot, DollarSign, TrendingUp, Inbox, Receipt, Calculator, MessageSquare, Clock } from "lucide-react";
+import { Plus, Bot, DollarSign, TrendingUp, Inbox, Receipt, Calculator, MessageSquare, Clock, Home } from "lucide-react";
 import type { Property, OwnershipEntity, Unit } from "@shared/schema";
+
+interface TenantInfo {
+  id: string;
+  unitId: string;
+  unit: {
+    label: string;
+    property: {
+      name: string;
+      street: string;
+      city: string;
+      state: string;
+    };
+  };
+}
 
 interface HeaderProps {
   title: string;
@@ -74,6 +88,13 @@ export default function Header({ title }: HeaderProps) {
     retry: false,
   });
 
+  // For tenants, fetch their unit and property info
+  const { data: tenantInfo } = useQuery<TenantInfo>({
+    queryKey: ["/api/tenant/info"],
+    retry: false,
+    enabled: user?.role === 'tenant',
+  });
+
   const createReminderMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", "/api/reminders", data);
@@ -118,9 +139,22 @@ export default function Header({ title }: HeaderProps) {
       <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6" data-testid="header">
         <div className="flex items-center space-x-4">
           <h1 className="text-2xl font-bold text-foreground" data-testid="text-header-title">{title}</h1>
-          <span className="text-sm text-muted-foreground" data-testid="text-welcome">
-            Welcome back, {user?.firstName || "User"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground" data-testid="text-welcome">
+              Welcome back, {user?.firstName || "User"}
+            </span>
+            {user?.role === 'tenant' && tenantInfo && (
+              <>
+                <span className="text-muted-foreground">•</span>
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="text-tenant-unit">
+                  <Home className="h-3.5 w-3.5" />
+                  <span>
+                    {tenantInfo.unit.label} at {tenantInfo.unit.property.name}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center space-x-4">
