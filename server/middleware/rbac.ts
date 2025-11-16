@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { db } from '../db';
-import { users, organizationMembers } from '@shared/schema';
+import { users, organizationMembers, tenants } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { validateSession } from '../services/sessionService';
 
@@ -55,7 +55,14 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       });
     } else if (user.primaryRole === 'tenant') {
       // Tenants don't have org memberships - they're linked via tenants table
-      // Don't set orgId for tenants
+      // Get orgId from tenant record
+      const tenant = await db.query.tenants.findFirst({
+        where: eq(tenants.userId, user.id),
+      });
+      
+      if (tenant) {
+        orgMembership = { orgId: tenant.orgId };
+      }
     } else {
       // For platform admins and contractors, they may have org memberships but don't need them
     }

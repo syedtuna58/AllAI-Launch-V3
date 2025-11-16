@@ -637,6 +637,10 @@ export const caseMedia = pgTable("case_media", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const caseMediaRelations = relations(caseMedia, ({ one }) => ({
+  case: one(smartCases, { fields: [caseMedia.caseId], references: [smartCases.id] }),
+}));
+
 // Case events
 export const caseEvents = pgTable("case_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
