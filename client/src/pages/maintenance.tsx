@@ -240,6 +240,10 @@ export default function Maintenance() {
 
   // Debug query results
   useEffect(() => {
+    console.log('🟢 caseToDelete state changed:', caseToDelete);
+  }, [caseToDelete]);
+
+  useEffect(() => {
     console.log('🔍 QUERY DEBUG:', {
       endpoint,
       role,
@@ -1106,6 +1110,7 @@ export default function Maintenance() {
                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  console.log('🔴 Cancel button clicked, case ID:', case_.id);
                                   setCaseToDelete(case_.id);
                                 }}
                                 data-testid={`button-cancel-case-${case_.id}`}
@@ -3065,7 +3070,13 @@ export default function Maintenance() {
       </Dialog>
 
       {/* Delete Case Confirmation Dialog */}
-      <AlertDialog open={!!caseToDelete} onOpenChange={(open) => !open && setCaseToDelete(null)}>
+      <AlertDialog 
+        open={!!caseToDelete} 
+        onOpenChange={(open) => {
+          console.log('🔵 AlertDialog onOpenChange:', open, 'caseToDelete:', caseToDelete);
+          if (!open) setCaseToDelete(null);
+        }}
+      >
         <AlertDialogContent data-testid="dialog-delete-case">
           <AlertDialogHeader>
             <AlertDialogTitle>
