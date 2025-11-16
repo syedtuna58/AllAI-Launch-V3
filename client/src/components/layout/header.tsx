@@ -148,9 +148,10 @@ export default function Header({ title }: HeaderProps) {
                 <span className="text-muted-foreground">•</span>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground" data-testid="text-tenant-unit">
                   <Home className="h-3.5 w-3.5" />
-                  <span>
-                    {tenantInfo.unit.property.street} {tenantInfo.unit.label}
-                  </span>
+                  <div className="flex flex-col leading-tight">
+                    <span>{tenantInfo.unit.property.street}</span>
+                    <span>{tenantInfo.unit.label}</span>
+                  </div>
                 </div>
               </>
             )}
