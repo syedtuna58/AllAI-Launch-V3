@@ -116,9 +116,18 @@ export default function TenantDashboard() {
   const [uploadedMedia, setUploadedMedia] = useState<string[]>([]);
   const [mayaOpen, setMayaOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Only scroll if the user is near the bottom (within 100px)
+    if (chatContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      
+      if (isNearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
   }, [messages, isProcessing]);
 
   const { data: myCases = [], isLoading: casesLoading } = useQuery<TenantCase[]>({
@@ -351,7 +360,7 @@ export default function TenantDashboard() {
 
               <CardContent className="space-y-4">
                 {messages.length > 1 && (
-                  <div className="max-h-[300px] overflow-auto space-y-4 pb-4 border-b">
+                  <div ref={chatContainerRef} className="max-h-[300px] overflow-auto space-y-4 pb-4 border-b">
                     {messages.slice(1).map((message) => (
                       <div
                         key={message.id}

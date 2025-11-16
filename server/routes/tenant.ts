@@ -175,6 +175,14 @@ router.post('/cases', requireAuth, requireRole('tenant'), async (req: Authentica
       return res.status(403).json({ error: 'Organization mismatch' });
     }
 
+    // Map AI triage urgency to database priority enum
+    const mapUrgencyToPriority = (urgency: string): 'Normal' | 'High' | 'Urgent' => {
+      const urgencyLower = urgency.toLowerCase();
+      if (urgencyLower === 'critical' || urgencyLower === 'urgent') return 'Urgent';
+      if (urgencyLower === 'high') return 'High';
+      return 'Normal'; // Default for 'low', 'medium', or any other value
+    };
+
     // Create the case
     const [newCase] = await db.insert(smartCases).values({
       title: parsed.data.title,
@@ -184,7 +192,7 @@ router.post('/cases', requireAuth, requireRole('tenant'), async (req: Authentica
       unitId: tenant.unitId,
       reporterUserId: userId,
       status: 'New',
-      priority: parsed.data.priority as any || 'Normal',
+      priority: mapUrgencyToPriority(parsed.data.priority || 'Normal'),
       category: parsed.data.category,
       aiTriageJson: parsed.data.aiTriageJson,
     }).returning();
