@@ -206,6 +206,9 @@ export default function Maintenance() {
   const [counterProposingJob, setCounterProposingJob] = useState<any | null>(null);
   const [reviewingCounterProposal, setReviewingCounterProposal] = useState<{job: any, proposalId: string} | null>(null);
   const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
+  const [showMarketplaceDialog, setShowMarketplaceDialog] = useState(false);
+  const [marketplaceCase, setMarketplaceCase] = useState<SmartCase | null>(null);
+  const [marketplaceOptions, setMarketplaceOptions] = useState({ restrictToFavorites: false, isUrgent: false });
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -648,6 +651,33 @@ export default function Maintenance() {
   const handleDeleteCase = (id: string) => {
     deleteCaseMutation.mutate(id);
   };
+
+  const postToMarketplaceMutation = useMutation({
+    mutationFn: async ({ caseId, options }: { caseId: string; options: { restrictToFavorites: boolean; isUrgent: boolean } }) => {
+      return await apiRequest("POST", `/api/cases/${caseId}/post-to-marketplace`, options);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractor/cases"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/cases"] });
+      setShowMarketplaceDialog(false);
+      setMarketplaceCase(null);
+      setMarketplaceOptions({ restrictToFavorites: false, isUrgent: false });
+      toast({
+        title: "Posted to Marketplace",
+        description: marketplaceOptions.restrictToFavorites 
+          ? "Work order posted to your favorite contractors" 
+          : "Work order posted to all available contractors",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to post to marketplace",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Tenant-specific mutations
   const approveJobMutation = useMutation({
@@ -2036,6 +2066,10 @@ export default function Maintenance() {
                       onReviewCounter={(job) => {
                         setReviewingCounterProposal({ job, proposalId: '' });
                       }}
+                      onPostToMarketplace={(workOrder) => {
+                        setMarketplaceCase(workOrder);
+                        setShowMarketplaceDialog(true);
+                      }}
                     />
                   ))}
                 </div>
@@ -3131,6 +3165,69 @@ export default function Maintenance() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Post to Marketplace Dialog */}
+      <Dialog open={showMarketplaceDialog} onOpenChange={setShowMarketplaceDialog}>
+        <DialogContent data-testid="dialog-post-marketplace">
+          <DialogHeader>
+            <DialogTitle>Post to Contractor Marketplace</DialogTitle>
+            <DialogDescription>
+              Choose how to broadcast this work order to contractors
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="restrict-to-favorites"
+                checked={marketplaceOptions.restrictToFavorites}
+                onChange={(e) => setMarketplaceOptions({ ...marketplaceOptions, restrictToFavorites: e.target.checked })}
+                className="mt-1"
+                data-testid="checkbox-restrict-favorites"
+              />
+              <div className="flex-1">
+                <label htmlFor="restrict-to-favorites" className="text-sm font-medium cursor-pointer">
+                  Restrict to Favorite Contractors Only
+                </label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Only your favorited contractors will see this job offer
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="mark-urgent"
+                checked={marketplaceOptions.isUrgent}
+                onChange={(e) => setMarketplaceOptions({ ...marketplaceOptions, isUrgent: e.target.checked })}
+                className="mt-1"
+                data-testid="checkbox-mark-urgent"
+              />
+              <div className="flex-1">
+                <label htmlFor="mark-urgent" className="text-sm font-medium cursor-pointer">
+                  Mark as Urgent
+                </label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Urgent jobs bypass favorites restriction and are shown to all contractors
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMarketplaceDialog(false)} data-testid="button-cancel-marketplace">
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => marketplaceCase && postToMarketplaceMutation.mutate({ caseId: marketplaceCase.id, options: marketplaceOptions })}
+              disabled={postToMarketplaceMutation.isPending}
+              className="bg-purple-600 hover:bg-purple-700"
+              data-testid="button-confirm-marketplace"
+            >
+              {postToMarketplaceMutation.isPending ? "Posting..." : "Post to Marketplace"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

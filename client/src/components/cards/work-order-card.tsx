@@ -21,6 +21,7 @@ import {
   Check,
   X,
   Pause,
+  Send,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { SmartCase, Property, Unit } from "@shared/schema";
@@ -61,6 +62,7 @@ type WorkOrderCardProps = {
   onDelete?: (id: string) => void;
   onAccept?: (workOrder: any) => void;
   onReviewCounter?: (job: any) => void;
+  onPostToMarketplace?: (workOrder: any) => void;
   index?: number;
   showActions?: boolean;
   variant?: "default" | "compact";
@@ -79,6 +81,7 @@ export default function WorkOrderCard({
   onDelete,
   onAccept,
   onReviewCounter,
+  onPostToMarketplace,
   index = 0,
   showActions = true,
   variant = "default",
@@ -303,6 +306,21 @@ export default function WorkOrderCard({
                 title="Add Reminder"
               >
                 <Bell className="h-3 w-3" />
+              </Button>
+            )}
+            
+            {/* Post to Marketplace Button (Landlord Only for Unassigned Cases) */}
+            {onPostToMarketplace && userRole !== 'contractor' && !workOrder.assignedContractorId && !workOrder.postedAt && (
+              <Button 
+                variant="default" 
+                size="sm"
+                className="h-8 px-3 bg-purple-600 hover:bg-purple-700"
+                onClick={() => onPostToMarketplace(workOrder)}
+                data-testid={`button-post-marketplace-${index}`}
+                title="Post to Contractor Marketplace"
+              >
+                <Send className="h-3 w-3 mr-1" />
+                Marketplace
               </Button>
             )}
             
