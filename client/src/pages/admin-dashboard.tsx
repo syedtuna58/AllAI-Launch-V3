@@ -169,10 +169,6 @@ export default function AdminDashboard() {
       return await response.json();
     },
     onSuccess: (data: any) => {
-      toast({
-        title: "Now Viewing Organization",
-        description: `You're now viewing ${data.orgName}. Navigate to any page to see their data.`,
-      });
       // Invalidate specific queries that will change when impersonating
       queryClient.invalidateQueries({ queryKey: ["/api/admin/impersonation-status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
@@ -181,8 +177,16 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      // Redirect to main dashboard to show org data
-      setLocation("/dashboard");
+      
+      toast({
+        title: "Now Viewing Organization",
+        description: `Redirecting to ${data.orgName}'s dashboard...`,
+      });
+      
+      // Force redirect to org admin dashboard (hard navigation to ensure it works)
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 500);
     },
     onError: (error: any) => {
       toast({
