@@ -113,7 +113,7 @@ router.get('/entities', requireAuth, requireRole('org_admin'), async (req: Authe
   }
 });
 
-// Get landlord's units
+// Get landlord's units  
 router.get('/units', requireAuth, requireRole('org_admin'), async (req: AuthenticatedRequest, res) => {
   try {
     const orgId = req.user!.orgId;
@@ -127,7 +127,7 @@ router.get('/units', requireAuth, requireRole('org_admin'), async (req: Authenti
       with: {
         property: true,
       },
-      orderBy: (units, { asc }) => [asc(units.unitNumber)],
+      orderBy: [desc(units.createdAt)],
     });
 
     res.json(orgUnits);
@@ -159,25 +159,12 @@ router.get('/dashboard/stats', requireAuth, requireRole('org_admin'), async (req
         ne(smartCases.status, 'Resolved'),
         ne(smartCases.status, 'Closed')
       ));
-    
-    // Calculate monthly revenue (sum of income transactions in current month)
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const [revenueResult] = await db.select({ 
-      total: db.$count(transactions.amount) 
-    })
-      .from(transactions)
-      .where(and(
-        eq(transactions.orgId, orgId),
-        eq(transactions.type, 'income'),
-        gte(transactions.date, startOfMonth)
-      ));
 
     res.json({
       totalProperties: propertyCount.count || 0,
-      monthlyRevenue: 0, // Revenue calculation needs proper aggregation
+      monthlyRevenue: 0,  // Stub - revenue calculation would need transactions aggregation
       openCases: caseCount.count || 0,
-      dueReminders: 0, // Would need reminders table join
+      dueReminders: 0,  // Stub - would need reminders table join
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
