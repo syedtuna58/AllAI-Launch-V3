@@ -276,7 +276,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Platform admin routes
   app.use('/api/admin', adminRouter);
   
-  // Landlord routes
+  // Landlord routes (mounted at /api for impersonation support + /api/landlord for compatibility)
+  app.use('/api', landlordRouter);  // Primary mount - supports impersonation via requireAuth middleware
   app.use('/api/landlord', landlordRouter);
   app.use('/api/landlord', landlordInvitesRouter);
   
