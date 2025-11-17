@@ -133,12 +133,23 @@ export async function cleanupExpiredSessions(): Promise<number> {
 
 export async function startOrgImpersonation(sessionId: string, orgId: string, orgName: string): Promise<boolean> {
   try {
-    await db.update(userSessions)
+    console.log('[startOrgImpersonation] Updating session:', { sessionId, orgId, orgName });
+    
+    const result = await db.update(userSessions)
       .set({
         viewAsOrgId: orgId,
         viewAsOrgName: orgName,
       })
-      .where(eq(userSessions.id, sessionId));
+      .where(eq(userSessions.id, sessionId))
+      .returning();
+    
+    console.log('[startOrgImpersonation] Update result:', result);
+    
+    if (result.length === 0) {
+      console.error('[startOrgImpersonation] No session found with ID:', sessionId);
+      return false;
+    }
+    
     return true;
   } catch (error) {
     console.error('Error starting org impersonation:', error);

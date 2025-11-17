@@ -92,6 +92,16 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
     const viewAsOrgId = session.viewAsOrgId;
     const effectiveOrgId = (user.isPlatformSuperAdmin && viewAsOrgId) ? viewAsOrgId : orgMembership?.orgId;
     
+    // Debug logging for impersonation
+    if (user.isPlatformSuperAdmin && viewAsOrgId) {
+      console.log('[IMPERSONATION] Superadmin impersonating:', {
+        userId: user.id,
+        viewAsOrgId,
+        effectiveOrgId,
+        sessionId: session.sessionId,
+      });
+    }
+    
     req.user = {
       id: user.id,
       email: user.email,
