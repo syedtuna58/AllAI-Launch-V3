@@ -168,25 +168,9 @@ export default function AdminDashboard() {
       const response = await apiRequest("POST", `/api/admin/impersonate/${orgId}`);
       return await response.json();
     },
-    onSuccess: (data: any) => {
-      // Invalidate specific queries that will change when impersonating
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/impersonation-status"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/properties"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/units"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/cases"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/reminders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      
-      toast({
-        title: "Now Viewing Organization",
-        description: `Redirecting to ${data.orgName}'s dashboard...`,
-      });
-      
-      // Force redirect to org admin dashboard (hard navigation to ensure it works)
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 500);
+    onSuccess: () => {
+      // Force immediate redirect to org admin dashboard
+      window.location.href = "/dashboard";
     },
     onError: (error: any) => {
       toast({
