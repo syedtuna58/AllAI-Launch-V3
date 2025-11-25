@@ -2,12 +2,13 @@ import crypto from 'crypto';
 import { db } from '../db';
 import { verificationTokens, users } from '@shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
+import { config } from '../config';
 
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@propertymanagement.com';
-const BASE_URL = process.env.REPLIT_DEV_DOMAIN 
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-  : 'http://localhost:5000';
+const SENDGRID_API_KEY = config.sendgridApiKey;
+const SENDGRID_FROM_EMAIL = config.sendgridFromEmail;
+const BASE_URL = config.devDomain 
+  ? `https://${config.devDomain}` 
+  : config.baseUrl;
 
 interface SendEmailParams {
   to: string;
@@ -99,7 +100,7 @@ export async function sendMagicLink(email: string): Promise<{ success: boolean; 
     // Return magic link in dev mode for easy testing
     return { 
       success: true, 
-      devMagicLink: process.env.NODE_ENV === 'development' && !emailSent ? magicLink : undefined 
+      devMagicLink: config.nodeEnv === 'development' && !emailSent ? magicLink : undefined 
     };
   } catch (error) {
     console.error('Error sending magic link:', error);

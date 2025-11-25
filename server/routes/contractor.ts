@@ -426,7 +426,8 @@ router.post('/quotes/:id/send', requireAuth, requireRole('contractor'), async (r
     }
     
     // Generate approval link
-    const approvalLink = `${process.env.REPLIT_DOMAINS?.split(',')[0] || 'http://localhost:5000'}/quote-approval/${quote.id}/${quote.approvalToken}`;
+    const { config } = await import('../config');
+    const approvalLink = `${config.devDomain ? `https://${config.devDomain}` : config.baseUrl}/quote-approval/${quote.id}/${quote.approvalToken}`;
     
     // Update quote status
     await storage.updateQuote(id, {

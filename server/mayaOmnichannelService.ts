@@ -88,7 +88,8 @@ export class MayaOmnichannelService {
   }): Promise<{ shouldRespond: boolean; response?: string; action?: string; caseId?: string }> {
     const { message, identity, approvalPolicy, orgId } = params;
 
-    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const { config } = await import('./config');
+    const openaiApiKey = config.openaiApiKey;
     if (!openaiApiKey) {
       return { shouldRespond: false };
     }

@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws';
+import { config } from './config';
 
 interface NotificationData {
   id?: string;
@@ -26,20 +27,21 @@ class NotificationService {
   private wsConnections: WebSocketConnection[] = [];
 
   constructor() {
-    this.initializeNotificationAPIs();
+    // Initialize asynchronously - don't await in constructor
+    this.initializeNotificationAPIs().catch(err => console.error('Failed to initialize notification APIs:', err));
   }
 
-  private initializeNotificationAPIs() {
+  private async initializeNotificationAPIs() {
     try {
-      if (process.env.SENDGRID_API_KEY) {
+      if (config.sendgridApiKey) {
         console.log('✅ SendGrid API key found - email notifications enabled');
       } else {
         console.warn('⚠️ SENDGRID_API_KEY not found - email notifications will be disabled');
       }
 
-      if (process.env.BREVO_API_KEY) {
+      if (config.brevoApiKey) {
         console.log('✅ Brevo API key found - SMS notifications enabled');
-      } else if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+      } else if (config.twilioAccountSid && config.twilioAuthToken) {
         console.log('✅ Twilio API keys found - SMS notifications enabled');
       } else {
         console.warn('⚠️ BREVO_API_KEY or TWILIO credentials not found - SMS notifications will be disabled');
@@ -85,7 +87,7 @@ class NotificationService {
 
   async sendEmailNotification(notification: NotificationData, recipientEmail: string): Promise<boolean> {
     try {
-      if (!process.env.SENDGRID_API_KEY) {
+      if (!config.sendgridApiKey) {
         console.warn('📧 SendGrid API key not found - skipping email notification');
         return false;
       }
@@ -116,7 +118,7 @@ class NotificationService {
       const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${process.env.SENDGRID_API_KEY}`,
+          'Authorization': `Bearer ${config.sendgridApiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
@@ -154,20 +156,20 @@ class NotificationService {
     const formattedPhone = this.formatPhoneNumber(recipientPhone);
 
     try {
-      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+      if (config.twilioAccountSid && config.twilioAuthToken && config.twilioPhoneNumber) {
         const response = await fetch(
-          `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`,
+          `https://api.twilio.com/2010-04-01/Accounts/${config.twilioAccountSid}/Messages.json`,
           {
             method: 'POST',
             headers: {
               'Authorization': 'Basic ' + Buffer.from(
-                `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+                `${config.twilioAccountSid}:${config.twilioAuthToken}`
               ).toString('base64'),
               'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: new URLSearchParams({
               To: formattedPhone,
-              From: process.env.TWILIO_PHONE_NUMBER,
+              From: config.twilioPhoneNumber,
               Body: this.generateSMSContent(notification)
             })
           }
