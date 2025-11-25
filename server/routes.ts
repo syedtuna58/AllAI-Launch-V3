@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { requireAuth, AuthenticatedRequest } from "./middleware/rbac";
 import { ObjectStorageService } from "./objectStorage";
 import { db } from "./db";
@@ -49,6 +49,7 @@ import OpenAI from "openai";
 import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
 import { parseISO } from 'date-fns';
 import { parse as parseDate } from 'date-fns';
+import { config } from "./config";
 
 // Revenue schema for API validation
 const insertRevenueSchema = insertTransactionSchema;
@@ -301,16 +302,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Current user endpoint - supports both session-based and legacy Replit Auth
+  // Current user endpoint - session-based auth
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      // Try session-based auth first (new multi-user system)
-      let userId = req.session?.userId;
-      
-      // Fallback to legacy Replit Auth if no session
-      if (!userId && req.user?.claims?.sub) {
-        userId = req.user.claims.sub;
-      }
+      // Session-based auth
+      const userId = req.session?.userId;
       
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
@@ -3926,7 +3922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Question is required" });
       }
 
-      if (!process.env.OPENAI_API_KEY) {
+      if (!config.openaiApiKey) {
         return res.status(500).json({ 
           message: "AI service not configured" 
         });
@@ -3934,7 +3930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Initialize OpenAI
       const openai = new OpenAI({ 
-        apiKey: process.env.OPENAI_API_KEY 
+        apiKey: config.openaiApiKey 
       });
 
       let properties, units, tenantGroups, cases, reminders, transactions, leases;
@@ -4531,7 +4527,7 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
         return res.status(404).json({ message: "Organization not found" });
       }
 
-      if (!process.env.OPENAI_API_KEY) {
+      if (!config.openaiApiKey) {
         return res.status(500).json({ 
           message: "AI service not configured - please add OPENAI_API_KEY" 
         });
@@ -4563,7 +4559,7 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
         return res.status(404).json({ message: "Organization not found" });
       }
 
-      if (!process.env.OPENAI_API_KEY) {
+      if (!config.openaiApiKey) {
         return res.status(500).json({ 
           message: "AI service not configured - please add OPENAI_API_KEY" 
         });
@@ -4587,7 +4583,7 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
       const results = await testAllMayaStrategies(
         userMessage,
         histories,
-        process.env.OPENAI_API_KEY
+        config.openaiApiKey!
       );
       
       res.json({ 
@@ -5032,7 +5028,7 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
         const { notificationService } = await import('./notificationService');
         
         const tenantEmail = 'tenant@example.com';
-        const approvalLink = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/api/appointments/${created.id}/approve?token=${created.approvalToken}`;
+        const approvalLink = `${config.devDomain ? `https://${config.devDomain}` : config.baseUrl}/api/appointments/${created.id}/approve?token=${created.approvalToken}`;
         
         await notificationService.sendEmailNotification({
           type: 'case_scheduled',
@@ -5400,7 +5396,7 @@ Respond with valid JSON: {"tldr": "summary", "bullets": ["facts"], "actions": [{
           orgId: orgId
         });
 
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const openai = new OpenAI({ apiKey: config.openaiApiKey! });
 
         // For tenants, automatically use their unit/property
         let propertyMatches = [];
@@ -5788,61 +5784,62 @@ I've analyzed this as a ${triageResult.category.toLowerCase()} issue that should
   const { WebSocketServer } = await import('ws');
   const { notificationService } = await import('./notificationService.js');
   
-  const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/ws',
-    verifyClient: (info, callback) => {
-      // For now, accept all connections - authentication will be handled per message
-      callback(true);
-    }
-  });
+  // const wss = new WebSocketServer({ 
+  //   server: httpServer, 
+  //   path: '/ws',
+  //   verifyClient: (info, callback) => {
+  //     // For now, accept all connections - authentication will be handled per message
+  //     callback(true);
+  //   }
+  // });
   
-  wss.on('connection', async (ws, req: any) => {
-    try {
-      // Try to get user from session if available
-      let userId = 'anonymous';
-      let userRole = 'user';
-      let orgId = '';
+  // wss.on('connection', async (ws, req: any) => {
+  //   try {
+  //     // Try to get user from session if available
+  //     let userId = 'anonymous';
+  //     let userRole = 'user';
+  //     let orgId = '';
       
-      // Check if request has authenticated user
-      if (req.user?.claims?.sub) {
-        userId = req.user.claims.sub;
-        const userOrg = await storage.getUserOrganization(userId);
-        if (userOrg) {
-          userRole = 'admin'; // Default to admin for now
-          orgId = userOrg.id;
-        }
-      }
+  //     // Check if request has authenticated user
+  //     if (req.user?.claims?.sub) {
+  //       userId = req.user.claims.sub;
+  //       const userOrg = await storage.getUserOrganization(userId);
+  //       if (userOrg) {
+  //         userRole = 'admin'; // Default to admin for now
+  //         orgId = userOrg.id;
+  //       }
+  //     }
       
-      // Add connection to notification service
-      notificationService.addWebSocketConnection(ws, {
-        userId,
-        role: userRole,
-        orgId
-      });
+  //     // Add connection to notification service
+  //     notificationService.addWebSocketConnection(ws, {
+  //       userId,
+  //       role: userRole,
+  //       orgId
+  //     });
       
-      console.log(`✅ WebSocket connected: ${userId} (${userRole}) in org ${orgId || 'none'}`);
+  //     console.log(`✅ WebSocket connected: ${userId} (${userRole}) in org ${orgId || 'none'}`);
       
-      // Handle disconnection
-      ws.on('close', () => {
-        notificationService.removeWebSocketConnection(ws);
-      });
+  //     // Handle disconnection
+  //     ws.on('close', () => {
+  //       notificationService.removeWebSocketConnection(ws);
+  //     });
       
-      // Handle errors
-      ws.on('error', (error) => {
-        console.error('❌ WebSocket error:', error);
-        notificationService.removeWebSocketConnection(ws);
-      });
+  //     // Handle errors
+  //     ws.on('error', (error) => {
+  //       console.error('❌ WebSocket error:', error);
+  //       notificationService.removeWebSocketConnection(ws);
+  //     });
       
-    } catch (error) {
-      console.error('❌ Error setting up WebSocket connection:', error);
-      ws.close(1011, 'Internal server error');
-    }
-  });
+  //   } catch (error) {
+  //     console.error('❌ Error setting up WebSocket connection:', error);
+  //     ws.close(1011, 'Internal server error');
+  //   }
+  // });
   
-  console.log('✅ WebSocket server initialized on /ws');
+  // console.log('✅ WebSocket server initialized on /ws');
   
   // Get users in organization
+  
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -6214,7 +6211,7 @@ I've analyzed this as a ${triageResult.category.toLowerCase()} issue that should
       }
 
       // Use GPT-5 (o1) to estimate market cost
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = new OpenAI({ apiKey: config.openaiApiKey! });
       
       const costPrompt = `You are a construction cost estimator. Provide a realistic market-rate cost estimate for this maintenance job:
 
@@ -7288,12 +7285,12 @@ Consider:
       }
 
       // Initialize OpenAI client
-      if (!process.env.OPENAI_API_KEY) {
+      if (!config.openaiApiKey) {
         return res.status(500).json({ message: "OpenAI API key not configured" });
       }
 
       const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+        apiKey: config.openaiApiKey!,
       });
 
       // Call OpenAI Vision API

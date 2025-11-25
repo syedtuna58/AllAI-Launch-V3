@@ -1,7 +1,8 @@
 import OpenAI from "openai";
 import type { TriageResult, MaintenanceRequest } from "./aiTriage";
+import { config } from "./config";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: config.openaiApiKey });
 
 export interface PropertyContext {
   propertyName: string;

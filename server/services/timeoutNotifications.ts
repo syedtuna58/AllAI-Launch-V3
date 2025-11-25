@@ -3,6 +3,7 @@ import { smartCases, organizationMembers, users } from '@shared/schema';
 import { eq, and, lt, isNull } from 'drizzle-orm';
 import { sendEmail } from './emailService';
 import { storage } from '../storage';
+import { config } from '../config';
 
 const TIMEOUT_HOURS = 4;
 
@@ -70,9 +71,9 @@ export async function checkAndSendTimeoutNotifications(): Promise<number> {
 }
 
 async function sendNotificationEmail(email: string, caseItem: any, adminUserId: string): Promise<void> {
-  const BASE_URL = process.env.REPLIT_DEV_DOMAIN 
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-    : 'http://localhost:5000';
+  const BASE_URL = config.devDomain 
+    ? `https://${config.devDomain}` 
+    : config.baseUrl;
   
   const caseUrl = `${BASE_URL}/cases/${caseItem.id}`;
   const propertyName = caseItem.property?.name || caseItem.property?.street || 'Unknown Property';
@@ -113,8 +114,8 @@ async function sendNotificationEmail(email: string, caseItem: any, adminUserId: 
     <p><a href="${caseUrl}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Case</a></p>
   `;
   
-  const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-  const SENDGRID_FROM_EMAIL = process.env.SENDGRID_FROM_EMAIL || 'noreply@propertymanagement.com';
+  const SENDGRID_API_KEY = config.sendgridApiKey;
+  const SENDGRID_FROM_EMAIL = config.sendgridFromEmail;
   
   if (!SENDGRID_API_KEY) {
     console.warn('⚠️ SendGrid not configured. Timeout notification would be sent to:', email);

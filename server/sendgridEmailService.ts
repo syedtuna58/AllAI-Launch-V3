@@ -81,7 +81,8 @@ export class SendGridEmailService {
     const { to, from, subject, text, html, orgId, relatedMessageId } = params;
 
     try {
-      const sendgridApiKey = process.env.SENDGRID_API_KEY;
+      const { config } = await import('./config');
+      const sendgridApiKey = config.sendgridApiKey;
       if (!sendgridApiKey) {
         throw new Error('SendGrid API key not configured');
       }
@@ -129,7 +130,7 @@ export class SendGridEmailService {
       const message = await this.storage.getChannelMessage(messageId);
       if (!message) return;
 
-      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const openaiApiKey = config.openaiApiKey;
       if (!openaiApiKey) return;
 
       const { default: OpenAI } = await import('openai');

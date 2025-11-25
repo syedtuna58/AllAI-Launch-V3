@@ -73,8 +73,9 @@ export class TwilioSmsService {
 
     try {
       // Get Twilio credentials from environment
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const { config } = await import('./config');
+      const accountSid = config.twilioAccountSid;
+      const authToken = config.twilioAuthToken;
 
       if (!accountSid || !authToken) {
         throw new Error('Twilio credentials not configured');
@@ -122,7 +123,7 @@ export class TwilioSmsService {
       const message = await this.storage.getChannelMessage(messageId);
       if (!message) return;
 
-      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const openaiApiKey = config.openaiApiKey;
       if (!openaiApiKey) {
         console.warn('OpenAI API key not configured, skipping AI analysis');
         return;

@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { verificationTokens } from '@shared/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { createSession } from '../services/sessionService';
+import { config } from '../config';
 
 const router = Router();
 
@@ -31,9 +32,9 @@ router.post('/signup-property-owner', async (req, res) => {
     }
 
     const token = await createVerificationToken(email, 'email', null);
-    const BASE_URL = process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-      : 'http://localhost:5000';
+    const BASE_URL = config.devDomain 
+      ? `https://${config.devDomain}` 
+      : config.baseUrl;
     const verifyLink = `${BASE_URL}/auth/verify-property-owner?token=${token}`;
 
     await sendEmail({

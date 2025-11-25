@@ -2,8 +2,9 @@ import crypto from 'crypto';
 import { db } from '../db';
 import { userSessions, users } from '@shared/schema';
 import { eq, and, gt, lt } from 'drizzle-orm';
+import { config } from '../config';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-in-production';
+const SESSION_SECRET = config.sessionSecret;
 
 interface CreateSessionParams {
   userId: string;

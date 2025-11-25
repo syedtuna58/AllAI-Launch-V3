@@ -120,7 +120,8 @@ export class TwilioVoiceService {
       const message = await this.storage.getChannelMessage(messageId);
       if (!message) return;
 
-      const openaiApiKey = process.env.OPENAI_API_KEY;
+      const { config } = await import('./config');
+      const openaiApiKey = config.openaiApiKey;
       if (!openaiApiKey) return;
 
       const { default: OpenAI } = await import('openai');
